@@ -74,36 +74,44 @@ export default function MemberDetailPage() {
 
       // 기존 파일 삭제 (있으면)
       if (member.photo_url) {
-        const oldPath = member.photo_url.split('/').pop()
-        if (oldPath) {
-          await supabase.storage.from('member-photos').remove([oldPath])
+        try {
+          const oldPath = member.photo_url.split('/photos/')[1]?.split('?')[0]
+          if (oldPath) {
+            await supabase.storage.from('photos').remove([oldPath])
+          }
+        } catch (e) {
+          console.log('기존 사진 삭제 실패 (무시):', e)
         }
       }
 
       // 새 파일 업로드
+      const filePath = `members/${fileName}`
       const { error: uploadError } = await supabase.storage
-        .from('member-photos')
-        .upload(fileName, file, { upsert: true })
+        .from('photos')
+        .upload(filePath, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
       // Public URL 가져오기
       const { data: urlData } = supabase.storage
-        .from('member-photos')
-        .getPublicUrl(fileName)
+        .from('photos')
+        .getPublicUrl(filePath)
+
+      // 캐시 방지를 위한 타임스탬프 추가
+      const photoUrlWithCache = `${urlData.publicUrl}?t=${Date.now()}`
 
       // DB 업데이트
       const { error: updateError } = await supabase
         .from('members')
         .update({
-          photo_url: urlData.publicUrl,
+          photo_url: photoUrlWithCache,
           photo_updated_at: new Date().toISOString()
         })
         .eq('id', member.id)
 
       if (updateError) throw updateError
 
-      setMember({ ...member, photo_url: urlData.publicUrl })
+      setMember({ ...member, photo_url: photoUrlWithCache })
       setMessage('사진이 업로드되었습니다.')
     } catch (error) {
       console.error('Upload error:', error)
@@ -150,7 +158,7 @@ export default function MemberDetailPage() {
             <div className="w-40 h-40 rounded-full overflow-hidden bg-white shadow-lg">
               {member.photo_url ? (
                 <img
-                  src={member.photo_url}
+                  src={member.photo_url.includes('?') ? member.photo_url : `${member.photo_url}?t=${Date.now()}`}
                   alt={member.name}
                   className="w-full h-full object-cover"
                 />
