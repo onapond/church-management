@@ -1,34 +1,37 @@
 import { createClient } from '@/lib/supabase/server'
 import AttendanceGrid from '@/components/attendance/AttendanceGrid'
 
-interface UserDepartment {
-  department_id: string
-  departments: {
-    id: string
-    name: string
-    code: string
-  }
-}
-
-interface UserDataWithDepts {
-  user_departments?: UserDepartment[]
+interface Department {
+  id: string
+  name: string
+  code: string
 }
 
 export default async function AttendancePage() {
   const supabase = await createClient()
 
-  // 현재 사용자 부서 정보
+  // 현재 사용자 정보
   const { data: { user } } = await supabase.auth.getUser()
   const { data: userData } = await supabase
     .from('users')
-    .select('*, user_departments(department_id, departments(id, name, code))')
+    .select('*, departments(id, name, code)')
     .eq('id', user!.id)
     .single()
 
-  // 사용자가 접근 가능한 부서 목록
-  const userDataTyped = userData as unknown as UserDataWithDepts | null
-  const userDepts = userDataTyped?.user_departments || []
-  const departments = userDepts.map((ud) => ud.departments)
+  // super_admin은 모든 부서 접근 가능, 아니면 자신의 부서만
+  let departments: Department[] = []
+
+  if (userData?.role === 'super_admin' || userData?.role === 'president' || userData?.role === 'manager' || userData?.role === 'pastor') {
+    // 관리자는 모든 부서 조회 가능
+    const { data: allDepts } = await supabase
+      .from('departments')
+      .select('id, name, code')
+      .order('name')
+    departments = (allDepts || []) as Department[]
+  } else if (userData?.departments) {
+    // 일반 사용자는 자신의 부서만
+    departments = [userData.departments as Department]
+  }
 
   // 이번 주 일요일 날짜
   const now = new Date()
