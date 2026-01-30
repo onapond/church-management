@@ -126,6 +126,7 @@ export default function AttendanceGrid({
   const [records, setRecords] = useState(initialRecords)
   const [isPending, startTransition] = useTransition()
   const [saving, setSaving] = useState<string | null>(null)
+  const [bulkSaving, setBulkSaving] = useState<string | null>(null)
 
   // Supabase 클라이언트를 useMemo로 캐싱
   const supabase = useMemo(() => createClient(), [])
@@ -234,6 +235,107 @@ export default function AttendanceGrid({
     }
   }, [records, selectedDate, supabase])
 
+  // 일괄 출석 체크
+  const bulkCheckAttendance = useCallback(async (type: 'worship' | 'meeting', markPresent: boolean) => {
+    if (members.length === 0) return
+
+    setBulkSaving(`${type}-${markPresent ? 'check' : 'uncheck'}`)
+
+    try {
+      // 출석 처리할 멤버들 찾기
+      const membersToUpdate = members.filter(m => {
+        const isPresent = attendanceMap.get(`${m.id}-${type}`) || false
+        return markPresent ? !isPresent : isPresent
+      })
+
+      if (membersToUpdate.length === 0) {
+        setBulkSaving(null)
+        return
+      }
+
+      if (markPresent) {
+        // 전체 출석 체크
+        const newRecordsToInsert: {
+          member_id: string
+          attendance_date: string
+          attendance_type: string
+          is_present: boolean
+          checked_via: string
+        }[] = []
+        const recordsToUpdate: string[] = []
+
+        for (const member of membersToUpdate) {
+          const existingRecord = records.find(
+            r => r.member_id === member.id && r.attendance_type === type
+          )
+
+          if (existingRecord) {
+            recordsToUpdate.push(existingRecord.id)
+          } else {
+            newRecordsToInsert.push({
+              member_id: member.id,
+              attendance_date: selectedDate,
+              attendance_type: type,
+              is_present: true,
+              checked_via: 'bulk',
+            })
+          }
+        }
+
+        // 기존 레코드 업데이트
+        if (recordsToUpdate.length > 0) {
+          await supabase
+            .from('attendance_records')
+            .update({ is_present: true })
+            .in('id', recordsToUpdate)
+        }
+
+        // 새 레코드 삽입
+        if (newRecordsToInsert.length > 0) {
+          const { data: insertedRecords } = await supabase
+            .from('attendance_records')
+            .insert(newRecordsToInsert)
+            .select('id, member_id, attendance_type, is_present')
+
+          if (insertedRecords) {
+            setRecords(prev => [
+              ...prev.map(r =>
+                recordsToUpdate.includes(r.id) ? { ...r, is_present: true } : r
+              ),
+              ...(insertedRecords as AttendanceRecordBasic[])
+            ])
+          }
+        } else {
+          setRecords(prev =>
+            prev.map(r =>
+              recordsToUpdate.includes(r.id) ? { ...r, is_present: true } : r
+            )
+          )
+        }
+      } else {
+        // 전체 결석 처리
+        const recordIds = records
+          .filter(r => r.attendance_type === type && r.is_present)
+          .map(r => r.id)
+
+        if (recordIds.length > 0) {
+          await supabase
+            .from('attendance_records')
+            .update({ is_present: false })
+            .in('id', recordIds)
+
+          setRecords(prev =>
+            prev.map(r =>
+              recordIds.includes(r.id) ? { ...r, is_present: false } : r
+            )
+          )
+        }
+      }
+    } finally {
+      setBulkSaving(null)
+    }
+  }, [members, records, attendanceMap, selectedDate, supabase])
+
   return (
     <div className="space-y-3 lg:space-y-4">
       {/* 상단 컨트롤 */}
@@ -283,16 +385,52 @@ export default function AttendanceGrid({
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-2 lg:px-4 py-2.5 lg:py-3 text-left font-semibold text-gray-700 w-8 lg:w-12 text-xs lg:text-sm">No</th>
                 <th className="px-2 lg:px-4 py-2.5 lg:py-3 text-left font-semibold text-gray-700 text-xs lg:text-sm">이름</th>
-                <th className="px-2 lg:px-4 py-2.5 lg:py-3 text-center font-semibold text-gray-700 w-16 lg:w-24">
-                  <div className="flex flex-col items-center">
+                <th className="px-2 lg:px-4 py-2.5 lg:py-3 text-center font-semibold text-gray-700 w-20 lg:w-28">
+                  <div className="flex flex-col items-center gap-1">
                     <span className="text-xs lg:text-sm">예배</span>
                     <span className="text-[10px] lg:text-xs font-normal text-gray-500">{stats.worship}/{stats.total}</span>
+                    <div className="flex gap-1 mt-1">
+                      <button
+                        onClick={() => bulkCheckAttendance('worship', true)}
+                        disabled={bulkSaving !== null || stats.worship === stats.total}
+                        className="px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="전체 출석"
+                      >
+                        {bulkSaving === 'worship-check' ? '...' : '전체'}
+                      </button>
+                      <button
+                        onClick={() => bulkCheckAttendance('worship', false)}
+                        disabled={bulkSaving !== null || stats.worship === 0}
+                        className="px-1.5 py-0.5 text-[10px] bg-gray-100 text-gray-600 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="전체 결석"
+                      >
+                        {bulkSaving === 'worship-uncheck' ? '...' : '초기화'}
+                      </button>
+                    </div>
                   </div>
                 </th>
-                <th className="px-2 lg:px-4 py-2.5 lg:py-3 text-center font-semibold text-gray-700 w-16 lg:w-24">
-                  <div className="flex flex-col items-center">
+                <th className="px-2 lg:px-4 py-2.5 lg:py-3 text-center font-semibold text-gray-700 w-20 lg:w-28">
+                  <div className="flex flex-col items-center gap-1">
                     <span className="text-xs lg:text-sm">모임</span>
                     <span className="text-[10px] lg:text-xs font-normal text-gray-500">{stats.meeting}/{stats.total}</span>
+                    <div className="flex gap-1 mt-1">
+                      <button
+                        onClick={() => bulkCheckAttendance('meeting', true)}
+                        disabled={bulkSaving !== null || stats.meeting === stats.total}
+                        className="px-1.5 py-0.5 text-[10px] bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="전체 출석"
+                      >
+                        {bulkSaving === 'meeting-check' ? '...' : '전체'}
+                      </button>
+                      <button
+                        onClick={() => bulkCheckAttendance('meeting', false)}
+                        disabled={bulkSaving !== null || stats.meeting === 0}
+                        className="px-1.5 py-0.5 text-[10px] bg-gray-100 text-gray-600 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="전체 결석"
+                      >
+                        {bulkSaving === 'meeting-uncheck' ? '...' : '초기화'}
+                      </button>
+                    </div>
                   </div>
                 </th>
               </tr>
