@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
@@ -21,12 +21,17 @@ interface Member {
 export default function MemberDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const deptParam = searchParams.get('dept')
   const [member, setMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
+
+  // 목록으로 돌아갈 때 부서 필터 유지
+  const backToListUrl = deptParam ? `/members?dept=${deptParam}` : '/members'
 
   useEffect(() => {
     loadMember()
@@ -133,7 +138,7 @@ export default function MemberDetailPage() {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500">교인을 찾을 수 없습니다.</p>
-        <Link href="/members" className="text-blue-600 hover:underline mt-4 inline-block">
+        <Link href={backToListUrl} className="text-blue-600 hover:underline mt-4 inline-block">
           목록으로 돌아가기
         </Link>
       </div>
@@ -143,7 +148,7 @@ export default function MemberDetailPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
-        <Link href="/members" className="text-gray-500 hover:text-gray-700 flex items-center gap-1">
+        <Link href={backToListUrl} className="text-gray-500 hover:text-gray-700 flex items-center gap-1">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>

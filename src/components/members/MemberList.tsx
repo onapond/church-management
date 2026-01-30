@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo, useCallback, memo } from 'react'
+import { useState, useMemo, useCallback, memo, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { exportMembersToExcel } from '@/lib/excel'
 
 interface Department {
@@ -45,10 +46,14 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 // 메모이제이션된 그리드 카드
-const MemberGridCard = memo(function MemberGridCard({ member }: { member: MemberItem }) {
+const MemberGridCard = memo(function MemberGridCard({ member, deptParam }: { member: MemberItem; deptParam: string }) {
+  const href = deptParam && deptParam !== 'all'
+    ? `/members/${member.id}?dept=${deptParam}`
+    : `/members/${member.id}`
+
   return (
     <Link
-      href={`/members/${member.id}`}
+      href={href}
       className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 active:shadow-md transition-shadow"
     >
       <div className="aspect-square bg-gray-100 relative">
@@ -83,10 +88,14 @@ const MemberGridCard = memo(function MemberGridCard({ member }: { member: Member
 })
 
 // 메모이제이션된 리스트 아이템
-const MemberListItem = memo(function MemberListItem({ member }: { member: MemberItem }) {
+const MemberListItem = memo(function MemberListItem({ member, deptParam }: { member: MemberItem; deptParam: string }) {
+  const href = deptParam && deptParam !== 'all'
+    ? `/members/${member.id}?dept=${deptParam}`
+    : `/members/${member.id}`
+
   return (
     <Link
-      href={`/members/${member.id}`}
+      href={href}
       className="flex items-center gap-3 p-3 lg:p-4 active:bg-gray-50 transition-colors"
     >
       <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 relative">
@@ -132,9 +141,19 @@ const MemberListItem = memo(function MemberListItem({ member }: { member: Member
 })
 
 export default function MemberList({ members, departments }: MemberListProps) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [selectedDept, setSelectedDept] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+
+  // URL에서 부서 필터 초기화
+  useEffect(() => {
+    const deptFromUrl = searchParams.get('dept')
+    if (deptFromUrl) {
+      setSelectedDept(deptFromUrl)
+    }
+  }, [searchParams])
 
   // 검색어 디바운스 (300ms)
   const debouncedSearch = useDebounce(search, 300)
@@ -156,8 +175,15 @@ export default function MemberList({ members, departments }: MemberListProps) {
   }, [])
 
   const handleDeptChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedDept(e.target.value)
-  }, [])
+    const newDept = e.target.value
+    setSelectedDept(newDept)
+    // URL 업데이트
+    if (newDept === 'all') {
+      router.push('/members')
+    } else {
+      router.push(`/members?dept=${newDept}`)
+    }
+  }, [router])
 
   const handleExportExcel = useCallback(() => {
     const exportData = filteredMembers.map(member => ({
@@ -248,7 +274,7 @@ export default function MemberList({ members, departments }: MemberListProps) {
       {viewMode === 'grid' && (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 lg:gap-4">
           {filteredMembers.map((member) => (
-            <MemberGridCard key={member.id} member={member} />
+            <MemberGridCard key={member.id} member={member} deptParam={selectedDept} />
           ))}
         </div>
       )}
@@ -258,7 +284,7 @@ export default function MemberList({ members, departments }: MemberListProps) {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="divide-y divide-gray-100">
             {filteredMembers.map((member) => (
-              <MemberListItem key={member.id} member={member} />
+              <MemberListItem key={member.id} member={member} deptParam={selectedDept} />
             ))}
           </div>
         </div>

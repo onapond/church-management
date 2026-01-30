@@ -42,7 +42,7 @@ export default async function DashboardLayout({
 
         {/* 메인 컨텐츠 */}
         <main className="flex-1 lg:ml-64">
-          <div className="p-4 lg:p-8 pt-20 lg:pt-8">
+          <div className="p-4 lg:p-8 pt-20 lg:pt-8 pb-24 lg:pb-8">
             {children}
           </div>
         </main>

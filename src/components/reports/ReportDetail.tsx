@@ -5,19 +5,35 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { WeeklyReport, ReportProgram, Newcomer, ApprovalHistory, User } from '@/types/database'
 
+type ReportType = 'weekly' | 'meeting' | 'education'
+
+interface ExtendedReport extends WeeklyReport {
+  report_type: ReportType
+  meeting_title: string | null
+  meeting_location: string | null
+  attendees: string | null
+  main_content: string | null
+  application_notes: string | null
+  departments: { name: string; code?: string } | null
+  users: { name: string } | null
+  coordinator: { name: string } | null
+  manager: { name: string } | null
+  final_approver: { name: string } | null
+}
+
 interface ReportDetailProps {
-  report: WeeklyReport & {
-    departments: { name: string; code?: string } | null
-    users: { name: string } | null
-    coordinator: { name: string } | null
-    manager: { name: string } | null
-    final_approver: { name: string } | null
-  }
+  report: ExtendedReport
   programs: ReportProgram[]
   newcomers: Newcomer[]
   history: (ApprovalHistory & { users: { name: string } | null })[]
   currentUser: User | null
   canApprove: string | null
+}
+
+const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = {
+  weekly: { label: '주차 보고서', icon: '📋' },
+  meeting: { label: '모임 보고서', icon: '👥' },
+  education: { label: '교육 보고서', icon: '📚' },
 }
 
 export default function ReportDetail({
@@ -35,6 +51,9 @@ export default function ReportDetail({
   const [showApprovalModal, setShowApprovalModal] = useState(false)
   const [approvalAction, setApprovalAction] = useState<'approve' | 'reject'>('approve')
 
+  const reportType = report.report_type || 'weekly'
+  const typeConfig = REPORT_TYPE_CONFIG[reportType]
+
   // 부서명 표시
   const getDeptDisplayName = useCallback(() => {
     const code = report.departments?.code
@@ -43,6 +62,7 @@ export default function ReportDetail({
     if (code === 'youth') return '청소년부'
     if (code === 'cu1') return '1청년'
     if (code === 'cu2') return '2청년'
+    if (code === 'leader') return '리더'
     return report.departments?.name || ''
   }, [report.departments])
 
@@ -68,200 +88,89 @@ export default function ReportDetail({
     const cellAttendance = parsedNotes.cell_attendance || []
     const reportDate = new Date(report.report_date)
 
-    // 진행순서 행 생성
-    const programRows = programs.length > 0
-      ? programs.map(p => {
-          const time = p.start_time ? p.start_time.slice(0, 5) : ''
-          let content = p.content || ''
-          if (parsedNotes.sermon_title && content.includes('말씀')) {
-            content += ` [${parsedNotes.sermon_title} ${parsedNotes.sermon_scripture || ''}]`
-          }
-          return `<tr>
-            <td class="cell">${time}</td>
-            <td class="cell" style="text-align:left;">${content}</td>
-            <td class="cell">${p.person_in_charge || ''}</td>
-            <td class="cell"></td>
-          </tr>`
-        }).join('')
-      : `<tr><td class="cell" colspan="4" style="height:60px;"></td></tr>`
+    // 보고서 유형에 따라 다른 HTML 생성
+    let html = ''
 
-    // 출결상황 행 생성
-    let attendanceRows = ''
-    if (cellAttendance.length > 0 && cellAttendance.some((c: any) => c.cell_name)) {
-      attendanceRows = cellAttendance.map((cell: any) => `
-        <tr>
-          <td class="cell">${cell.cell_name || ''}</td>
-          <td class="cell">${cell.registered || ''}</td>
-          <td class="cell">${cell.worship || ''}</td>
-          <td class="cell">${cell.meeting || ''}</td>
-          <td class="cell" style="text-align:left;">${cell.note || ''}</td>
-        </tr>
-      `).join('')
-    } else {
-      // 빈 행 3개
-      for (let i = 0; i < 3; i++) {
-        attendanceRows += `<tr>
-          <td class="cell" style="height:28px;"></td>
-          <td class="cell"></td>
-          <td class="cell"></td>
-          <td class="cell"></td>
-          <td class="cell"></td>
-        </tr>`
-      }
-    }
+    if (reportType === 'weekly') {
+      // 주차 보고서 인쇄 (기존 코드)
+      const programRows = programs.length > 0
+        ? programs.map(p => {
+            const time = p.start_time ? p.start_time.slice(0, 5) : ''
+            let content = p.content || ''
+            if (parsedNotes.sermon_title && content.includes('말씀')) {
+              content += ` [${parsedNotes.sermon_title} ${parsedNotes.sermon_scripture || ''}]`
+            }
+            return `<tr>
+              <td class="cell">${time}</td>
+              <td class="cell" style="text-align:left;">${content}</td>
+              <td class="cell">${p.person_in_charge || ''}</td>
+              <td class="cell"></td>
+            </tr>`
+          }).join('')
+        : `<tr><td class="cell" colspan="4" style="height:60px;"></td></tr>`
 
-    // 새신자 행 생성
-    const newcomerRows = newcomers.length > 0
-      ? newcomers.map(n => `
+      let attendanceRows = ''
+      if (cellAttendance.length > 0 && cellAttendance.some((c: any) => c.cell_name)) {
+        attendanceRows = cellAttendance.map((cell: any) => `
           <tr>
-            <td class="cell">${n.name}</td>
-            <td class="cell">${n.phone || ''}</td>
-            <td class="cell">${n.birth_date || ''}</td>
-            <td class="cell">${n.introducer || ''}</td>
-            <td class="cell" style="text-align:left;">${n.address || ''}</td>
-            <td class="cell">${n.affiliation || ''}</td>
+            <td class="cell">${cell.cell_name || ''}</td>
+            <td class="cell">${cell.registered || ''}</td>
+            <td class="cell">${cell.worship || ''}</td>
+            <td class="cell">${cell.meeting || ''}</td>
+            <td class="cell" style="text-align:left;">${cell.note || ''}</td>
           </tr>
         `).join('')
-      : `<tr><td class="cell" colspan="6" style="height:28px;"></td></tr>`
+      } else {
+        for (let i = 0; i < 3; i++) {
+          attendanceRows += `<tr>
+            <td class="cell" style="height:28px;"></td>
+            <td class="cell"></td>
+            <td class="cell"></td>
+            <td class="cell"></td>
+            <td class="cell"></td>
+          </tr>`
+        }
+      }
 
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>${getDeptDisplayName()}_${report.year}년_${report.week_number}주차_보고서</title>
-  <style>
-    @page { size: A4; margin: 0; }
-    @media print {
-      html, body { width: 210mm; height: 297mm; }
-      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      const newcomerRows = newcomers.length > 0
+        ? newcomers.map(n => `
+            <tr>
+              <td class="cell">${n.name}</td>
+              <td class="cell">${n.phone || ''}</td>
+              <td class="cell">${n.birth_date || ''}</td>
+              <td class="cell">${n.introducer || ''}</td>
+              <td class="cell" style="text-align:left;">${n.address || ''}</td>
+              <td class="cell">${n.affiliation || ''}</td>
+            </tr>
+          `).join('')
+        : `<tr><td class="cell" colspan="6" style="height:28px;"></td></tr>`
+
+      html = generateWeeklyPrintHTML(getDeptDisplayName(), report, reportDate, programRows, attendanceRows, newcomerRows, parsedNotes)
+    } else {
+      // 모임/교육 보고서 인쇄
+      const programRows = programs.length > 0
+        ? programs.map(p => {
+            const time = p.start_time ? p.start_time.slice(0, 5) : ''
+            return `<tr>
+              <td class="cell">${time}</td>
+              <td class="cell" style="text-align:left;">${p.content || ''}</td>
+              <td class="cell">${p.person_in_charge || ''}</td>
+              <td class="cell"></td>
+            </tr>`
+          }).join('')
+        : `<tr><td class="cell" colspan="4" style="height:60px;"></td></tr>`
+
+      html = generateMeetingPrintHTML(
+        reportType,
+        report.meeting_title || getDeptDisplayName(),
+        report,
+        reportDate,
+        programRows,
+        parsedNotes
+      )
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
-      font-size: 10pt;
-      line-height: 1.3;
-      padding: 15mm 15mm 10mm 15mm;
-      color: #000;
-    }
-    table { border-collapse: collapse; }
-    .cell {
-      border: 1px solid #000;
-      padding: 6px 8px;
-      text-align: center;
-      vertical-align: middle;
-    }
-    .section-header {
-      background: linear-gradient(135deg, #d4e5f7 0%, #e8f0f8 100%);
-      font-weight: bold;
-      text-align: center;
-      padding: 8px;
-      border: 1px solid #000;
-    }
-    .approval-box { border: 1px solid #000; }
-    .approval-box td { border: 1px solid #000; padding: 4px 10px; text-align: center; }
-    .approval-box .label { background: #f0f0f0; font-weight: bold; }
-    .approval-box .sign-area { height: 45px; min-width: 70px; }
-  </style>
-</head>
-<body>
 
-<!-- 결재란 (우측 상단) -->
-<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
-  <table class="approval-box" style="font-size:9pt;">
-    <tr>
-      <td rowspan="2" class="label" style="width:40px;">결재</td>
-      <td style="width:100px;text-align:center;">작성자</td>
-      <td style="width:100px;text-align:center;">부장</td>
-    </tr>
-    <tr>
-      <td class="sign-area" style="height:50px;"></td>
-      <td class="sign-area" style="height:50px;text-align:left;padding-left:8px;">강현숙</td>
-    </tr>
-    <tr>
-      <td class="label">협조</td>
-      <td style="text-align:left;padding-left:8px;height:30px;">신요한</td>
-      <td style="text-align:left;padding-left:8px;height:30px;">전홍균</td>
-    </tr>
-  </table>
-</div>
-
-<!-- 헤더 (제목만 가운데) -->
-<div style="text-align:center;margin-bottom:20px;">
-  <div style="font-size:20pt;font-weight:bold;color:#000;">${getDeptDisplayName()} 주차 보고서</div>
-  <div style="font-size:12pt;margin-top:8px;">${reportDate.getFullYear()}년 ${reportDate.getMonth() + 1}월 ${reportDate.getDate()}일(제 ${report.week_number}주)</div>
-</div>
-
-<!-- 진행순서 -->
-<table style="width:100%;margin-bottom:12px;">
-  <tr><td class="section-header" colspan="4">진행순서</td></tr>
-  <tr style="background:#f5f5f5;">
-    <td class="cell" style="width:120px;font-weight:bold;">시간</td>
-    <td class="cell" style="font-weight:bold;">내용</td>
-    <td class="cell" style="width:70px;font-weight:bold;">담당</td>
-    <td class="cell" style="width:70px;font-weight:bold;">비고</td>
-  </tr>
-  ${programRows}
-</table>
-
-<!-- 출결상황 -->
-<table style="width:100%;margin-bottom:12px;">
-  <tr><td class="section-header" colspan="5">출결상황</td></tr>
-  <tr style="background:#f5f5f5;">
-    <td class="cell" rowspan="2" style="width:100px;font-weight:bold;">구분(셀)</td>
-    <td class="cell" rowspan="2" style="width:60px;font-weight:bold;">재적</td>
-    <td class="cell" colspan="2" style="font-weight:bold;">출석</td>
-    <td class="cell" rowspan="2" style="font-weight:bold;">참고사항</td>
-  </tr>
-  <tr style="background:#f5f5f5;">
-    <td class="cell" style="width:60px;font-weight:bold;">예배</td>
-    <td class="cell" style="width:60px;font-weight:bold;">CU</td>
-  </tr>
-  ${attendanceRows}
-  <tr style="background:#e6f0ff;">
-    <td class="cell" style="font-weight:bold;">합계</td>
-    <td class="cell" style="font-weight:bold;">${report.total_registered}</td>
-    <td class="cell" style="font-weight:bold;">${report.worship_attendance}</td>
-    <td class="cell" style="font-weight:bold;">${report.meeting_attendance}</td>
-    <td class="cell"></td>
-  </tr>
-</table>
-
-<!-- 새신자 명단 -->
-<table style="width:100%;margin-bottom:12px;">
-  <tr><td class="section-header" colspan="6">새신자 명단</td></tr>
-  <tr style="background:#f5f5f5;">
-    <td class="cell" style="width:60px;font-weight:bold;">이름</td>
-    <td class="cell" style="width:90px;font-weight:bold;">연락처</td>
-    <td class="cell" style="width:80px;font-weight:bold;">생년월일</td>
-    <td class="cell" style="width:60px;font-weight:bold;">인도자</td>
-    <td class="cell" style="font-weight:bold;">주소</td>
-    <td class="cell" style="width:80px;font-weight:bold;">소속(직업)</td>
-  </tr>
-  ${newcomerRows}
-</table>
-
-<!-- 논의(특이)사항 / 기타사항 -->
-<table style="width:100%;">
-  <tr>
-    <td class="section-header" style="width:50%;">논의(특이)사항</td>
-    <td class="section-header" style="width:50%;">기타사항</td>
-  </tr>
-  <tr>
-    <td class="cell" style="height:120px;vertical-align:top;text-align:left;padding:10px;white-space:pre-wrap;line-height:1.6;">
-${parsedNotes.discussion_notes ? parsedNotes.discussion_notes.split('\\n').map((line: string) => 'ㆍ ' + line).join('\\n') : 'ㆍ\\nㆍ\\nㆍ'}
-    </td>
-    <td class="cell" style="height:120px;vertical-align:top;text-align:left;padding:10px;white-space:pre-wrap;line-height:1.6;">
-${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: string) => 'ㆍ ' + line).join('\\n') : 'ㆍ\\nㆍ\\nㆍ'}
-    </td>
-  </tr>
-</table>
-
-<script>window.onload = function() { setTimeout(function() { window.print(); }, 200); };</script>
-</body>
-</html>`
-
-    // 모바일/데스크탑 호환 인쇄 방식
-    // iframe을 사용하여 팝업 차단 우회
+    // 인쇄 실행
     const printFrame = document.createElement('iframe')
     printFrame.style.position = 'fixed'
     printFrame.style.right = '0'
@@ -281,8 +190,6 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
         setTimeout(() => {
           printFrame.contentWindow?.focus()
           printFrame.contentWindow?.print()
-
-          // 인쇄 후 iframe 제거
           setTimeout(() => {
             document.body.removeChild(printFrame)
           }, 1000)
@@ -291,7 +198,7 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
     }
 
     setShowPrintOptions(false)
-  }, [report, programs, newcomers, getDeptDisplayName])
+  }, [report, programs, newcomers, getDeptDisplayName, reportType])
 
   const handleApproval = async () => {
     if (!canApprove || !currentUser) return
@@ -326,13 +233,11 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
         updateData.rejection_reason = comment
       }
 
-      // 보고서 업데이트
       await supabase
         .from('weekly_reports')
         .update({ ...updateData, status: newStatus })
         .eq('id', report.id)
 
-      // 결재 이력 추가
       await supabase.from('approval_history').insert({
         report_id: report.id,
         approver_id: currentUser.id,
@@ -350,18 +255,20 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
     }
   }
 
-  // notes에서 실제 내용 파싱
   const parsedNotes = report.notes ? JSON.parse(report.notes) : {}
 
   return (
     <div className="space-y-4 lg:space-y-6 max-w-4xl mx-auto">
-      {/* 헤더 - 뒤로가기 포함 */}
+      {/* 헤더 */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xl">{typeConfig.icon}</span>
               <h1 className="text-lg lg:text-xl font-bold text-gray-900 truncate">
-                {report.departments?.name}
+                {reportType === 'weekly'
+                  ? getDeptDisplayName()
+                  : report.meeting_title || getDeptDisplayName()}
               </h1>
               <StatusBadge status={report.status} />
             </div>
@@ -372,9 +279,11 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
                 day: 'numeric',
                 weekday: 'short',
               })}
+              {reportType === 'weekly' && report.week_number && ` (${report.week_number}주차)`}
             </p>
             <p className="text-sm text-gray-400 mt-0.5">
               작성자: {report.users?.name}
+              {reportType !== 'weekly' && report.departments?.name && ` · ${report.departments.name}`}
             </p>
           </div>
 
@@ -401,16 +310,164 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
         </div>
       </div>
 
+      {/* 모임/교육 개요 (주차 보고서가 아닐 때) */}
+      {reportType !== 'weekly' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-4 text-sm lg:text-base">
+            {reportType === 'meeting' ? '모임 개요' : '교육 개요'}
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-3 bg-gray-50 rounded-xl">
+              <p className="text-xs text-gray-500 mb-1">일시</p>
+              <p className="text-sm font-medium text-gray-900">
+                {new Date(report.report_date).toLocaleDateString('ko-KR', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  weekday: 'short',
+                })}
+              </p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-xl">
+              <p className="text-xs text-gray-500 mb-1">장소</p>
+              <p className="text-sm font-medium text-gray-900">{report.meeting_location || '-'}</p>
+            </div>
+            <div className="col-span-2 p-3 bg-gray-50 rounded-xl">
+              <p className="text-xs text-gray-500 mb-1">참석자</p>
+              <p className="text-sm font-medium text-gray-900">{report.attendees || '-'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 진행 순서 */}
+      {programs.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">진행순서</h2>
+          <div className="space-y-2">
+            {programs.map((program) => (
+              <div
+                key={program.id}
+                className="flex items-start gap-3 py-2.5 px-3 bg-gray-50 rounded-xl"
+              >
+                <span className="text-xs font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded shrink-0">
+                  {program.start_time.slice(0, 5)}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">{program.content}</p>
+                  {program.person_in_charge && (
+                    <p className="text-xs text-gray-500 mt-0.5">{program.person_in_charge}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 주요내용/교육내용 (모임/교육 보고서) */}
+      {reportType !== 'weekly' && report.main_content && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">
+            {reportType === 'meeting' ? '주요내용' : '교육내용'}
+          </h2>
+          <div className="bg-gray-50 p-4 rounded-xl">
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+              {report.main_content}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 출결 현황 (주차 보고서만) */}
+      {reportType === 'weekly' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">출결 현황</h2>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center py-4 px-2 bg-gray-50 rounded-xl">
+              <p className="text-xs text-gray-500 mb-1">재적</p>
+              <p className="text-2xl lg:text-3xl font-bold text-gray-900">{report.total_registered}</p>
+            </div>
+            <div className="text-center py-4 px-2 bg-blue-50 rounded-xl">
+              <p className="text-xs text-blue-600 mb-1">예배</p>
+              <p className="text-2xl lg:text-3xl font-bold text-blue-700">{report.worship_attendance}</p>
+            </div>
+            <div className="text-center py-4 px-2 bg-green-50 rounded-xl">
+              <p className="text-xs text-green-600 mb-1">모임</p>
+              <p className="text-2xl lg:text-3xl font-bold text-green-700">{report.meeting_attendance}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 새신자 명단 (주차 보고서만) */}
+      {reportType === 'weekly' && newcomers.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">새신자 명단</h2>
+          <div className="space-y-3">
+            {newcomers.map((newcomer) => (
+              <div key={newcomer.id} className="p-3 bg-gray-50 rounded-xl">
+                <p className="font-medium text-gray-900">{newcomer.name}</p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                  {newcomer.phone && <span>연락처: {newcomer.phone}</span>}
+                  {newcomer.introducer && <span>인도자: {newcomer.introducer}</span>}
+                  {newcomer.affiliation && <span>소속: {newcomer.affiliation}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 논의사항/적용점 및 기타사항 */}
+      {(parsedNotes.discussion_notes || parsedNotes.other_notes || report.application_notes) && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">
+            {reportType === 'education' ? '적용점 및 기타사항' : '논의 및 기타사항'}
+          </h2>
+          <div className="space-y-4">
+            {reportType === 'education' && report.application_notes && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">적용점</p>
+                <div className="bg-gray-50 p-3 rounded-xl">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {report.application_notes}
+                  </p>
+                </div>
+              </div>
+            )}
+            {parsedNotes.discussion_notes && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">논의사항</p>
+                <div className="bg-gray-50 p-3 rounded-xl">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {parsedNotes.discussion_notes}
+                  </p>
+                </div>
+              </div>
+            )}
+            {parsedNotes.other_notes && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">기타사항</p>
+                <div className="bg-gray-50 p-3 rounded-xl">
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {parsedNotes.other_notes}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 결재 진행 상태 */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
         <h2 className="font-semibold text-gray-900 mb-4 text-sm lg:text-base">결재 진행 현황</h2>
 
-        {/* 모바일/태블릿: 세로 타임라인 */}
+        {/* 모바일: 세로 타임라인 */}
         <div className="lg:hidden">
           <div className="relative">
-            {/* 연결선 */}
             <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-gray-200" />
-
             <div className="space-y-4">
               <ApprovalStepVertical
                 label="팀장 제출"
@@ -564,94 +621,6 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
         )}
       </div>
 
-      {/* 출결 현황 - 카드형 */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-        <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">출결 현황</h2>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="text-center py-4 px-2 bg-gray-50 rounded-xl">
-            <p className="text-xs text-gray-500 mb-1">재적</p>
-            <p className="text-2xl lg:text-3xl font-bold text-gray-900">{report.total_registered}</p>
-          </div>
-          <div className="text-center py-4 px-2 bg-blue-50 rounded-xl">
-            <p className="text-xs text-blue-600 mb-1">예배</p>
-            <p className="text-2xl lg:text-3xl font-bold text-blue-700">{report.worship_attendance}</p>
-          </div>
-          <div className="text-center py-4 px-2 bg-green-50 rounded-xl">
-            <p className="text-xs text-green-600 mb-1">모임</p>
-            <p className="text-2xl lg:text-3xl font-bold text-green-700">{report.meeting_attendance}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* 진행 순서 */}
-      {programs.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">진행 순서</h2>
-          <div className="space-y-2">
-            {programs.map((program) => (
-              <div
-                key={program.id}
-                className="flex items-start gap-3 py-2.5 px-3 bg-gray-50 rounded-xl"
-              >
-                <span className="text-xs font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded shrink-0">
-                  {program.start_time.slice(0, 5)}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{program.content}</p>
-                  {program.person_in_charge && (
-                    <p className="text-xs text-gray-500 mt-0.5">{program.person_in_charge}</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 새신자 명단 */}
-      {newcomers.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">새신자 명단</h2>
-          <div className="space-y-3">
-            {newcomers.map((newcomer) => (
-              <div key={newcomer.id} className="p-3 bg-gray-50 rounded-xl">
-                <p className="font-medium text-gray-900">{newcomer.name}</p>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                  {newcomer.phone && <span>연락처: {newcomer.phone}</span>}
-                  {newcomer.introducer && <span>인도자: {newcomer.introducer}</span>}
-                  {newcomer.affiliation && <span>소속: {newcomer.affiliation}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 논의 및 기타사항 */}
-      {(parsedNotes.discussion_notes || parsedNotes.other_notes) && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">논의 및 기타사항</h2>
-          <div className="space-y-4">
-            {parsedNotes.discussion_notes && (
-              <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">논의사항</p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-xl">
-                  {parsedNotes.discussion_notes}
-                </p>
-              </div>
-            )}
-            {parsedNotes.other_notes && (
-              <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">기타사항</p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-xl">
-                  {parsedNotes.other_notes}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* 결재 이력 */}
       {history.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
@@ -734,7 +703,6 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
             </div>
 
             <div className="space-y-4">
-              {/* 기본 인쇄 */}
               <button
                 onClick={() => handlePrint()}
                 className="w-full flex items-center gap-4 p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors text-left"
@@ -753,7 +721,6 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
                 </svg>
               </button>
 
-              {/* 네트워크 프린터 */}
               <div className="p-4 bg-gray-50 rounded-xl">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
@@ -777,7 +744,6 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
                   <button
                     onClick={() => {
                       if (printerIP) {
-                        // 프린터 IP 저장
                         localStorage.setItem('printerIP', printerIP)
                         handlePrint(printerIP)
                       }
@@ -788,19 +754,6 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
                     인쇄
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mt-2">
-                  * 프린터 IP는 기기 설정에서 확인하세요
-                </p>
-              </div>
-
-              {/* 도움말 */}
-              <div className="pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  <strong>모바일 무선 인쇄 방법:</strong><br/>
-                  1. 기기 설정 → 프린터 추가<br/>
-                  2. 프린터 IP 주소 입력 (예: 192.168.0.100)<br/>
-                  3. &apos;기본 인쇄&apos; 선택 후 프린터 지정
-                </p>
               </div>
             </div>
           </div>
@@ -808,6 +761,271 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
       )}
     </div>
   )
+}
+
+// 주차 보고서 인쇄 HTML 생성
+function generateWeeklyPrintHTML(
+  deptName: string,
+  report: any,
+  reportDate: Date,
+  programRows: string,
+  attendanceRows: string,
+  newcomerRows: string,
+  parsedNotes: any
+) {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${deptName}_${report.year}년_${report.week_number}주차_보고서</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    @media print {
+      html, body { width: 210mm; height: 297mm; }
+      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+      font-size: 10pt;
+      line-height: 1.3;
+      padding: 15mm 15mm 10mm 15mm;
+      color: #000;
+    }
+    table { border-collapse: collapse; }
+    .cell {
+      border: 1px solid #000;
+      padding: 6px 8px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .section-header {
+      background: linear-gradient(135deg, #d4e5f7 0%, #e8f0f8 100%);
+      font-weight: bold;
+      text-align: center;
+      padding: 8px;
+      border: 1px solid #000;
+    }
+    .approval-box { border: 1px solid #000; }
+    .approval-box td { border: 1px solid #000; padding: 4px 10px; text-align: center; }
+    .approval-box .label { background: #f0f0f0; font-weight: bold; }
+    .approval-box .sign-area { height: 45px; min-width: 70px; }
+  </style>
+</head>
+<body>
+<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+  <table class="approval-box" style="font-size:9pt;">
+    <tr>
+      <td rowspan="2" class="label" style="width:40px;">결재</td>
+      <td style="width:100px;text-align:center;">작성자</td>
+      <td style="width:100px;text-align:center;">부장</td>
+    </tr>
+    <tr>
+      <td class="sign-area" style="height:50px;"></td>
+      <td class="sign-area" style="height:50px;text-align:left;padding-left:8px;">강현숙</td>
+    </tr>
+    <tr>
+      <td class="label">협조</td>
+      <td style="text-align:left;padding-left:8px;height:30px;">신요한</td>
+      <td style="text-align:left;padding-left:8px;height:30px;">전홍균</td>
+    </tr>
+  </table>
+</div>
+<div style="text-align:center;margin-bottom:20px;">
+  <div style="font-size:20pt;font-weight:bold;color:#000;">${deptName} 주차 보고서</div>
+  <div style="font-size:12pt;margin-top:8px;">${reportDate.getFullYear()}년 ${reportDate.getMonth() + 1}월 ${reportDate.getDate()}일(제 ${report.week_number}주)</div>
+</div>
+<table style="width:100%;margin-bottom:12px;">
+  <tr><td class="section-header" colspan="4">진행순서</td></tr>
+  <tr style="background:#f5f5f5;">
+    <td class="cell" style="width:120px;font-weight:bold;">시간</td>
+    <td class="cell" style="font-weight:bold;">내용</td>
+    <td class="cell" style="width:70px;font-weight:bold;">담당</td>
+    <td class="cell" style="width:70px;font-weight:bold;">비고</td>
+  </tr>
+  ${programRows}
+</table>
+<table style="width:100%;margin-bottom:12px;">
+  <tr><td class="section-header" colspan="5">출결상황</td></tr>
+  <tr style="background:#f5f5f5;">
+    <td class="cell" rowspan="2" style="width:100px;font-weight:bold;">구분(셀)</td>
+    <td class="cell" rowspan="2" style="width:60px;font-weight:bold;">재적</td>
+    <td class="cell" colspan="2" style="font-weight:bold;">출석</td>
+    <td class="cell" rowspan="2" style="font-weight:bold;">참고사항</td>
+  </tr>
+  <tr style="background:#f5f5f5;">
+    <td class="cell" style="width:60px;font-weight:bold;">예배</td>
+    <td class="cell" style="width:60px;font-weight:bold;">CU</td>
+  </tr>
+  ${attendanceRows}
+  <tr style="background:#e6f0ff;">
+    <td class="cell" style="font-weight:bold;">합계</td>
+    <td class="cell" style="font-weight:bold;">${report.total_registered}</td>
+    <td class="cell" style="font-weight:bold;">${report.worship_attendance}</td>
+    <td class="cell" style="font-weight:bold;">${report.meeting_attendance}</td>
+    <td class="cell"></td>
+  </tr>
+</table>
+<table style="width:100%;margin-bottom:12px;">
+  <tr><td class="section-header" colspan="6">새신자 명단</td></tr>
+  <tr style="background:#f5f5f5;">
+    <td class="cell" style="width:60px;font-weight:bold;">이름</td>
+    <td class="cell" style="width:90px;font-weight:bold;">연락처</td>
+    <td class="cell" style="width:80px;font-weight:bold;">생년월일</td>
+    <td class="cell" style="width:60px;font-weight:bold;">인도자</td>
+    <td class="cell" style="font-weight:bold;">주소</td>
+    <td class="cell" style="width:80px;font-weight:bold;">소속(직업)</td>
+  </tr>
+  ${newcomerRows}
+</table>
+<table style="width:100%;">
+  <tr>
+    <td class="section-header" style="width:50%;">논의(특이)사항</td>
+    <td class="section-header" style="width:50%;">기타사항</td>
+  </tr>
+  <tr>
+    <td class="cell" style="height:120px;vertical-align:top;text-align:left;padding:10px;white-space:pre-wrap;line-height:1.6;">
+${parsedNotes.discussion_notes ? parsedNotes.discussion_notes.split('\\n').map((line: string) => 'ㆍ ' + line).join('\\n') : 'ㆍ\\nㆍ\\nㆍ'}
+    </td>
+    <td class="cell" style="height:120px;vertical-align:top;text-align:left;padding:10px;white-space:pre-wrap;line-height:1.6;">
+${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: string) => 'ㆍ ' + line).join('\\n') : 'ㆍ\\nㆍ\\nㆍ'}
+    </td>
+  </tr>
+</table>
+<script>window.onload = function() { setTimeout(function() { window.print(); }, 200); };</script>
+</body>
+</html>`
+}
+
+// 모임/교육 보고서 인쇄 HTML 생성
+function generateMeetingPrintHTML(
+  reportType: string,
+  title: string,
+  report: any,
+  reportDate: Date,
+  programRows: string,
+  parsedNotes: any
+) {
+  const isEducation = reportType === 'education'
+  const typeLabel = isEducation ? '교육보고서' : '보고서'
+  const leftLabel = isEducation ? '적용점' : '논의사항'
+  const leftContent = isEducation
+    ? (report.application_notes || '')
+    : (parsedNotes.discussion_notes || '')
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${title}_${typeLabel}</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    @media print {
+      html, body { width: 210mm; height: 297mm; }
+      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+      font-size: 10pt;
+      line-height: 1.3;
+      padding: 15mm 15mm 10mm 15mm;
+      color: #000;
+    }
+    table { border-collapse: collapse; }
+    .cell {
+      border: 1px solid #000;
+      padding: 6px 8px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .section-header {
+      background: linear-gradient(135deg, #d4e5f7 0%, #e8f0f8 100%);
+      font-weight: bold;
+      text-align: center;
+      padding: 8px;
+      border: 1px solid #000;
+    }
+    .approval-box { border: 1px solid #000; }
+    .approval-box td { border: 1px solid #000; padding: 4px 10px; text-align: center; }
+    .approval-box .label { background: #f0f0f0; font-weight: bold; }
+    .approval-box .sign-area { height: 45px; min-width: 70px; }
+  </style>
+</head>
+<body>
+<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+  <table class="approval-box" style="font-size:9pt;">
+    <tr>
+      <td rowspan="2" class="label" style="width:40px;">결재</td>
+      <td style="width:100px;text-align:center;">작성자</td>
+      <td style="width:100px;text-align:center;">부장</td>
+    </tr>
+    <tr>
+      <td class="sign-area" style="height:50px;"></td>
+      <td class="sign-area" style="height:50px;text-align:left;padding-left:8px;">강현숙</td>
+    </tr>
+    <tr>
+      <td class="label">협조</td>
+      <td style="text-align:left;padding-left:8px;height:30px;">신요한</td>
+      <td style="text-align:left;padding-left:8px;height:30px;">전홍균</td>
+    </tr>
+  </table>
+</div>
+<div style="text-align:center;margin-bottom:20px;">
+  <div style="font-size:20pt;font-weight:bold;color:#000;">[ ${title} ] ${typeLabel}</div>
+</div>
+<table style="width:100%;margin-bottom:12px;">
+  <tr>
+    <td class="section-header" colspan="4">${isEducation ? '교육' : '모임'} 개요</td>
+  </tr>
+  <tr>
+    <td class="cell" style="width:80px;background:#f5f5f5;font-weight:bold;">일 시</td>
+    <td class="cell">${reportDate.getFullYear()}. ${reportDate.getMonth() + 1}. ${reportDate.getDate()}.</td>
+    <td class="cell" style="width:60px;background:#f5f5f5;font-weight:bold;">장소</td>
+    <td class="cell">${report.meeting_location || ''}</td>
+  </tr>
+  <tr>
+    <td class="cell" style="background:#f5f5f5;font-weight:bold;">참 석 자</td>
+    <td class="cell" colspan="3" style="text-align:left;">${report.attendees || ''}</td>
+  </tr>
+</table>
+<table style="width:100%;margin-bottom:12px;">
+  <tr><td class="section-header" colspan="4">진행순서</td></tr>
+  <tr style="background:#f5f5f5;">
+    <td class="cell" style="width:100px;font-weight:bold;">시간</td>
+    <td class="cell" style="font-weight:bold;">내용</td>
+    <td class="cell" style="width:70px;font-weight:bold;">담당</td>
+    <td class="cell" style="width:70px;font-weight:bold;">비고</td>
+  </tr>
+  ${programRows}
+</table>
+${report.main_content ? `
+<table style="width:100%;margin-bottom:12px;">
+  <tr><td class="section-header">${isEducation ? '교 육 명' : '주요내용'}</td></tr>
+  <tr>
+    <td class="cell" style="min-height:80px;vertical-align:top;text-align:left;padding:10px;white-space:pre-wrap;line-height:1.6;">
+ㆍ ${report.main_content}
+    </td>
+  </tr>
+</table>
+` : ''}
+<table style="width:100%;">
+  <tr>
+    <td class="section-header" style="width:50%;">${leftLabel}</td>
+    <td class="section-header" style="width:50%;">기타사항</td>
+  </tr>
+  <tr>
+    <td class="cell" style="min-height:120px;vertical-align:top;text-align:left;padding:10px;white-space:pre-wrap;line-height:1.6;">
+${leftContent ? leftContent.split('\\n').map((line: string) => 'ㆍ ' + line).join('\\n') : 'ㆍ\\nㆍ\\nㆍ'}
+    </td>
+    <td class="cell" style="min-height:120px;vertical-align:top;text-align:left;padding:10px;white-space:pre-wrap;line-height:1.6;">
+${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: string) => 'ㆍ ' + line).join('\\n') : 'ㆍ\\nㆍ\\nㆍ'}
+    </td>
+  </tr>
+</table>
+<script>window.onload = function() { setTimeout(function() { window.print(); }, 200); };</script>
+</body>
+</html>`
 }
 
 // 데스크탑용 가로 단계

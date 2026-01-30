@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+type ReportType = 'weekly' | 'meeting' | 'education'
+
 interface Department {
   id: string
   name: string
@@ -11,6 +13,7 @@ interface Department {
 }
 
 interface ReportFormProps {
+  reportType: ReportType
   departments: Department[]
   defaultDate: string
   weekNumber: number
@@ -57,7 +60,14 @@ function generateTimeOptions() {
   return options
 }
 
+const REPORT_TYPE_LABELS: Record<ReportType, string> = {
+  weekly: '주차 보고서',
+  meeting: '모임 보고서',
+  education: '교육 보고서',
+}
+
 export default function ReportForm({
+  reportType,
   departments,
   defaultDate,
   weekNumber,
@@ -69,13 +79,22 @@ export default function ReportForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // 공통 필드
   const [form, setForm] = useState({
     department_id: departments[0]?.id || '',
     report_date: defaultDate,
+    // 주차 보고서 전용
     sermon_title: '',
     sermon_scripture: '',
+    // 공통 (논의/기타)
     discussion_notes: '',
     other_notes: '',
+    // 모임/교육 보고서 전용
+    meeting_title: '',
+    meeting_location: '',
+    attendees: '',
+    main_content: '',
+    application_notes: '',
   })
 
   const [programs, setPrograms] = useState<Program[]>([
@@ -96,10 +115,10 @@ export default function ReportForm({
     meeting: 0,
   })
 
-  const selectedDept = departments.find(d => d.id === form.department_id)
-
-  // 부서 변경 시 출결 데이터 로드
+  // 부서 변경 시 출결 데이터 로드 (주차 보고서만)
   useEffect(() => {
+    if (reportType !== 'weekly') return
+
     const loadData = async () => {
       if (!form.department_id) return
 
@@ -136,7 +155,7 @@ export default function ReportForm({
     }
 
     loadData()
-  }, [form.department_id, form.report_date, supabase])
+  }, [form.department_id, form.report_date, supabase, reportType])
 
   // 프로그램 관리
   const addProgram = () => {
@@ -151,7 +170,7 @@ export default function ReportForm({
     setPrograms(programs.map((p, i) => (i === index ? { ...p, [field]: value } : p)))
   }
 
-  // 셀 출결 관리
+  // 셀 출결 관리 (주차 보고서만)
   const addCellAttendance = () => {
     setCellAttendance([...cellAttendance, { cell_name: '', registered: 0, worship: 0, meeting: 0, note: '' }])
   }
@@ -164,7 +183,7 @@ export default function ReportForm({
     setCellAttendance(cellAttendance.map((c, i) => (i === index ? { ...c, [field]: value } : c)))
   }
 
-  // 새신자 관리
+  // 새신자 관리 (주차 보고서만)
   const addNewcomer = () => {
     setNewcomers([...newcomers, { name: '', phone: '', birth_date: '', introducer: '', address: '', affiliation: '' }])
   }
@@ -184,28 +203,41 @@ export default function ReportForm({
     setError(null)
 
     try {
-      // 셀별 합계 계산
-      const totalRegistered = cellAttendance.reduce((sum, c) => sum + c.registered, 0) || attendanceSummary.total
-      const totalWorship = cellAttendance.reduce((sum, c) => sum + c.worship, 0) || attendanceSummary.worship
-      const totalMeeting = cellAttendance.reduce((sum, c) => sum + c.meeting, 0) || attendanceSummary.meeting
+      // 셀별 합계 계산 (주차 보고서)
+      const totalRegistered = reportType === 'weekly'
+        ? (cellAttendance.reduce((sum, c) => sum + c.registered, 0) || attendanceSummary.total)
+        : 0
+      const totalWorship = reportType === 'weekly'
+        ? (cellAttendance.reduce((sum, c) => sum + c.worship, 0) || attendanceSummary.worship)
+        : 0
+      const totalMeeting = reportType === 'weekly'
+        ? (cellAttendance.reduce((sum, c) => sum + c.meeting, 0) || attendanceSummary.meeting)
+        : 0
 
       const { data: report, error: reportError } = await supabase
         .from('weekly_reports')
         .insert({
+          report_type: reportType,
           department_id: form.department_id,
           report_date: form.report_date,
-          week_number: weekNumber,
+          week_number: reportType === 'weekly' ? weekNumber : null,
           year: new Date(form.report_date).getFullYear(),
           author_id: authorId,
           total_registered: totalRegistered,
           worship_attendance: totalWorship,
           meeting_attendance: totalMeeting,
+          // 모임/교육 전용 필드
+          meeting_title: reportType !== 'weekly' ? form.meeting_title : null,
+          meeting_location: reportType !== 'weekly' ? form.meeting_location : null,
+          attendees: reportType !== 'weekly' ? form.attendees : null,
+          main_content: reportType !== 'weekly' ? form.main_content : null,
+          application_notes: reportType === 'education' ? form.application_notes : null,
           notes: JSON.stringify({
             sermon_title: form.sermon_title,
             sermon_scripture: form.sermon_scripture,
             discussion_notes: form.discussion_notes,
             other_notes: form.other_notes,
-            cell_attendance: cellAttendance,
+            cell_attendance: reportType === 'weekly' ? cellAttendance : [],
           }),
           status: isDraft ? 'draft' : 'submitted',
           submitted_at: isDraft ? null : new Date().toISOString(),
@@ -232,8 +264,8 @@ export default function ReportForm({
         if (programError) throw programError
       }
 
-      // 새신자 저장
-      if (newcomers.length > 0) {
+      // 새신자 저장 (주차 보고서만)
+      if (reportType === 'weekly' && newcomers.length > 0) {
         const { error: newcomerError } = await supabase
           .from('newcomers')
           .insert(
@@ -252,7 +284,7 @@ export default function ReportForm({
         if (newcomerError) throw newcomerError
       }
 
-      router.push('/reports')
+      router.push(`/reports?type=${reportType}`)
       router.refresh()
     } catch (err) {
       setError('저장 중 오류가 발생했습니다.')
@@ -266,26 +298,48 @@ export default function ReportForm({
     <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-4 md:space-y-6">
       {/* 기본 정보 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900 text-base md:text-lg border-b pb-2">기본 정보</h2>
+        <h2 className="font-semibold text-gray-900 text-base md:text-lg border-b pb-2">
+          {reportType === 'weekly' ? '기본 정보' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}
+        </h2>
+
+        {/* 모임/교육 제목 */}
+        {reportType !== 'weekly' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {reportType === 'meeting' ? '모임명' : '교육명'}
+            </label>
+            <input
+              type="text"
+              value={form.meeting_title}
+              onChange={(e) => setForm({ ...form, meeting_title: e.target.value })}
+              placeholder={reportType === 'meeting' ? '예: 청년1 셀장모임' : '예: 리더 교육'}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
-            <select
-              value={form.department_id}
-              onChange={(e) => setForm({ ...form, department_id: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
-            >
-              {departments.map((dept) => (
-                <option key={dept.id} value={dept.id}>
-                  {dept.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {reportType === 'weekly' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
+              <select
+                value={form.department_id}
+                onChange={(e) => setForm({ ...form, department_id: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+              >
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">날짜</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {reportType === 'weekly' ? '날짜' : '일시'}
+            </label>
             <input
               type="date"
               value={form.report_date}
@@ -293,6 +347,45 @@ export default function ReportForm({
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             />
           </div>
+
+          {reportType !== 'weekly' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">장소</label>
+                <input
+                  type="text"
+                  value={form.meeting_location}
+                  onChange={(e) => setForm({ ...form, meeting_location: e.target.value })}
+                  placeholder="예: 사무실"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">참석자</label>
+                <input
+                  type="text"
+                  value={form.attendees}
+                  onChange={(e) => setForm({ ...form, attendees: e.target.value })}
+                  placeholder="예: 전홍균, 강현숙, 신요한, 김유창 (총 4명)"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
+                <select
+                  value={form.department_id}
+                  onChange={(e) => setForm({ ...form, department_id: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                >
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -382,208 +475,124 @@ export default function ReportForm({
           </table>
         </div>
 
-        {/* 말씀 정보 */}
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">말씀 제목</label>
-            <input
-              type="text"
-              value={form.sermon_title}
-              onChange={(e) => setForm({ ...form, sermon_title: e.target.value })}
-              placeholder="예: 그리스도인과 돈"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-            />
+        {/* 말씀 정보 (주차 보고서만) */}
+        {reportType === 'weekly' && (
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">말씀 제목</label>
+              <input
+                type="text"
+                value={form.sermon_title}
+                onChange={(e) => setForm({ ...form, sermon_title: e.target.value })}
+                placeholder="예: 그리스도인과 돈"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">말씀 본문</label>
+              <input
+                type="text"
+                value={form.sermon_scripture}
+                onChange={(e) => setForm({ ...form, sermon_scripture: e.target.value })}
+                placeholder="예: 누가복음 16:1~13"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">말씀 본문</label>
-            <input
-              type="text"
-              value={form.sermon_scripture}
-              onChange={(e) => setForm({ ...form, sermon_scripture: e.target.value })}
-              placeholder="예: 누가복음 16:1~13"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-            />
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* 출결상황 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
-        <div className="flex items-center justify-between mb-3 md:mb-4">
-          <h2 className="font-semibold text-gray-900 text-base md:text-lg">출결상황</h2>
-          <button type="button" onClick={addCellAttendance} className="text-xs md:text-sm text-blue-600 hover:text-blue-700 font-medium">
-            + 셀 추가
-          </button>
+      {/* 주요내용 (모임 보고서) / 교육명 (교육 보고서) */}
+      {reportType !== 'weekly' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+          <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">
+            {reportType === 'meeting' ? '주요내용' : '교육내용'}
+          </label>
+          <textarea
+            value={form.main_content}
+            onChange={(e) => setForm({ ...form, main_content: e.target.value })}
+            rows={4}
+            placeholder={reportType === 'meeting' ? '• 주요 내용을 입력하세요' : '• 교육 내용을 입력하세요'}
+            className="w-full px-3 md:px-4 py-2.5 md:py-3 border border-gray-200 rounded-xl text-sm resize-none"
+          />
         </div>
+      )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-3 py-2 text-left font-medium text-gray-600">구분(셀)</th>
-                <th className="px-3 py-2 text-center font-medium text-gray-600">재적</th>
-                <th className="px-3 py-2 text-center font-medium text-gray-600" colSpan={2}>출석</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-600">참고사항</th>
-                <th className="px-3 py-2 w-10"></th>
-              </tr>
-              <tr className="bg-gray-50">
-                <th></th>
-                <th></th>
-                <th className="px-3 py-1 text-center text-xs text-gray-500">예배</th>
-                <th className="px-3 py-1 text-center text-xs text-gray-500">CU</th>
-                <th></th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {cellAttendance.map((cell, index) => (
-                <tr key={index}>
-                  <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      value={cell.cell_name}
-                      onChange={(e) => updateCellAttendance(index, 'cell_name', e.target.value)}
-                      placeholder="셀 이름"
-                      className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      value={cell.registered || ''}
-                      onChange={(e) => updateCellAttendance(index, 'registered', parseInt(e.target.value) || 0)}
-                      className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      value={cell.worship || ''}
-                      onChange={(e) => updateCellAttendance(index, 'worship', parseInt(e.target.value) || 0)}
-                      className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      value={cell.meeting || ''}
-                      onChange={(e) => updateCellAttendance(index, 'meeting', parseInt(e.target.value) || 0)}
-                      className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      value={cell.note}
-                      onChange={(e) => updateCellAttendance(index, 'note', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <button type="button" onClick={() => removeCellAttendance(index)} className="text-gray-400 hover:text-red-500">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {/* 합계 */}
-              <tr className="bg-blue-50 font-medium">
-                <td className="px-3 py-2 text-gray-700">합계</td>
-                <td className="px-3 py-2 text-center text-gray-900">
-                  {cellAttendance.reduce((sum, c) => sum + c.registered, 0) || attendanceSummary.total}
-                </td>
-                <td className="px-3 py-2 text-center text-blue-700">
-                  {cellAttendance.reduce((sum, c) => sum + c.worship, 0) || attendanceSummary.worship}
-                </td>
-                <td className="px-3 py-2 text-center text-green-700">
-                  {cellAttendance.reduce((sum, c) => sum + c.meeting, 0) || attendanceSummary.meeting}
-                </td>
-                <td colSpan={2}></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* 출결상황 (주차 보고서만) */}
+      {reportType === 'weekly' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="font-semibold text-gray-900 text-base md:text-lg">출결상황</h2>
+            <button type="button" onClick={addCellAttendance} className="text-xs md:text-sm text-blue-600 hover:text-blue-700 font-medium">
+              + 셀 추가
+            </button>
+          </div>
 
-      {/* 새신자 명단 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
-        <div className="flex items-center justify-between mb-3 md:mb-4">
-          <h2 className="font-semibold text-gray-900 text-base md:text-lg">새신자 명단</h2>
-          <button type="button" onClick={addNewcomer} className="text-xs md:text-sm text-blue-600 hover:text-blue-700 font-medium">
-            + 새신자 추가
-          </button>
-        </div>
-
-        {newcomers.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="px-2 py-2 text-left font-medium text-gray-600">이름</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-600">연락처</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-600">생년월일</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-600">인도자</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-600">주소</th>
-                  <th className="px-2 py-2 text-left font-medium text-gray-600">소속(직업)</th>
-                  <th className="px-2 py-2 w-10"></th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">구분(셀)</th>
+                  <th className="px-3 py-2 text-center font-medium text-gray-600">재적</th>
+                  <th className="px-3 py-2 text-center font-medium text-gray-600" colSpan={2}>출석</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">참고사항</th>
+                  <th className="px-3 py-2 w-10"></th>
+                </tr>
+                <tr className="bg-gray-50">
+                  <th></th>
+                  <th></th>
+                  <th className="px-3 py-1 text-center text-xs text-gray-500">예배</th>
+                  <th className="px-3 py-1 text-center text-xs text-gray-500">CU</th>
+                  <th></th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {newcomers.map((newcomer, index) => (
+                {cellAttendance.map((cell, index) => (
                   <tr key={index}>
-                    <td className="px-2 py-2">
+                    <td className="px-3 py-2">
                       <input
                         type="text"
-                        value={newcomer.name}
-                        onChange={(e) => updateNewcomer(index, 'name', e.target.value)}
-                        className="w-20 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        type="tel"
-                        value={newcomer.phone}
-                        onChange={(e) => updateNewcomer(index, 'phone', e.target.value)}
-                        placeholder="010-0000-0000"
-                        className="w-28 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        type="date"
-                        value={newcomer.birth_date}
-                        onChange={(e) => updateNewcomer(index, 'birth_date', e.target.value)}
-                        className="w-32 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        type="text"
-                        value={newcomer.introducer}
-                        onChange={(e) => updateNewcomer(index, 'introducer', e.target.value)}
-                        className="w-20 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        type="text"
-                        value={newcomer.address}
-                        onChange={(e) => updateNewcomer(index, 'address', e.target.value)}
+                        value={cell.cell_name}
+                        onChange={(e) => updateCellAttendance(index, 'cell_name', e.target.value)}
+                        placeholder="셀 이름"
                         className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
                       />
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-3 py-2">
                       <input
-                        type="text"
-                        value={newcomer.affiliation}
-                        onChange={(e) => updateNewcomer(index, 'affiliation', e.target.value)}
-                        className="w-24 px-2 py-1.5 border border-gray-200 rounded text-sm"
+                        type="number"
+                        value={cell.registered || ''}
+                        onChange={(e) => updateCellAttendance(index, 'registered', parseInt(e.target.value) || 0)}
+                        className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
                       />
                     </td>
-                    <td className="px-2 py-2">
-                      <button type="button" onClick={() => removeNewcomer(index)} className="text-gray-400 hover:text-red-500">
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        value={cell.worship || ''}
+                        onChange={(e) => updateCellAttendance(index, 'worship', parseInt(e.target.value) || 0)}
+                        className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        value={cell.meeting || ''}
+                        onChange={(e) => updateCellAttendance(index, 'meeting', parseInt(e.target.value) || 0)}
+                        className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={cell.note}
+                        onChange={(e) => updateCellAttendance(index, 'note', e.target.value)}
+                        className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <button type="button" onClick={() => removeCellAttendance(index)} className="text-gray-400 hover:text-red-500">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -591,24 +600,135 @@ export default function ReportForm({
                     </td>
                   </tr>
                 ))}
+                {/* 합계 */}
+                <tr className="bg-blue-50 font-medium">
+                  <td className="px-3 py-2 text-gray-700">합계</td>
+                  <td className="px-3 py-2 text-center text-gray-900">
+                    {cellAttendance.reduce((sum, c) => sum + c.registered, 0) || attendanceSummary.total}
+                  </td>
+                  <td className="px-3 py-2 text-center text-blue-700">
+                    {cellAttendance.reduce((sum, c) => sum + c.worship, 0) || attendanceSummary.worship}
+                  </td>
+                  <td className="px-3 py-2 text-center text-green-700">
+                    {cellAttendance.reduce((sum, c) => sum + c.meeting, 0) || attendanceSummary.meeting}
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
               </tbody>
             </table>
           </div>
-        ) : (
-          <p className="text-gray-500 text-sm text-center py-4">새신자가 없습니다</p>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* 논의사항 / 기타사항 */}
+      {/* 새신자 명단 (주차 보고서만) */}
+      {reportType === 'weekly' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="font-semibold text-gray-900 text-base md:text-lg">새신자 명단</h2>
+            <button type="button" onClick={addNewcomer} className="text-xs md:text-sm text-blue-600 hover:text-blue-700 font-medium">
+              + 새신자 추가
+            </button>
+          </div>
+
+          {newcomers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-2 py-2 text-left font-medium text-gray-600">이름</th>
+                    <th className="px-2 py-2 text-left font-medium text-gray-600">연락처</th>
+                    <th className="px-2 py-2 text-left font-medium text-gray-600">생년월일</th>
+                    <th className="px-2 py-2 text-left font-medium text-gray-600">인도자</th>
+                    <th className="px-2 py-2 text-left font-medium text-gray-600">주소</th>
+                    <th className="px-2 py-2 text-left font-medium text-gray-600">소속(직업)</th>
+                    <th className="px-2 py-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {newcomers.map((newcomer, index) => (
+                    <tr key={index}>
+                      <td className="px-2 py-2">
+                        <input
+                          type="text"
+                          value={newcomer.name}
+                          onChange={(e) => updateNewcomer(index, 'name', e.target.value)}
+                          className="w-20 px-2 py-1.5 border border-gray-200 rounded text-sm"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          type="tel"
+                          value={newcomer.phone}
+                          onChange={(e) => updateNewcomer(index, 'phone', e.target.value)}
+                          placeholder="010-0000-0000"
+                          className="w-28 px-2 py-1.5 border border-gray-200 rounded text-sm"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          type="date"
+                          value={newcomer.birth_date}
+                          onChange={(e) => updateNewcomer(index, 'birth_date', e.target.value)}
+                          className="w-32 px-2 py-1.5 border border-gray-200 rounded text-sm"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          type="text"
+                          value={newcomer.introducer}
+                          onChange={(e) => updateNewcomer(index, 'introducer', e.target.value)}
+                          className="w-20 px-2 py-1.5 border border-gray-200 rounded text-sm"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          type="text"
+                          value={newcomer.address}
+                          onChange={(e) => updateNewcomer(index, 'address', e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          type="text"
+                          value={newcomer.affiliation}
+                          onChange={(e) => updateNewcomer(index, 'affiliation', e.target.value)}
+                          className="w-24 px-2 py-1.5 border border-gray-200 rounded text-sm"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <button type="button" onClick={() => removeNewcomer(index)} className="text-gray-400 hover:text-red-500">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm text-center py-4">새신자가 없습니다</p>
+          )}
+        </div>
+      )}
+
+      {/* 논의사항 / 기타사항 또는 적용점 / 기타사항 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div>
-            <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">논의(특이)사항</label>
+            <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">
+              {reportType === 'education' ? '적용점' : '논의(특이)사항'}
+            </label>
             <textarea
-              value={form.discussion_notes}
-              onChange={(e) => setForm({ ...form, discussion_notes: e.target.value })}
+              value={reportType === 'education' ? form.application_notes : form.discussion_notes}
+              onChange={(e) => setForm({
+                ...form,
+                [reportType === 'education' ? 'application_notes' : 'discussion_notes']: e.target.value
+              })}
               rows={4}
-              placeholder="• 논의사항을 입력하세요"
+              placeholder={reportType === 'education' ? '• 적용점을 입력하세요' : '• 논의사항을 입력하세요'}
               className="w-full px-3 md:px-4 py-2.5 md:py-3 border border-gray-200 rounded-xl text-sm resize-none"
             />
           </div>

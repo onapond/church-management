@@ -17,7 +17,7 @@ interface SidebarProps {
 const navigation = [
   { name: '대시보드', href: '/dashboard', icon: HomeIcon },
   { name: '출결 관리', href: '/attendance', icon: CheckCircleIcon },
-  { name: '주차 보고서', href: '/reports', icon: DocumentIcon },
+  { name: '보고서', href: '/reports', icon: DocumentIcon },
   { name: '교인 명단', href: '/members', icon: UsersIcon },
   { name: '안내', href: '/guide', icon: InfoIcon },
 ]

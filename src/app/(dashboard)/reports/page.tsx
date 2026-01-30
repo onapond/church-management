@@ -1,53 +1,83 @@
-import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
+'use client'
 
-interface UserData {
-  role: string
-  department_id: string | null
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
+
+type ReportType = 'weekly' | 'meeting' | 'education'
+
+interface Report {
+  id: string
+  report_date: string
+  status: string
+  report_type: ReportType
+  worship_attendance: number
+  total_registered: number
+  meeting_title: string | null
+  departments: { name: string } | null
+  users: { name: string } | null
 }
 
-export default async function ReportsPage() {
-  const supabase = await createClient()
+const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string; color: string }> = {
+  weekly: { label: '주차 보고서', icon: '📋', color: 'blue' },
+  meeting: { label: '모임 보고서', icon: '👥', color: 'green' },
+  education: { label: '교육 보고서', icon: '📚', color: 'purple' },
+}
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: userData } = await supabase
-    .from('users')
-    .select('role, department_id')
-    .eq('id', user!.id)
-    .single()
+export default function ReportsPage() {
+  const supabase = createClient()
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
-  const userInfo = userData as UserData | null
-  const isAdmin = userInfo?.role === 'super_admin' || userInfo?.role === 'president' || userInfo?.role === 'manager' || userInfo?.role === 'pastor'
-  const canWriteReport = isAdmin || userInfo?.role === 'leader'
+  const [reports, setReports] = useState<Report[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [canWriteReport, setCanWriteReport] = useState(false)
 
-  // 보고서 목록
-  let reports: Array<{
-    id: string
-    report_date: string
-    status: string
-    worship_attendance: number
-    total_registered: number
-    departments: { name: string } | null
-    users: { name: string } | null
-  }> = []
+  const selectedType = (searchParams.get('type') as ReportType) || 'weekly'
 
-  if (isAdmin) {
-    // 관리자는 모든 보고서 조회
-    const { data } = await supabase
+  useEffect(() => {
+    loadData()
+  }, [selectedType])
+
+  const loadData = async () => {
+    setLoading(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role, department_id')
+      .eq('id', user.id)
+      .single()
+
+    const adminRoles = ['super_admin', 'president', 'manager', 'pastor']
+    const admin = adminRoles.includes(userData?.role || '')
+    const canWrite = admin || userData?.role === 'leader'
+
+    setIsAdmin(admin)
+    setCanWriteReport(canWrite)
+
+    let query = supabase
       .from('weekly_reports')
       .select('*, departments(name), users!weekly_reports_author_id_fkey(name)')
+      .eq('report_type', selectedType)
       .order('report_date', { ascending: false })
       .limit(50)
-    reports = (data || []) as typeof reports
-  } else if (userInfo?.department_id) {
-    // 일반 사용자는 자기 부서 보고서만
-    const { data } = await supabase
-      .from('weekly_reports')
-      .select('*, departments(name), users!weekly_reports_author_id_fkey(name)')
-      .eq('department_id', userInfo.department_id)
-      .order('report_date', { ascending: false })
-      .limit(50)
-    reports = (data || []) as typeof reports
+
+    if (!admin && userData?.department_id) {
+      query = query.eq('department_id', userData.department_id)
+    }
+
+    const { data } = await query
+    setReports((data || []) as Report[])
+    setLoading(false)
+  }
+
+  const handleTypeChange = (type: ReportType) => {
+    router.push(`/reports?type=${type}`)
   }
 
   return (
@@ -55,12 +85,12 @@ export default async function ReportsPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg lg:text-xl font-bold text-gray-900">주차 보고서</h1>
-          <p className="text-sm text-gray-500 mt-0.5">부서별 주간 보고서 관리</p>
+          <h1 className="text-lg lg:text-xl font-bold text-gray-900">보고서</h1>
+          <p className="text-sm text-gray-500 mt-0.5">주차/모임/교육 보고서 관리</p>
         </div>
         {canWriteReport && (
           <Link
-            href="/reports/new"
+            href={`/reports/new?type=${selectedType}`}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm shrink-0"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,9 +101,35 @@ export default async function ReportsPage() {
         )}
       </div>
 
+      {/* 유형 탭 */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {(Object.keys(REPORT_TYPE_CONFIG) as ReportType[]).map((type) => {
+          const config = REPORT_TYPE_CONFIG[type]
+          const isActive = selectedType === type
+          return (
+            <button
+              key={type}
+              onClick={() => handleTypeChange(type)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-colors ${
+                isActive
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <span>{config.icon}</span>
+              <span>{config.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
       {/* 보고서 목록 */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        {reports.length > 0 ? (
+        {loading ? (
+          <div className="py-12 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : reports.length > 0 ? (
           <div className="divide-y divide-gray-100">
             {reports.map((report) => (
               <Link
@@ -82,17 +138,20 @@ export default async function ReportsPage() {
                 className="flex items-center gap-3 p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
               >
                 {/* 아이콘 */}
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  selectedType === 'weekly' ? 'bg-blue-100' :
+                  selectedType === 'meeting' ? 'bg-green-100' : 'bg-purple-100'
+                }`}>
+                  <span className="text-lg">{REPORT_TYPE_CONFIG[selectedType].icon}</span>
                 </div>
 
                 {/* 정보 */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-gray-900 text-sm truncate">
-                      {report.departments?.name}
+                      {selectedType === 'weekly'
+                        ? report.departments?.name
+                        : report.meeting_title || report.departments?.name}
                     </p>
                     <StatusBadge status={report.status} />
                   </div>
@@ -105,28 +164,34 @@ export default async function ReportsPage() {
                     </span>
                     <span>·</span>
                     <span className="truncate">{report.users?.name}</span>
+                    {selectedType !== 'weekly' && report.departments?.name && (
+                      <>
+                        <span>·</span>
+                        <span className="truncate">{report.departments?.name}</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {/* 출석 정보 */}
-                <div className="text-right shrink-0">
-                  <p className="text-lg font-bold text-gray-900">
-                    {report.worship_attendance}
-                    <span className="text-sm font-normal text-gray-400">/{report.total_registered}</span>
-                  </p>
-                  <p className="text-xs text-gray-400">출석</p>
-                </div>
+                {/* 출석 정보 (주차보고서만) */}
+                {selectedType === 'weekly' && (
+                  <div className="text-right shrink-0">
+                    <p className="text-lg font-bold text-gray-900">
+                      {report.worship_attendance}
+                      <span className="text-sm font-normal text-gray-400">/{report.total_registered}</span>
+                    </p>
+                    <p className="text-xs text-gray-400">출석</p>
+                  </div>
+                )}
               </Link>
             ))}
           </div>
         ) : (
           <div className="py-12 px-4 text-center">
-            <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p className="text-gray-500 text-sm">아직 작성된 보고서가 없습니다.</p>
+            <span className="text-4xl mb-3 block">{REPORT_TYPE_CONFIG[selectedType].icon}</span>
+            <p className="text-gray-500 text-sm">아직 작성된 {REPORT_TYPE_CONFIG[selectedType].label}가 없습니다.</p>
             {canWriteReport && (
-              <Link href="/reports/new" className="inline-block mt-3 text-blue-600 hover:text-blue-700 font-medium text-sm">
+              <Link href={`/reports/new?type=${selectedType}`} className="inline-block mt-3 text-blue-600 hover:text-blue-700 font-medium text-sm">
                 첫 보고서 작성하기
               </Link>
             )}
