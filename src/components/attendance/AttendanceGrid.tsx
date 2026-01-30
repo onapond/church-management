@@ -3,6 +3,7 @@
 import { useState, useTransition, useMemo, useCallback, memo } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { exportAttendanceToExcel } from '@/lib/excel'
 
 interface Department {
   id: string
@@ -336,6 +337,18 @@ export default function AttendanceGrid({
     }
   }, [members, records, attendanceMap, selectedDate, supabase])
 
+  // 엑셀 내보내기
+  const handleExportExcel = useCallback(() => {
+    const selectedDeptObj = departments.find(d => d.id === selectedDept)
+    const exportData = members.map(member => ({
+      name: member.name,
+      date: selectedDate,
+      worship: attendanceMap.get(`${member.id}-worship`) ? 'O' : 'X',
+      meeting: attendanceMap.get(`${member.id}-meeting`) ? 'O' : 'X',
+    }))
+    exportAttendanceToExcel(exportData, selectedDeptObj?.name || '전체', selectedDate)
+  }, [members, attendanceMap, selectedDate, selectedDept, departments])
+
   return (
     <div className="space-y-3 lg:space-y-4">
       {/* 상단 컨트롤 */}
@@ -362,7 +375,7 @@ export default function AttendanceGrid({
             />
           </div>
 
-          {/* 통계 */}
+          {/* 통계 및 내보내기 */}
           <div className="flex items-center justify-between lg:justify-end gap-3 lg:gap-4 text-sm border-t border-gray-100 pt-3 lg:border-0 lg:pt-0">
             <span className="text-gray-500">
               재적 <span className="font-semibold text-gray-900">{stats.total}</span>
@@ -373,6 +386,16 @@ export default function AttendanceGrid({
             <span className="text-green-600">
               모임 <span className="font-semibold">{stats.meeting}</span>
             </span>
+            <button
+              onClick={handleExportExcel}
+              className="p-1.5 lg:px-3 lg:py-1.5 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-1"
+              title="엑셀 내보내기"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="hidden lg:inline text-xs font-medium">엑셀</span>
+            </button>
           </div>
         </div>
       </div>

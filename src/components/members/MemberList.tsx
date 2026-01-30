@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, memo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { exportMembersToExcel } from '@/lib/excel'
 
 interface Department {
   id: string
@@ -158,6 +159,17 @@ export default function MemberList({ members, departments }: MemberListProps) {
     setSelectedDept(e.target.value)
   }, [])
 
+  const handleExportExcel = useCallback(() => {
+    const exportData = filteredMembers.map(member => ({
+      name: member.name,
+      phone: member.phone,
+      department: member.departments?.name || '',
+      isActive: member.is_active ? '활동' : '비활동',
+      joinedAt: new Date(member.joined_at).toLocaleDateString('ko-KR'),
+    }))
+    exportMembersToExcel(exportData)
+  }, [filteredMembers])
+
   return (
     <div className="space-y-3 lg:space-y-4">
       {/* 필터 영역 */}
@@ -211,6 +223,18 @@ export default function MemberList({ members, departments }: MemberListProps) {
                 </svg>
               </button>
             </div>
+
+            {/* 엑셀 내보내기 */}
+            <button
+              onClick={handleExportExcel}
+              className="p-2 lg:px-3 lg:py-2 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition-colors flex items-center gap-1.5 shrink-0"
+              title="엑셀 내보내기"
+            >
+              <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="hidden lg:inline text-sm font-medium">엑셀</span>
+            </button>
           </div>
         </div>
       </div>
