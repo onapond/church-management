@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { WeeklyReport, ReportProgram, Newcomer, ApprovalHistory, User } from '@/types/database'
@@ -51,16 +51,21 @@ export default function ReportDetail({
     return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
   }, [])
 
-  const handlePrint = useCallback(() => {
+  const [showPrintOptions, setShowPrintOptions] = useState(false)
+  const [printerIP, setPrinterIP] = useState('')
+
+  // 저장된 프린터 IP 불러오기
+  useEffect(() => {
+    const savedIP = localStorage.getItem('printerIP')
+    if (savedIP) {
+      setPrinterIP(savedIP)
+    }
+  }, [])
+
+  const handlePrint = useCallback((directIP?: string) => {
     const parsedNotes = report.notes ? JSON.parse(report.notes) : {}
     const cellAttendance = parsedNotes.cell_attendance || []
     const reportDate = new Date(report.report_date)
-
-    const printWindow = window.open('', '_blank', 'width=900,height=700')
-    if (!printWindow) {
-      alert('팝업 차단을 해제해주세요.')
-      return
-    }
 
     // 진행순서 행 생성
     const programRows = programs.length > 0
@@ -254,9 +259,38 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
 </body>
 </html>`
 
-    printWindow.document.write(html)
-    printWindow.document.close()
-  }, [report, programs, newcomers, getDeptDisplayName, formatDate])
+    // 모바일/데스크탑 호환 인쇄 방식
+    // iframe을 사용하여 팝업 차단 우회
+    const printFrame = document.createElement('iframe')
+    printFrame.style.position = 'fixed'
+    printFrame.style.right = '0'
+    printFrame.style.bottom = '0'
+    printFrame.style.width = '0'
+    printFrame.style.height = '0'
+    printFrame.style.border = 'none'
+    document.body.appendChild(printFrame)
+
+    const frameDoc = printFrame.contentWindow?.document
+    if (frameDoc) {
+      frameDoc.open()
+      frameDoc.write(html)
+      frameDoc.close()
+
+      printFrame.onload = () => {
+        setTimeout(() => {
+          printFrame.contentWindow?.focus()
+          printFrame.contentWindow?.print()
+
+          // 인쇄 후 iframe 제거
+          setTimeout(() => {
+            document.body.removeChild(printFrame)
+          }, 1000)
+        }, 250)
+      }
+    }
+
+    setShowPrintOptions(false)
+  }, [report, programs, newcomers, getDeptDisplayName])
 
   const handleApproval = async () => {
     if (!canApprove || !currentUser) return
@@ -345,8 +379,8 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
 
           <div className="flex items-center gap-1">
             <button
-              onClick={handlePrint}
-              className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
+              onClick={() => setShowPrintOptions(true)}
+              className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
               title="인쇄"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -677,6 +711,96 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
               >
                 {loading ? '처리 중...' : approvalAction === 'approve' ? '승인' : '반려'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 인쇄 옵션 모달 */}
+      {showPrintOptions && (
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50">
+          <div className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:max-w-md p-5 lg:p-6 animate-slide-up lg:animate-none">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">인쇄 옵션</h3>
+              <button
+                onClick={() => setShowPrintOptions(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* 기본 인쇄 */}
+              <button
+                onClick={() => handlePrint()}
+                className="w-full flex items-center gap-4 p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors text-left"
+              >
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">기본 인쇄</p>
+                  <p className="text-sm text-gray-500">시스템 프린터로 인쇄</p>
+                </div>
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              {/* 네트워크 프린터 */}
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">네트워크 프린터</p>
+                    <p className="text-xs text-gray-500">IP 주소로 무선 프린터 연결</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="192.168.0.100"
+                    value={printerIP}
+                    onChange={(e) => setPrinterIP(e.target.value)}
+                    className="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      if (printerIP) {
+                        // 프린터 IP 저장
+                        localStorage.setItem('printerIP', printerIP)
+                        handlePrint(printerIP)
+                      }
+                    }}
+                    disabled={!printerIP}
+                    className="px-4 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                  >
+                    인쇄
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  * 프린터 IP는 기기 설정에서 확인하세요
+                </p>
+              </div>
+
+              {/* 도움말 */}
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  <strong>모바일 무선 인쇄 방법:</strong><br/>
+                  1. 기기 설정 → 프린터 추가<br/>
+                  2. 프린터 IP 주소 입력 (예: 192.168.0.100)<br/>
+                  3. &apos;기본 인쇄&apos; 선택 후 프린터 지정
+                </p>
+              </div>
             </div>
           </div>
         </div>
