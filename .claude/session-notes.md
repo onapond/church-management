@@ -17,9 +17,9 @@
 | leader | 리더 |
 
 ## 사용자 역할
-- `super_admin`: 최고 관리자
+- `super_admin`: 최고 관리자 (목사)
 - `president`: 회장 (결재 권한)
-- `accountant`: 회계
+- `accountant`: 부장/회계
 - `team_leader`: 팀장 (보고서 작성 권한)
 - `member`: 일반 회원
 
@@ -40,15 +40,65 @@
 
 ### 3. 교인 명단 (/members)
 - 부서별 필터링 (URL params로 상태 유지)
+- **생일 월별 필터** (1월~12월 버튼)
 - 사진 업로드 (member-photos 버킷)
 - 그리드/리스트 뷰 전환
-- Excel 내보내기
+- **교인 삭제 기능** (팀장/관리자 권한)
+- Excel 내보내기 (생년월일 포함)
 
-### 4. 통계 (/stats)
+### 4. 알림 시스템 (/api/notifications)
+- 인앱 알림 (벨 아이콘 + 드롭다운)
+- Supabase 실시간 구독
+- 결재 워크플로우 연동
+- 읽음/모두 읽음 처리
+
+### 5. 통계 (/stats)
 - Recharts 기반 시각화
 - 부서별 출석률 추이
 
-## 최근 작업 내역 (2026-01-30)
+---
+
+## 작업 내역 (2026-01-31)
+
+### 완료된 작업
+
+#### 1. 알림 시스템 구현 (Phase 1: 인앱 알림)
+- **신규 파일**:
+  - `src/lib/notifications.ts` - 알림 생성 유틸리티
+  - `src/app/api/notifications/route.ts` - 알림 API (GET/PATCH)
+  - `src/components/notifications/NotificationBell.tsx` - 알림 벨 컴포넌트
+  - `src/components/notifications/NotificationItem.tsx` - 개별 알림 아이템
+- **수정 파일**:
+  - `src/components/layout/Header.tsx` - 모바일 헤더에 벨 추가
+  - `src/components/layout/Sidebar.tsx` - 데스크톱 사이드바에 벨 추가
+  - `src/components/reports/ReportDetail.tsx` - 결재 시 알림 생성
+  - `src/components/reports/ReportForm.tsx` - 제출 시 알림 생성
+
+**알림 트리거 매핑**:
+| 상태 변경 | 수신자 | 메시지 |
+|----------|--------|--------|
+| draft → submitted | 회장 (president) | 새 보고서 제출됨 |
+| submitted → coordinator_reviewed | 부장 (accountant) | 회장 협조 완료 |
+| coordinator_reviewed → manager_approved | 목사 (super_admin) | 부장 결재 완료 |
+| manager_approved → final_approved | 작성자 | 최종 승인 완료 |
+| any → rejected | 작성자 | 보고서 반려 |
+
+#### 2. 교인 명단 기능 추가
+- **생일 월별 필터**: 1월~12월 버튼, 해당 월 생일자 수 표시
+- **교인 삭제 기능**: 그리드/리스트에서 삭제 버튼, 확인 모달
+- **Excel 내보내기 개선**: 생년월일 컬럼 추가
+- **수정 파일**:
+  - `src/app/(dashboard)/members/page.tsx` - birth_date 조회 추가
+  - `src/components/members/MemberList.tsx` - 월별 필터, 삭제 UI
+  - `src/lib/excel.ts` - birthDate 컬럼 추가
+
+#### 3. 개발 문서 정리
+- `CLAUDE.md` - 개발 가이드 및 컨텍스트 관리 규칙
+- `.claude/bugs.md` - 버그 이력 문서
+
+---
+
+## 이전 작업 내역 (2026-01-30)
 
 ### 완료된 작업
 1. **리더 부서 생성** - 11명의 리더 멤버 추가
@@ -61,64 +111,26 @@
 4. **모임 보고서 표시 버그 수정** - 내용이 제대로 표시되지 않던 문제 해결
 5. **반응형 콘텐츠 영역** - 긴 텍스트 시 자동 확장
 
-### DB 마이그레이션 (실행 완료)
-```sql
--- report_type enum 추가
-ALTER TYPE approval_status RENAME TO _approval_status;
-CREATE TYPE report_type AS ENUM ('weekly', 'meeting', 'education');
-
--- weekly_reports 테이블에 새 컬럼 추가
-ALTER TABLE weekly_reports
-ADD COLUMN report_type report_type DEFAULT 'weekly',
-ADD COLUMN meeting_title TEXT,
-ADD COLUMN meeting_location TEXT,
-ADD COLUMN attendees TEXT,
-ADD COLUMN main_content TEXT,
-ADD COLUMN application_notes TEXT;
-```
+---
 
 ## 다음 작업 후보
 
 ### 우선순위 높음
-1. **알림 시스템 구현**
-   - 보고서 제출/결재 시 푸시 알림
-   - notifications 테이블 활용
-   - Web Push API 연동
-
-2. **보고서 통계 대시보드**
-   - 부서별/유형별 보고서 현황
-   - 결재 대기 건수 표시
-
+1. **웹 푸시 알림 (Phase 2)** - Service Worker, 백그라운드 알림
+2. **보고서 통계 대시보드** - 부서별/유형별 보고서 현황
 3. **새신자 → 정식 교인 전환 기능**
-   - newcomers 테이블의 converted_to_member_id 활용
-   - 전환 워크플로우 UI
 
 ### 우선순위 중간
-4. **보고서 인쇄 기능 개선**
-   - 모임/교육 보고서 인쇄 템플릿 최적화
-   - PDF 다운로드 옵션
+4. **보고서 인쇄 기능 개선** - 모임/교육 보고서 템플릿 최적화
+5. **출석 통계 상세화** - 월별/분기별 추이, 개인별 이력
+6. **모바일 UX 개선** - 터치 제스처, 오프라인 모드
 
-5. **출석 통계 상세화**
-   - 월별/분기별 추이
-   - 개인별 출석 이력
-
-6. **모바일 UX 개선**
-   - 터치 제스처 지원
-   - 오프라인 모드 (PWA)
-
-### 우선순위 낮음
-7. **일정 관리 기능**
-   - 부서별 일정 등록
-   - 캘린더 뷰
-
-8. **데이터 백업/복원**
-   - 정기 백업 설정
-   - 복원 기능
+---
 
 ## Supabase 관리
-- **대시보드**: https://supabase.com/dashboard/project/[project-id]
-- **SQL Editor**: 대시보드 → SQL Editor
+- **대시보드**: https://supabase.com/dashboard
 - **Storage**: member-photos 버킷 (사진 저장)
+- **Realtime**: notifications 테이블 구독 활성화 필요
 
 ## 참고 파일
 - `/2026 안내자료.pdf` - 보고서 양식 참고 자료
