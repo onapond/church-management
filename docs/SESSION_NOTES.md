@@ -41,6 +41,13 @@
 - [x] 관리자 사용자 업데이트 권한 추가
 - [x] 트리거용 INSERT 정책 추가
 
+### 6. 성능 최적화 (신규)
+- [x] `MemberList.tsx` - 검색 디바운싱 (300ms), React.memo 적용
+- [x] `AttendanceGrid.tsx` - useMemo/useCallback으로 재렌더링 최소화
+- [x] 출결 레코드 Map으로 O(1) 조회 성능 개선
+- [x] `next/image` 최적화 (Supabase 스토리지 도메인 설정)
+- [x] 컴포넌트 메모이제이션 (MemberRow, MemberGridCard, MemberListItem)
+
 ---
 
 ## 기억해야 할 사항
@@ -194,4 +201,4 @@ git add . && git commit -m "메시지" && git push
 
 ---
 
-*마지막 업데이트: 2026-01-30*
+*마지막 업데이트: 2026-01-30 (성능 최적화 배포 완료)*
