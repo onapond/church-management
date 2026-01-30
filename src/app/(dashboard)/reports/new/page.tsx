@@ -8,6 +8,7 @@ interface UserDepartment {
   departments: {
     id: string
     name: string
+    code: string
   }
 }
 
@@ -22,7 +23,7 @@ export default async function NewReportPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: userData } = await supabase
     .from('users')
-    .select('*, user_departments(department_id, is_team_leader, departments(id, name))')
+    .select('*, user_departments(department_id, is_team_leader, departments(id, name, code))')
     .eq('id', user!.id)
     .single()
 
@@ -35,9 +36,9 @@ export default async function NewReportPage() {
   }
 
   // 작성 가능한 부서
-  let departments: { id: string; name: string }[] = []
+  let departments: { id: string; name: string; code: string }[] = []
   if (isAdmin) {
-    const { data } = await supabase.from('departments').select('*')
+    const { data } = await supabase.from('departments').select('id, name, code')
     departments = data || []
   } else {
     departments = userInfo?.user_departments
@@ -58,10 +59,10 @@ export default async function NewReportPage() {
   )
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-4 lg:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">주차 보고서 작성</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-lg lg:text-xl font-bold text-gray-900">주차 보고서 작성</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
           {now.getFullYear()}년 {weekNumber}주차 보고서
         </p>
       </div>

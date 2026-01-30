@@ -4,10 +4,13 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-function LoginForm() {
+function AuthForm() {
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const router = useRouter()
@@ -36,62 +39,171 @@ function LoginForm() {
     router.refresh()
   }
 
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setSuccess(null)
+    setLoading(true)
+
+    if (!name.trim()) {
+      setError('이름을 입력해주세요.')
+      setLoading(false)
+      return
+    }
+
+    if (password.length < 6) {
+      setError('비밀번호는 6자 이상이어야 합니다.')
+      setLoading(false)
+      return
+    }
+
+    const supabase = createClient()
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: name.trim(),
+        },
+      },
+    })
+
+    if (error) {
+      if (error.message.includes('already registered')) {
+        setError('이미 가입된 이메일입니다.')
+      } else {
+        setError('회원가입에 실패했습니다. 다시 시도해주세요.')
+      }
+      setLoading(false)
+      return
+    }
+
+    setSuccess('회원가입이 완료되었습니다! 관리자 승인 후 이용 가능합니다.')
+    setLoading(false)
+
+    // 자동 로그인 후 pending 페이지로 이동
+    setTimeout(() => {
+      router.push('/pending')
+      router.refresh()
+    }, 1500)
+  }
+
   return (
-    <form onSubmit={handleLogin} className="space-y-6">
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-          이메일
-        </label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
-          placeholder="example@email.com"
-        />
+    <div>
+      {/* 탭 전환 */}
+      <div className="flex mb-6 bg-gray-100 rounded-xl p-1">
+        <button
+          type="button"
+          onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
+          className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            mode === 'login'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          로그인
+        </button>
+        <button
+          type="button"
+          onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
+          className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+            mode === 'signup'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          회원가입
+        </button>
       </div>
 
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-          비밀번호
-        </label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
-          placeholder="••••••••"
-        />
-      </div>
-
-      {error && (
-        <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">
-          {error}
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? (
-          <span className="inline-flex items-center">
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-            로그인 중...
-          </span>
-        ) : (
-          '로그인'
+      <form onSubmit={mode === 'login' ? handleLogin : handleSignup} className="space-y-4">
+        {/* 이름 (회원가입 시만) */}
+        {mode === 'signup' && (
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1.5">
+              이름
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required={mode === 'signup'}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+              placeholder="홍길동"
+            />
+          </div>
         )}
-      </button>
-    </form>
+
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+            이메일
+          </label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+            placeholder="example@email.com"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+            비밀번호
+          </label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+            placeholder={mode === 'signup' ? '6자 이상 입력' : '••••••••'}
+          />
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="bg-green-50 text-green-600 px-4 py-3 rounded-xl text-sm">
+            {success}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <span className="inline-flex items-center justify-center">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              {mode === 'login' ? '로그인 중...' : '가입 중...'}
+            </span>
+          ) : (
+            mode === 'login' ? '로그인' : '회원가입'
+          )}
+        </button>
+      </form>
+
+      {mode === 'signup' && (
+        <p className="text-xs text-gray-500 mt-4 text-center">
+          회원가입 후 관리자 승인이 필요합니다.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -110,17 +222,12 @@ export default function LoginPage() {
           <p className="text-slate-400 mt-1">교육위원회 통합 관리 시스템</p>
         </div>
 
-        {/* 로그인 폼 */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        {/* 로그인/회원가입 폼 */}
+        <div className="bg-white rounded-2xl shadow-xl p-6 lg:p-8">
           <Suspense fallback={<div className="h-64 flex items-center justify-center">로딩 중...</div>}>
-            <LoginForm />
+            <AuthForm />
           </Suspense>
         </div>
-
-        {/* 하단 안내 */}
-        <p className="text-center text-slate-500 text-sm mt-6">
-          계정이 없으신가요? 관리자에게 문의하세요.
-        </p>
       </div>
     </div>
   )

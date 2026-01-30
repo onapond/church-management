@@ -51,6 +51,22 @@ const ROLE_LABELS: Record<string, string> = {
   pastor: '확인',
 }
 
+// Supabase 쿼리 결과를 Report 타입으로 변환
+const transformReports = (data: unknown[]): Report[] => {
+  return data.map((item: unknown) => {
+    const row = item as Record<string, unknown>
+    return {
+      id: row.id as string,
+      title: row.title as string,
+      report_date: row.report_date as string,
+      status: row.status as string,
+      created_at: row.created_at as string,
+      departments: Array.isArray(row.departments) ? row.departments[0] : row.departments,
+      users: Array.isArray(row.users) ? row.users[0] : row.users,
+    } as Report
+  })
+}
+
 export default function ApprovalsPage() {
   const [reports, setReports] = useState<Report[]>([])
   const [completedReports, setCompletedReports] = useState<Report[]>([])
@@ -92,7 +108,7 @@ export default function ApprovalsPage() {
         .in('status', ['submitted', 'coordinator_reviewed', 'manager_approved'])
         .order('created_at', { ascending: false })
 
-      setReports((pendingReports || []) as Report[])
+      setReports(transformReports(pendingReports || []))
     } else {
       const pendingStatus = ROLE_STATUS_MAP[userData.role]
       if (pendingStatus) {
@@ -106,7 +122,7 @@ export default function ApprovalsPage() {
           .eq('status', pendingStatus)
           .order('created_at', { ascending: false })
 
-        setReports((pendingReports || []) as Report[])
+        setReports(transformReports(pendingReports || []))
       }
     }
 
@@ -133,7 +149,7 @@ export default function ApprovalsPage() {
     }
 
     const { data: completed } = await completedQuery
-    setCompletedReports((completed || []) as Report[])
+    setCompletedReports(transformReports(completed || []))
 
     setLoading(false)
   }

@@ -263,10 +263,10 @@ export default function ReportForm({
   }
 
   return (
-    <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
+    <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-4 md:space-y-6">
       {/* 기본 정보 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900 text-lg border-b pb-2">기본 정보</h2>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 space-y-4">
+        <h2 className="font-semibold text-gray-900 text-base md:text-lg border-b pb-2">기본 정보</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -297,10 +297,10 @@ export default function ReportForm({
       </div>
 
       {/* 진행순서 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900 text-lg">진행순서</h2>
-          <button type="button" onClick={addProgram} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+        <div className="flex items-center justify-between mb-3 md:mb-4">
+          <h2 className="font-semibold text-gray-900 text-base md:text-lg">진행순서</h2>
+          <button type="button" onClick={addProgram} className="text-xs md:text-sm text-blue-600 hover:text-blue-700 font-medium">
             + 항목 추가
           </button>
         </div>
@@ -408,10 +408,10 @@ export default function ReportForm({
       </div>
 
       {/* 출결상황 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900 text-lg">출결상황</h2>
-          <button type="button" onClick={addCellAttendance} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+        <div className="flex items-center justify-between mb-3 md:mb-4">
+          <h2 className="font-semibold text-gray-900 text-base md:text-lg">출결상황</h2>
+          <button type="button" onClick={addCellAttendance} className="text-xs md:text-sm text-blue-600 hover:text-blue-700 font-medium">
             + 셀 추가
           </button>
         </div>
@@ -508,10 +508,10 @@ export default function ReportForm({
       </div>
 
       {/* 새신자 명단 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-900 text-lg">새신자 명단</h2>
-          <button type="button" onClick={addNewcomer} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+        <div className="flex items-center justify-between mb-3 md:mb-4">
+          <h2 className="font-semibold text-gray-900 text-base md:text-lg">새신자 명단</h2>
+          <button type="button" onClick={addNewcomer} className="text-xs md:text-sm text-blue-600 hover:text-blue-700 font-medium">
             + 새신자 추가
           </button>
         </div>
@@ -600,43 +600,43 @@ export default function ReportForm({
       </div>
 
       {/* 논의사항 / 기타사항 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div>
-            <label className="block font-semibold text-gray-900 mb-2">논의(특이)사항</label>
+            <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">논의(특이)사항</label>
             <textarea
               value={form.discussion_notes}
               onChange={(e) => setForm({ ...form, discussion_notes: e.target.value })}
-              rows={5}
+              rows={4}
               placeholder="• 논의사항을 입력하세요"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm resize-none"
+              className="w-full px-3 md:px-4 py-2.5 md:py-3 border border-gray-200 rounded-xl text-sm resize-none"
             />
           </div>
           <div>
-            <label className="block font-semibold text-gray-900 mb-2">기타사항</label>
+            <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">기타사항</label>
             <textarea
               value={form.other_notes}
               onChange={(e) => setForm({ ...form, other_notes: e.target.value })}
-              rows={5}
+              rows={4}
               placeholder="• 기타사항을 입력하세요"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm resize-none"
+              className="w-full px-3 md:px-4 py-2.5 md:py-3 border border-gray-200 rounded-xl text-sm resize-none"
             />
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">
+        <div className="bg-red-50 text-red-600 px-3 md:px-4 py-2.5 md:py-3 rounded-xl text-sm">
           {error}
         </div>
       )}
 
       {/* 버튼 */}
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          className="sm:flex-1 px-4 py-2.5 md:py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors text-sm md:text-base order-3 sm:order-1"
         >
           취소
         </button>
@@ -644,14 +644,14 @@ export default function ReportForm({
           type="button"
           onClick={(e) => handleSubmit(e, true)}
           disabled={loading}
-          className="flex-1 px-4 py-3 border border-blue-200 text-blue-600 rounded-xl font-medium hover:bg-blue-50 transition-colors disabled:opacity-50"
+          className="sm:flex-1 px-4 py-2.5 md:py-3 border border-blue-200 text-blue-600 rounded-xl font-medium hover:bg-blue-50 transition-colors disabled:opacity-50 text-sm md:text-base order-2"
         >
           임시저장
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+          className="sm:flex-1 px-4 py-2.5 md:py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm md:text-base order-1 sm:order-3"
         >
           {loading ? '저장 중...' : '제출'}
         </button>

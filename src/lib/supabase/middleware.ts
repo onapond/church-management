@@ -34,17 +34,53 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const pathname = request.nextUrl.pathname
+
   // 로그인 필요한 페이지 보호
-  const protectedPaths = ['/dashboard', '/reports', '/attendance', '/members']
+  const protectedPaths = ['/dashboard', '/reports', '/attendance', '/members', '/approvals', '/stats', '/users']
   const isProtectedPath = protectedPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
+    pathname.startsWith(path)
   )
+
+  // 승인 대기 페이지는 로그인 필요하지만 승인 체크 제외
+  const isPendingPage = pathname === '/pending'
 
   if (isProtectedPath && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('redirect', request.nextUrl.pathname)
+    url.searchParams.set('redirect', pathname)
     return NextResponse.redirect(url)
+  }
+
+  // 로그인된 사용자의 승인 상태 확인
+  if (user && isProtectedPath) {
+    const { data: userData } = await supabase
+      .from('users')
+      .select('is_approved')
+      .eq('id', user.id)
+      .single()
+
+    // 미승인 사용자는 승인 대기 페이지로 리디렉션
+    if (userData && !userData.is_approved) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/pending'
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // 승인된 사용자가 pending 페이지 접근 시 대시보드로 리디렉션
+  if (user && isPendingPage) {
+    const { data: userData } = await supabase
+      .from('users')
+      .select('is_approved')
+      .eq('id', user.id)
+      .single()
+
+    if (userData?.is_approved) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

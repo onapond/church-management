@@ -62,23 +62,23 @@ export default async function MembersPage() {
   const canEdit = isAdmin || userInfo?.user_departments?.some((ud) => ud.is_team_leader)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">교인 명단</h1>
-          <p className="text-gray-500 mt-1">
-            총 {members.length}명의 교인
+          <h1 className="text-lg lg:text-xl font-bold text-gray-900">교인 명단</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            총 {members.length}명
           </p>
         </div>
         {canEdit && (
           <a
             href="/members/new"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm shrink-0"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            교인 등록
+            <span>등록</span>
           </a>
         )}
       </div>

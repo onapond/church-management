@@ -315,61 +315,123 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
     }
   }
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* 헤더 */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl font-bold text-gray-900">
-              {report.departments?.name}
-            </h1>
-            <StatusBadge status={report.status} />
-          </div>
-          <p className="text-gray-500">
-            {new Date(report.report_date).toLocaleDateString('ko-KR', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long',
-            })}
-            {' · '}
-            작성자: {report.users?.name}
-          </p>
-        </div>
+  // notes에서 실제 내용 파싱
+  const parsedNotes = report.notes ? JSON.parse(report.notes) : {}
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-            </svg>
-            인쇄
-          </button>
-          <button
-            onClick={() => router.back()}
-            className="p-2 text-gray-400 hover:text-gray-600"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+  return (
+    <div className="space-y-4 lg:space-y-6 max-w-4xl mx-auto">
+      {/* 헤더 - 뒤로가기 포함 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg lg:text-xl font-bold text-gray-900 truncate">
+                {report.departments?.name}
+              </h1>
+              <StatusBadge status={report.status} />
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              {new Date(report.report_date).toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'short',
+              })}
+            </p>
+            <p className="text-sm text-gray-400 mt-0.5">
+              작성자: {report.users?.name}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handlePrint}
+              className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors"
+              title="인쇄"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => router.back()}
+              className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              title="닫기"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* 결재 진행 상태 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="font-semibold text-gray-900 mb-4">결재 진행 현황</h2>
-        <div className="flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+        <h2 className="font-semibold text-gray-900 mb-4 text-sm lg:text-base">결재 진행 현황</h2>
+
+        {/* 모바일/태블릿: 세로 타임라인 */}
+        <div className="lg:hidden">
+          <div className="relative">
+            {/* 연결선 */}
+            <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-gray-200" />
+
+            <div className="space-y-4">
+              <ApprovalStepVertical
+                label="팀장 제출"
+                status={report.status !== 'draft' ? 'completed' : 'pending'}
+                name={report.users?.name}
+                date={report.submitted_at}
+              />
+              <ApprovalStepVertical
+                label="회장 협조"
+                status={
+                  ['coordinator_reviewed', 'manager_approved', 'final_approved'].includes(report.status)
+                    ? 'completed'
+                    : report.status === 'submitted'
+                    ? 'current'
+                    : 'pending'
+                }
+                name={report.coordinator?.name}
+                date={report.coordinator_reviewed_at}
+              />
+              <ApprovalStepVertical
+                label="부장 결재"
+                status={
+                  ['manager_approved', 'final_approved'].includes(report.status)
+                    ? 'completed'
+                    : report.status === 'coordinator_reviewed'
+                    ? 'current'
+                    : 'pending'
+                }
+                name={report.manager?.name}
+                date={report.manager_approved_at}
+              />
+              <ApprovalStepVertical
+                label="목사 확인"
+                status={
+                  report.status === 'final_approved'
+                    ? 'completed'
+                    : report.status === 'manager_approved'
+                    ? 'current'
+                    : 'pending'
+                }
+                name={report.final_approver?.name}
+                date={report.final_approved_at}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 데스크탑: 가로 레이아웃 */}
+        <div className="hidden lg:flex items-center justify-between">
           <ApprovalStep
             label="팀장 제출"
             status={report.status !== 'draft' ? 'completed' : 'pending'}
             name={report.users?.name}
             date={report.submitted_at}
           />
-          <div className="flex-1 h-1 bg-gray-200 mx-2">
+          <div className="flex-1 h-1 bg-gray-200 mx-3">
             <div
               className={`h-full bg-blue-500 transition-all ${
                 ['coordinator_reviewed', 'manager_approved', 'final_approved'].includes(report.status)
@@ -392,7 +454,7 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
             name={report.coordinator?.name}
             date={report.coordinator_reviewed_at}
           />
-          <div className="flex-1 h-1 bg-gray-200 mx-2">
+          <div className="flex-1 h-1 bg-gray-200 mx-3">
             <div
               className={`h-full bg-blue-500 transition-all ${
                 ['manager_approved', 'final_approved'].includes(report.status)
@@ -415,7 +477,7 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
             name={report.manager?.name}
             date={report.manager_approved_at}
           />
-          <div className="flex-1 h-1 bg-gray-200 mx-2">
+          <div className="flex-1 h-1 bg-gray-200 mx-3">
             <div
               className={`h-full bg-blue-500 transition-all ${
                 report.status === 'final_approved'
@@ -442,13 +504,13 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
 
         {/* 결재 버튼 */}
         {canApprove && (
-          <div className="flex gap-3 mt-6 pt-6 border-t border-gray-100">
+          <div className="flex gap-3 mt-5 pt-5 border-t border-gray-100">
             <button
               onClick={() => {
                 setApprovalAction('reject')
                 setShowApprovalModal(true)
               }}
-              className="flex-1 px-4 py-3 border border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition-colors"
+              className="flex-1 py-3 border border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 active:bg-red-100 transition-colors text-sm lg:text-base"
             >
               반려
             </button>
@@ -457,7 +519,7 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
                 setApprovalAction('approve')
                 setShowApprovalModal(true)
               }}
-              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm lg:text-base"
             >
               {canApprove === 'coordinator' && '협조'}
               {canApprove === 'manager' && '결재'}
@@ -467,37 +529,44 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
         )}
       </div>
 
-      {/* 출결 현황 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="font-semibold text-gray-900 mb-4">출결 현황</h2>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-gray-50 rounded-xl">
-            <p className="text-sm text-gray-500">재적</p>
-            <p className="text-2xl font-bold text-gray-900">{report.total_registered}</p>
+      {/* 출결 현황 - 카드형 */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+        <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">출결 현황</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center py-4 px-2 bg-gray-50 rounded-xl">
+            <p className="text-xs text-gray-500 mb-1">재적</p>
+            <p className="text-2xl lg:text-3xl font-bold text-gray-900">{report.total_registered}</p>
           </div>
-          <div className="text-center p-4 bg-blue-50 rounded-xl">
-            <p className="text-sm text-blue-600">예배 출석</p>
-            <p className="text-2xl font-bold text-blue-700">{report.worship_attendance}</p>
+          <div className="text-center py-4 px-2 bg-blue-50 rounded-xl">
+            <p className="text-xs text-blue-600 mb-1">예배</p>
+            <p className="text-2xl lg:text-3xl font-bold text-blue-700">{report.worship_attendance}</p>
           </div>
-          <div className="text-center p-4 bg-green-50 rounded-xl">
-            <p className="text-sm text-green-600">모임 출석</p>
-            <p className="text-2xl font-bold text-green-700">{report.meeting_attendance}</p>
+          <div className="text-center py-4 px-2 bg-green-50 rounded-xl">
+            <p className="text-xs text-green-600 mb-1">모임</p>
+            <p className="text-2xl lg:text-3xl font-bold text-green-700">{report.meeting_attendance}</p>
           </div>
         </div>
       </div>
 
       {/* 진행 순서 */}
       {programs.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">진행 순서</h2>
-          <div className="space-y-3">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">진행 순서</h2>
+          <div className="space-y-2">
             {programs.map((program) => (
-              <div key={program.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                <span className="text-sm font-mono text-gray-500 w-16">
+              <div
+                key={program.id}
+                className="flex items-start gap-3 py-2.5 px-3 bg-gray-50 rounded-xl"
+              >
+                <span className="text-xs font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded shrink-0">
                   {program.start_time.slice(0, 5)}
                 </span>
-                <span className="flex-1 font-medium text-gray-900">{program.content}</span>
-                <span className="text-sm text-gray-500">{program.person_in_charge}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">{program.content}</p>
+                  {program.person_in_charge && (
+                    <p className="text-xs text-gray-500 mt-0.5">{program.person_in_charge}</p>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -506,16 +575,16 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
 
       {/* 새신자 명단 */}
       {newcomers.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">새신자 명단</h2>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">새신자 명단</h2>
           <div className="space-y-3">
             {newcomers.map((newcomer) => (
-              <div key={newcomer.id} className="p-4 bg-gray-50 rounded-lg">
+              <div key={newcomer.id} className="p-3 bg-gray-50 rounded-xl">
                 <p className="font-medium text-gray-900">{newcomer.name}</p>
-                <div className="mt-2 text-sm text-gray-500 space-y-1">
-                  {newcomer.phone && <p>연락처: {newcomer.phone}</p>}
-                  {newcomer.introducer && <p>인도자: {newcomer.introducer}</p>}
-                  {newcomer.affiliation && <p>소속: {newcomer.affiliation}</p>}
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                  {newcomer.phone && <span>연락처: {newcomer.phone}</span>}
+                  {newcomer.introducer && <span>인도자: {newcomer.introducer}</span>}
+                  {newcomer.affiliation && <span>소속: {newcomer.affiliation}</span>}
                 </div>
               </div>
             ))}
@@ -524,31 +593,47 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
       )}
 
       {/* 논의 및 기타사항 */}
-      {report.notes && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">논의 및 기타사항</h2>
-          <p className="text-gray-700 whitespace-pre-wrap">{report.notes}</p>
+      {(parsedNotes.discussion_notes || parsedNotes.other_notes) && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">논의 및 기타사항</h2>
+          <div className="space-y-4">
+            {parsedNotes.discussion_notes && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">논의사항</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-xl">
+                  {parsedNotes.discussion_notes}
+                </p>
+              </div>
+            )}
+            {parsedNotes.other_notes && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">기타사항</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-3 rounded-xl">
+                  {parsedNotes.other_notes}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* 결재 이력 */}
       {history.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">결재 이력</h2>
-          <div className="space-y-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">결재 이력</h2>
+          <div className="space-y-3">
             {history.map((item) => (
-              <div key={item.id} className="flex gap-4">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2" />
-                <div>
-                  <p className="text-gray-900">
-                    <span className="font-medium">{item.users?.name}</span>
-                    {' - '}
+              <div key={item.id} className="flex gap-3">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-gray-900">{item.users?.name}</span>
                     <StatusBadge status={item.to_status} />
-                  </p>
+                  </div>
                   {item.comment && (
-                    <p className="text-sm text-gray-500 mt-1">{item.comment}</p>
+                    <p className="text-xs text-gray-500 mt-1">{item.comment}</p>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-gray-400 mt-0.5">
                     {new Date(item.created_at).toLocaleString('ko-KR')}
                   </p>
                 </div>
@@ -560,8 +645,8 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
 
       {/* 결재 모달 */}
       {showApprovalModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50">
+          <div className="bg-white rounded-t-2xl lg:rounded-2xl w-full lg:max-w-md p-5 lg:p-6 animate-slide-up lg:animate-none">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {approvalAction === 'approve' ? '결재 승인' : '반려'}
             </h3>
@@ -570,23 +655,24 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
               onChange={(e) => setComment(e.target.value)}
               placeholder={approvalAction === 'approve' ? '코멘트 (선택)' : '반려 사유를 입력하세요'}
               rows={4}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-base"
               required={approvalAction === 'reject'}
+              autoFocus
             />
             <div className="flex gap-3 mt-4">
               <button
                 onClick={() => setShowApprovalModal(false)}
-                className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
               >
                 취소
               </button>
               <button
                 onClick={handleApproval}
                 disabled={loading || (approvalAction === 'reject' && !comment)}
-                className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors disabled:opacity-50 ${
+                className={`flex-1 py-3 rounded-xl font-medium transition-colors disabled:opacity-50 ${
                   approvalAction === 'approve'
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-red-600 text-white hover:bg-red-700'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                    : 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800'
                 }`}
               >
                 {loading ? '처리 중...' : approvalAction === 'approve' ? '승인' : '반려'}
@@ -595,11 +681,11 @@ ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: stri
           </div>
         </div>
       )}
-
     </div>
   )
 }
 
+// 데스크탑용 가로 단계
 function ApprovalStep({
   label,
   status,
@@ -612,7 +698,7 @@ function ApprovalStep({
   date?: string | null
 }) {
   return (
-    <div className="text-center">
+    <div className="text-center shrink-0">
       <div
         className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 ${
           status === 'completed'
@@ -641,15 +727,72 @@ function ApprovalStep({
   )
 }
 
+// 모바일용 세로 타임라인 단계
+function ApprovalStepVertical({
+  label,
+  status,
+  name,
+  date,
+}: {
+  label: string
+  status: 'pending' | 'current' | 'completed'
+  name?: string | null
+  date?: string | null
+}) {
+  return (
+    <div className="flex items-start gap-4 relative">
+      <div
+        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 ${
+          status === 'completed'
+            ? 'bg-blue-500 text-white'
+            : status === 'current'
+            ? 'bg-blue-100 text-blue-600 ring-2 ring-blue-200'
+            : 'bg-gray-100 text-gray-400'
+        }`}
+      >
+        {status === 'completed' ? (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <div className="w-1.5 h-1.5 bg-current rounded-full" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0 pb-1">
+        <p className={`text-sm font-medium ${status === 'current' ? 'text-blue-600' : 'text-gray-900'}`}>
+          {label}
+        </p>
+        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+          {name ? (
+            <>
+              <span>{name}</span>
+              {date && (
+                <>
+                  <span>·</span>
+                  <span>{new Date(date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</span>
+                </>
+              )}
+            </>
+          ) : (
+            <span className="text-gray-400">
+              {status === 'pending' ? '대기중' : status === 'current' ? '진행중' : ''}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
-    draft: { label: '작성 중', className: 'bg-gray-100 text-gray-700' },
+    draft: { label: '작성중', className: 'bg-gray-100 text-gray-700' },
     submitted: { label: '제출됨', className: 'bg-yellow-100 text-yellow-700' },
-    coordinator_reviewed: { label: '회장 검토', className: 'bg-blue-100 text-blue-700' },
-    manager_approved: { label: '부장 결재', className: 'bg-purple-100 text-purple-700' },
-    final_approved: { label: '승인 완료', className: 'bg-green-100 text-green-700' },
+    coordinator_reviewed: { label: '회장검토', className: 'bg-blue-100 text-blue-700' },
+    manager_approved: { label: '부장결재', className: 'bg-purple-100 text-purple-700' },
+    final_approved: { label: '승인완료', className: 'bg-green-100 text-green-700' },
     rejected: { label: '반려', className: 'bg-red-100 text-red-700' },
-    revision_requested: { label: '수정 요청', className: 'bg-orange-100 text-orange-700' },
+    revision_requested: { label: '수정요청', className: 'bg-orange-100 text-orange-700' },
   }
 
   const { label, className } = config[status] || config.draft

@@ -66,11 +66,11 @@ export default async function AttendancePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6 max-w-5xl mx-auto">
       {/* 헤더 */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">출결 관리</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-lg lg:text-xl font-bold text-gray-900">출결 관리</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
           {new Date(sundayStr).toLocaleDateString('ko-KR', {
             year: 'numeric',
             month: 'long',
@@ -89,8 +89,8 @@ export default async function AttendancePage() {
           attendanceDate={sundayStr}
         />
       ) : (
-        <div className="bg-white rounded-xl p-8 text-center">
-          <p className="text-gray-500">접근 가능한 부서가 없습니다.</p>
+        <div className="bg-white rounded-2xl p-6 lg:p-8 text-center shadow-sm border border-gray-100">
+          <p className="text-gray-500 text-sm">접근 가능한 부서가 없습니다.</p>
         </div>
       )}
     </div>
