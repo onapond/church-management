@@ -42,16 +42,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 })
   }
 
-  // 읽지 않은 알림 개수
-  const { count: unreadCount } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('is_read', false)
+  // 읽지 않은 알림 개수 - 별도 쿼리 없이 클라이언트 측 필터링
+  const unreadCount = notifications?.filter(n => !n.is_read).length || 0
 
   return NextResponse.json({
     notifications,
-    unreadCount: unreadCount || 0,
+    unreadCount,
   })
 }
 

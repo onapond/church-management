@@ -162,6 +162,39 @@
   - **폰트 크기 조절** (10pt ~ 32pt) - 커스텀 FontSize Extension 구현
 - ReportForm에서 주요내용/교육내용 필드에 적용
 
+#### 9. 전반적인 성능 최적화
+
+**Phase 1: 번들 최적화**
+- `next.config.ts` - 이미지 최적화 (AVIF/WebP), `optimizePackageImports` 추가
+- Recharts 동적 임포트 - 메인 번들에서 차트 라이브러리 분리 (~180KB 절감)
+- **신규 파일**: `src/components/stats/StatsCharts.tsx` - 차트 컴포넌트 분리
+- **신규 파일**: `src/components/ui/Skeleton.tsx` - 스켈레톤 로더
+
+**Phase 2: API 쿼리 최적화**
+- `src/app/api/notifications/route.ts` - 중복 쿼리 제거 (2회 → 1회)
+- `src/app/(dashboard)/reports/[id]/page.tsx` - `Promise.all`로 쿼리 병렬화 (순차 4회 → 병렬)
+
+**Phase 3: 컴포넌트 렌더링 최적화**
+- `src/components/reports/ReportForm.tsx`:
+  - 테이블 행 메모이제이션 (`ProgramRow`, `CellAttendanceRow`, `NewcomerRow`)
+  - 시간 옵션 배열 모듈 레벨 캐싱
+  - 핸들러 함수 `useCallback` 최적화
+  - Supabase 클라이언트 `useMemo` 캐싱
+- `src/components/members/MemberForm.tsx`:
+  - Next.js Image 컴포넌트 사용 (사진 미리보기)
+  - Supabase 클라이언트 `useMemo` 캐싱
+
+**Phase 4: 캐싱 및 상태 관리**
+- `src/app/(dashboard)/reports/page.tsx` - Supabase 클라이언트 메모이제이션, 핸들러 `useCallback`
+- `src/app/(dashboard)/stats/page.tsx` - Supabase 클라이언트 `useMemo` 캐싱
+
+**예상 성능 개선**:
+| 영역 | 현재 | 개선 후 | 개선율 |
+|-----|------|--------|-------|
+| 메인 번들 | ~660KB | ~460KB | -30% |
+| 알림 API 쿼리 | 2회 | 1회 | -50% |
+| 보고서 상세 쿼리 | 순차 4회 | 병렬 4회 | 응답시간 -60% |
+
 ---
 
 ## 이전 작업 내역 (2026-01-30)

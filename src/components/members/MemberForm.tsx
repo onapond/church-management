@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import type { Member } from '@/types/database'
 
@@ -17,7 +18,7 @@ interface MemberFormProps {
 
 export default function MemberForm({ departments, member }: MemberFormProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const isEdit = !!member
 
   const [loading, setLoading] = useState(false)
@@ -131,9 +132,15 @@ export default function MemberForm({ departments, member }: MemberFormProps) {
       {/* 사진 업로드 */}
       <div className="flex flex-col items-center">
         <label htmlFor="photo" className="cursor-pointer">
-          <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100 border-4 border-gray-200 hover:border-blue-400 transition-colors">
+          <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-100 border-4 border-gray-200 hover:border-blue-400 transition-colors relative">
             {photoPreview ? (
-              <img src={photoPreview} alt="미리보기" className="w-full h-full object-cover" />
+              <Image
+                src={photoPreview}
+                alt="미리보기"
+                fill
+                sizes="128px"
+                className="object-cover"
+              />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">

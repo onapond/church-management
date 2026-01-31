@@ -12,49 +12,52 @@ export default async function ReportDetailPage({ params }: Props) {
 
   // 현재 사용자
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: userData } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user!.id)
-    .single()
 
-  // 보고서 조회
-  const { data: report } = await supabase
-    .from('weekly_reports')
-    .select(`
-      *,
-      departments(name, code),
-      users!weekly_reports_author_id_fkey(name),
-      coordinator:users!weekly_reports_coordinator_id_fkey(name),
-      manager:users!weekly_reports_manager_id_fkey(name),
-      final_approver:users!weekly_reports_final_approver_id_fkey(name)
-    `)
-    .eq('id', id)
-    .single()
-
-  if (!report) {
-    notFound()
-  }
-
-  // 프로그램 목록
-  const { data: programs } = await supabase
-    .from('report_programs')
-    .select('*')
-    .eq('report_id', id)
-    .order('order_index')
-
-  // 새신자 목록
-  const { data: newcomers } = await supabase
-    .from('newcomers')
-    .select('*')
-    .eq('report_id', id)
-
-  // 결재 이력
-  const { data: history } = await supabase
-    .from('approval_history')
-    .select('*, users(name)')
-    .eq('report_id', id)
-    .order('created_at', { ascending: false })
+  // 병렬로 데이터 조회 (성능 최적화)
+  const [
+    { data: userData },
+    { data: report },
+    { data: programs },
+    { data: newcomers },
+    { data: history }
+  ] = await Promise.all([
+    // 사용자 정보
+    supabase
+      .from('users')
+      .select('*')
+      .eq('id', user!.id)
+      .single(),
+    // 보고서 조회
+    supabase
+      .from('weekly_reports')
+      .select(`
+        *,
+        departments(name, code),
+        users!weekly_reports_author_id_fkey(name),
+        coordinator:users!weekly_reports_coordinator_id_fkey(name),
+        manager:users!weekly_reports_manager_id_fkey(name),
+        final_approver:users!weekly_reports_final_approver_id_fkey(name)
+      `)
+      .eq('id', id)
+      .single(),
+    // 프로그램 목록
+    supabase
+      .from('report_programs')
+      .select('*')
+      .eq('report_id', id)
+      .order('order_index'),
+    // 새신자 목록
+    supabase
+      .from('newcomers')
+      .select('*')
+      .eq('report_id', id),
+    // 결재 이력
+    supabase
+      .from('approval_history')
+      .select('*, users(name)')
+      .eq('report_id', id)
+      .order('created_at', { ascending: false })
+  ])
 
   // 권한 체크
   const canApprove = checkApprovalPermission(userData, report)

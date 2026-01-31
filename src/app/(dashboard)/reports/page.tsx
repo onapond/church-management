@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -26,7 +26,7 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string; colo
 }
 
 export default function ReportsPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -76,9 +76,9 @@ export default function ReportsPage() {
     setLoading(false)
   }
 
-  const handleTypeChange = (type: ReportType) => {
+  const handleTypeChange = useCallback((type: ReportType) => {
     router.push(`/reports?type=${type}`)
-  }
+  }, [router])
 
   return (
     <div className="space-y-4 lg:space-y-6 max-w-4xl mx-auto">

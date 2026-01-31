@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, memo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { createApprovalNotification } from '@/lib/notifications'
@@ -91,8 +91,8 @@ interface CellAttendance {
   note: string
 }
 
-// 5분 단위 시간 옵션 생성
-function generateTimeOptions() {
+// 5분 단위 시간 옵션 (모듈 레벨 캐싱)
+const TIME_OPTIONS: string[] = (() => {
   const options: string[] = []
   for (let hour = 0; hour < 24; hour++) {
     for (let minute = 0; minute < 60; minute += 5) {
@@ -102,13 +102,228 @@ function generateTimeOptions() {
     }
   }
   return options
-}
+})()
 
 const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   weekly: '주차 보고서',
   meeting: '모임 보고서',
   education: '교육 보고서',
 }
+
+// 메모이제이션된 프로그램 행 컴포넌트
+const ProgramRow = memo(function ProgramRow({
+  program,
+  index,
+  onUpdate,
+  onRemove,
+}: {
+  program: Program
+  index: number
+  onUpdate: (index: number, field: keyof Program, value: string | number) => void
+  onRemove: (index: number) => void
+}) {
+  return (
+    <tr>
+      <td className="px-2 py-2">
+        <div className="flex items-center gap-1">
+          <select
+            value={program.start_time}
+            onChange={(e) => onUpdate(index, 'start_time', e.target.value)}
+            className="w-[85px] px-2 py-1.5 border border-gray-200 rounded text-sm bg-white"
+          >
+            {TIME_OPTIONS.map((time) => (
+              <option key={`start-${index}-${time}`} value={time}>{time}</option>
+            ))}
+          </select>
+          <span className="text-gray-400">~</span>
+          <select
+            value={program.end_time}
+            onChange={(e) => onUpdate(index, 'end_time', e.target.value)}
+            className="w-[85px] px-2 py-1.5 border border-gray-200 rounded text-sm bg-white"
+          >
+            {TIME_OPTIONS.map((time) => (
+              <option key={`end-${index}-${time}`} value={time}>{time}</option>
+            ))}
+          </select>
+        </div>
+      </td>
+      <td className="px-2 py-2">
+        <input
+          type="text"
+          value={program.content}
+          onChange={(e) => onUpdate(index, 'content', e.target.value)}
+          placeholder="예: 찬양 및 기도"
+          className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-2 py-2">
+        <input
+          type="text"
+          value={program.person_in_charge}
+          onChange={(e) => onUpdate(index, 'person_in_charge', e.target.value)}
+          placeholder="담당자"
+          className="w-24 px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-2 py-2">
+        <input
+          type="text"
+          value={program.note}
+          onChange={(e) => onUpdate(index, 'note', e.target.value)}
+          placeholder="비고"
+          className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-2 py-2">
+        <button type="button" onClick={() => onRemove(index)} className="text-gray-400 hover:text-red-500">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </td>
+    </tr>
+  )
+})
+
+// 메모이제이션된 셀 출결 행 컴포넌트
+const CellAttendanceRow = memo(function CellAttendanceRow({
+  cell,
+  index,
+  onUpdate,
+  onRemove,
+}: {
+  cell: CellAttendance
+  index: number
+  onUpdate: (index: number, field: keyof CellAttendance, value: string | number) => void
+  onRemove: (index: number) => void
+}) {
+  return (
+    <tr>
+      <td className="px-3 py-2">
+        <input
+          type="text"
+          value={cell.cell_name}
+          onChange={(e) => onUpdate(index, 'cell_name', e.target.value)}
+          placeholder="셀 이름"
+          className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="number"
+          value={cell.registered || ''}
+          onChange={(e) => onUpdate(index, 'registered', parseInt(e.target.value) || 0)}
+          className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="number"
+          value={cell.worship || ''}
+          onChange={(e) => onUpdate(index, 'worship', parseInt(e.target.value) || 0)}
+          className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="number"
+          value={cell.meeting || ''}
+          onChange={(e) => onUpdate(index, 'meeting', parseInt(e.target.value) || 0)}
+          className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="text"
+          value={cell.note}
+          onChange={(e) => onUpdate(index, 'note', e.target.value)}
+          className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <button type="button" onClick={() => onRemove(index)} className="text-gray-400 hover:text-red-500">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </td>
+    </tr>
+  )
+})
+
+// 메모이제이션된 새신자 행 컴포넌트
+const NewcomerRow = memo(function NewcomerRow({
+  newcomer,
+  index,
+  onUpdate,
+  onRemove,
+}: {
+  newcomer: Newcomer
+  index: number
+  onUpdate: (index: number, field: keyof Newcomer, value: string) => void
+  onRemove: (index: number) => void
+}) {
+  return (
+    <tr>
+      <td className="px-2 py-2">
+        <input
+          type="text"
+          value={newcomer.name}
+          onChange={(e) => onUpdate(index, 'name', e.target.value)}
+          className="w-20 px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-2 py-2">
+        <input
+          type="tel"
+          value={newcomer.phone}
+          onChange={(e) => onUpdate(index, 'phone', e.target.value)}
+          placeholder="010-0000-0000"
+          className="w-28 px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-2 py-2">
+        <input
+          type="date"
+          value={newcomer.birth_date}
+          onChange={(e) => onUpdate(index, 'birth_date', e.target.value)}
+          className="w-32 px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-2 py-2">
+        <input
+          type="text"
+          value={newcomer.introducer}
+          onChange={(e) => onUpdate(index, 'introducer', e.target.value)}
+          className="w-20 px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-2 py-2">
+        <input
+          type="text"
+          value={newcomer.address}
+          onChange={(e) => onUpdate(index, 'address', e.target.value)}
+          className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-2 py-2">
+        <input
+          type="text"
+          value={newcomer.affiliation}
+          onChange={(e) => onUpdate(index, 'affiliation', e.target.value)}
+          className="w-24 px-2 py-1.5 border border-gray-200 rounded text-sm"
+        />
+      </td>
+      <td className="px-2 py-2">
+        <button type="button" onClick={() => onRemove(index)} className="text-gray-400 hover:text-red-500">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </td>
+    </tr>
+  )
+})
 
 export default function ReportForm({
   reportType,
@@ -120,7 +335,7 @@ export default function ReportForm({
   existingReport,
 }: ReportFormProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -235,44 +450,44 @@ export default function ReportForm({
     loadData()
   }, [form.department_id, form.report_date, supabase, reportType])
 
-  // 프로그램 관리
-  const addProgram = () => {
-    setPrograms([...programs, { start_time: '', end_time: '', content: '', person_in_charge: '', note: '', order_index: programs.length }])
-  }
+  // 프로그램 관리 (useCallback으로 최적화)
+  const addProgram = useCallback(() => {
+    setPrograms(prev => [...prev, { start_time: '', end_time: '', content: '', person_in_charge: '', note: '', order_index: prev.length }])
+  }, [])
 
-  const removeProgram = (index: number) => {
-    setPrograms(programs.filter((_, i) => i !== index))
-  }
+  const removeProgram = useCallback((index: number) => {
+    setPrograms(prev => prev.filter((_, i) => i !== index))
+  }, [])
 
-  const updateProgram = (index: number, field: keyof Program, value: string | number) => {
-    setPrograms(programs.map((p, i) => (i === index ? { ...p, [field]: value } : p)))
-  }
+  const updateProgram = useCallback((index: number, field: keyof Program, value: string | number) => {
+    setPrograms(prev => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)))
+  }, [])
 
-  // 셀 출결 관리 (주차 보고서만)
-  const addCellAttendance = () => {
-    setCellAttendance([...cellAttendance, { cell_name: '', registered: 0, worship: 0, meeting: 0, note: '' }])
-  }
+  // 셀 출결 관리 (주차 보고서만) (useCallback으로 최적화)
+  const addCellAttendance = useCallback(() => {
+    setCellAttendance(prev => [...prev, { cell_name: '', registered: 0, worship: 0, meeting: 0, note: '' }])
+  }, [])
 
-  const removeCellAttendance = (index: number) => {
-    setCellAttendance(cellAttendance.filter((_, i) => i !== index))
-  }
+  const removeCellAttendance = useCallback((index: number) => {
+    setCellAttendance(prev => prev.filter((_, i) => i !== index))
+  }, [])
 
-  const updateCellAttendance = (index: number, field: keyof CellAttendance, value: string | number) => {
-    setCellAttendance(cellAttendance.map((c, i) => (i === index ? { ...c, [field]: value } : c)))
-  }
+  const updateCellAttendance = useCallback((index: number, field: keyof CellAttendance, value: string | number) => {
+    setCellAttendance(prev => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)))
+  }, [])
 
-  // 새신자 관리 (주차 보고서만)
-  const addNewcomer = () => {
-    setNewcomers([...newcomers, { name: '', phone: '', birth_date: '', introducer: '', address: '', affiliation: '' }])
-  }
+  // 새신자 관리 (주차 보고서만) (useCallback으로 최적화)
+  const addNewcomer = useCallback(() => {
+    setNewcomers(prev => [...prev, { name: '', phone: '', birth_date: '', introducer: '', address: '', affiliation: '' }])
+  }, [])
 
-  const removeNewcomer = (index: number) => {
-    setNewcomers(newcomers.filter((_, i) => i !== index))
-  }
+  const removeNewcomer = useCallback((index: number) => {
+    setNewcomers(prev => prev.filter((_, i) => i !== index))
+  }, [])
 
-  const updateNewcomer = (index: number, field: keyof Newcomer, value: string) => {
-    setNewcomers(newcomers.map((n, i) => (i === index ? { ...n, [field]: value } : n)))
-  }
+  const updateNewcomer = useCallback((index: number, field: keyof Newcomer, value: string) => {
+    setNewcomers(prev => prev.map((n, i) => (i === index ? { ...n, [field]: value } : n)))
+  }, [])
 
   // 제출
   const handleSubmit = async (e: React.FormEvent, isDraft: boolean = true) => {
@@ -526,65 +741,13 @@ export default function ReportForm({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {programs.map((program, index) => (
-                <tr key={index}>
-                  <td className="px-2 py-2">
-                    <div className="flex items-center gap-1">
-                      <select
-                        value={program.start_time}
-                        onChange={(e) => updateProgram(index, 'start_time', e.target.value)}
-                        className="w-[85px] px-2 py-1.5 border border-gray-200 rounded text-sm bg-white"
-                      >
-                        {generateTimeOptions().map((time) => (
-                          <option key={`start-${index}-${time}`} value={time}>{time}</option>
-                        ))}
-                      </select>
-                      <span className="text-gray-400">~</span>
-                      <select
-                        value={program.end_time}
-                        onChange={(e) => updateProgram(index, 'end_time', e.target.value)}
-                        className="w-[85px] px-2 py-1.5 border border-gray-200 rounded text-sm bg-white"
-                      >
-                        {generateTimeOptions().map((time) => (
-                          <option key={`end-${index}-${time}`} value={time}>{time}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </td>
-                  <td className="px-2 py-2">
-                    <input
-                      type="text"
-                      value={program.content}
-                      onChange={(e) => updateProgram(index, 'content', e.target.value)}
-                      placeholder="예: 찬양 및 기도"
-                      className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                    />
-                  </td>
-                  <td className="px-2 py-2">
-                    <input
-                      type="text"
-                      value={program.person_in_charge}
-                      onChange={(e) => updateProgram(index, 'person_in_charge', e.target.value)}
-                      placeholder="담당자"
-                      className="w-24 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                    />
-                  </td>
-                  <td className="px-2 py-2">
-                    <input
-                      type="text"
-                      value={program.note}
-                      onChange={(e) => updateProgram(index, 'note', e.target.value)}
-                      placeholder="비고"
-                      className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                    />
-                  </td>
-                  <td className="px-2 py-2">
-                    <button type="button" onClick={() => removeProgram(index)} className="text-gray-400 hover:text-red-500">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </td>
-                </tr>
+                <ProgramRow
+                  key={index}
+                  program={program}
+                  index={index}
+                  onUpdate={updateProgram}
+                  onRemove={removeProgram}
+                />
               ))}
             </tbody>
           </table>
@@ -663,56 +826,13 @@ export default function ReportForm({
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {cellAttendance.map((cell, index) => (
-                  <tr key={index}>
-                    <td className="px-3 py-2">
-                      <input
-                        type="text"
-                        value={cell.cell_name}
-                        onChange={(e) => updateCellAttendance(index, 'cell_name', e.target.value)}
-                        placeholder="셀 이름"
-                        className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        value={cell.registered || ''}
-                        onChange={(e) => updateCellAttendance(index, 'registered', parseInt(e.target.value) || 0)}
-                        className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        value={cell.worship || ''}
-                        onChange={(e) => updateCellAttendance(index, 'worship', parseInt(e.target.value) || 0)}
-                        className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        value={cell.meeting || ''}
-                        onChange={(e) => updateCellAttendance(index, 'meeting', parseInt(e.target.value) || 0)}
-                        className="w-16 px-2 py-1.5 border border-gray-200 rounded text-sm text-center"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="text"
-                        value={cell.note}
-                        onChange={(e) => updateCellAttendance(index, 'note', e.target.value)}
-                        className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <button type="button" onClick={() => removeCellAttendance(index)} className="text-gray-400 hover:text-red-500">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
+                  <CellAttendanceRow
+                    key={index}
+                    cell={cell}
+                    index={index}
+                    onUpdate={updateCellAttendance}
+                    onRemove={removeCellAttendance}
+                  />
                 ))}
                 {/* 합계 */}
                 <tr className="bg-blue-50 font-medium">
@@ -760,64 +880,13 @@ export default function ReportForm({
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {newcomers.map((newcomer, index) => (
-                    <tr key={index}>
-                      <td className="px-2 py-2">
-                        <input
-                          type="text"
-                          value={newcomer.name}
-                          onChange={(e) => updateNewcomer(index, 'name', e.target.value)}
-                          className="w-20 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="tel"
-                          value={newcomer.phone}
-                          onChange={(e) => updateNewcomer(index, 'phone', e.target.value)}
-                          placeholder="010-0000-0000"
-                          className="w-28 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="date"
-                          value={newcomer.birth_date}
-                          onChange={(e) => updateNewcomer(index, 'birth_date', e.target.value)}
-                          className="w-32 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="text"
-                          value={newcomer.introducer}
-                          onChange={(e) => updateNewcomer(index, 'introducer', e.target.value)}
-                          className="w-20 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="text"
-                          value={newcomer.address}
-                          onChange={(e) => updateNewcomer(index, 'address', e.target.value)}
-                          className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm"
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="text"
-                          value={newcomer.affiliation}
-                          onChange={(e) => updateNewcomer(index, 'affiliation', e.target.value)}
-                          className="w-24 px-2 py-1.5 border border-gray-200 rounded text-sm"
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <button type="button" onClick={() => removeNewcomer(index)} className="text-gray-400 hover:text-red-500">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
+                    <NewcomerRow
+                      key={index}
+                      newcomer={newcomer}
+                      index={index}
+                      onUpdate={updateNewcomer}
+                      onRemove={removeNewcomer}
+                    />
                   ))}
                 </tbody>
               </table>
