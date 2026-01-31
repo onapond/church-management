@@ -96,6 +96,50 @@
 - `CLAUDE.md` - 개발 가이드 및 컨텍스트 관리 규칙
 - `.claude/bugs.md` - 버그 이력 문서
 
+#### 4. 성능 개선 (Optimistic Updates)
+버튼 반응 속도가 느리다는 피드백에 따라 전반적인 성능 개선 수행:
+
+- **Supabase 클라이언트 싱글톤 패턴**:
+  - `src/lib/supabase/client.ts` - 매번 새 인스턴스 생성 → 싱글톤으로 재사용
+  ```typescript
+  let client: ReturnType<typeof createBrowserClient> | null = null
+  export function createClient() {
+    if (client) return client
+    client = createBrowserClient(...)
+    return client
+  }
+  ```
+
+- **알림 시스템 Optimistic Updates**:
+  - `NotificationBell.tsx` - 읽음 처리 시 즉시 UI 반영, 실패 시 롤백
+  - `useMemo`로 Supabase 클라이언트 캐싱
+
+- **교인 삭제 Optimistic Updates**:
+  - `MemberList.tsx` - `deletedIds` Set으로 삭제된 항목 즉시 숨김
+  - 삭제 실패 시 자동 롤백
+
+- **결재 워크플로우 병렬 처리**:
+  - `ReportDetail.tsx` - `Promise.all`로 API 호출 병렬화
+  ```typescript
+  await Promise.all([
+    supabase.from('weekly_reports').update({...}),
+    supabase.from('approval_history').insert({...}),
+    createApprovalNotification(...),
+  ])
+  ```
+
+#### 5. TypeScript 오류 수정
+빌드 시 발생한 implicit any 타입 오류 수정:
+- `NotificationBell.tsx` - payload 타입 명시
+- `stats/page.tsx` - 콜백 파라미터 타입 명시
+- `ReportForm.tsx` - attendance 배열 콜백 타입 명시
+
+#### 6. Netlify 배포 설정 완료
+- GitHub 저장소 (onapond/church-management) 연결 확인
+- 자동 배포 활성화 - main 브랜치 푸시 시 자동 빌드/배포
+- 배포 상태: `ready` (정상 작동)
+- 라이브 URL: https://church-management-cpcc.netlify.app
+
 ---
 
 ## 이전 작업 내역 (2026-01-30)

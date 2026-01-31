@@ -24,7 +24,31 @@
 
 ### 2026-01-31
 
-#### 3. 알림 시스템 역할 매핑 오류
+#### 3. Netlify CLI Windows 배포 실패
+- **증상**: `netlify deploy --prod` 명령 실행 시 "Failed publishing static content" 오류
+- **원인**: `@netlify/plugin-nextjs` 플러그인의 Windows 호환성 문제
+- **해결**: CLI 대신 Netlify 대시보드에서 수동 배포 트리거, 이후 GitHub 자동 배포 설정
+- **관련 파일**: N/A (환경 이슈)
+
+#### 4. TypeScript 빌드 오류 (implicit any)
+- **증상**: `npm run build` 시 여러 파일에서 "Parameter implicitly has an 'any' type" 오류
+- **원인**: 콜백 함수 파라미터에 타입 명시 누락
+- **해결**:
+  - `NotificationBell.tsx`: `payload: { new: Notification; old: Notification | null }`
+  - `stats/page.tsx`: `(m: { id: string; department_id: string }) =>`
+  - `ReportForm.tsx`: `(a: { attendance_type: string; is_present: boolean }) =>`
+- **관련 파일**:
+  - `src/components/notifications/NotificationBell.tsx`
+  - `src/app/(dashboard)/stats/page.tsx`
+  - `src/components/reports/ReportForm.tsx`
+
+#### 5. Git add 'nul' 파일 오류
+- **증상**: `git add .` 실행 시 'nul' 파일 관련 오류
+- **원인**: Windows 예약 파일명 ('nul')이 프로젝트 루트에 생성됨
+- **해결**: `nul` 파일 제외하고 특정 파일만 `git add` 실행
+- **관련 파일**: 프로젝트 루트의 `nul` 파일 (삭제 불가, 무시 처리)
+
+#### 6. 알림 시스템 역할 매핑 오류
 - **증상**: 결재 알림이 잘못된 사용자에게 전송될 수 있음
 - **원인**: 기존 역할명과 DB 역할명 불일치 (manager vs accountant)
 - **해결**:
