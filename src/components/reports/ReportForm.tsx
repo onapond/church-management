@@ -140,10 +140,10 @@ export default function ReportForm({
           .from('attendance_records')
           .select('*')
           .eq('attendance_date', form.report_date)
-          .in('member_id', membersData.map(m => m.id))
+          .in('member_id', membersData.map((m: { id: string }) => m.id))
 
-        const worshipCount = attendance?.filter(a => a.attendance_type === 'worship' && a.is_present).length || 0
-        const meetingCount = attendance?.filter(a => a.attendance_type === 'meeting' && a.is_present).length || 0
+        const worshipCount = attendance?.filter((a: { attendance_type: string; is_present: boolean }) => a.attendance_type === 'worship' && a.is_present).length || 0
+        const meetingCount = attendance?.filter((a: { attendance_type: string; is_present: boolean }) => a.attendance_type === 'meeting' && a.is_present).length || 0
 
         setAttendanceSummary({
           total: count || 0,

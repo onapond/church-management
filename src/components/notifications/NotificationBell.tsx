@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import NotificationItem from './NotificationItem'
 import type { Notification } from '@/types/database'
@@ -15,7 +15,7 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   // 알림 목록 조회
   const fetchNotifications = useCallback(async () => {
@@ -49,8 +49,8 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           table: 'notifications',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
-          const newNotification = payload.new as Notification
+        (payload: { new: Notification }) => {
+          const newNotification = payload.new
           setNotifications((prev) => [newNotification, ...prev])
           setUnreadCount((prev) => prev + 1)
         }
@@ -63,8 +63,8 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
           table: 'notifications',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
-          const updated = payload.new as Notification
+        (payload: { new: Notification; old: Notification | null }) => {
+          const updated = payload.new
           setNotifications((prev) =>
             prev.map((n) => (n.id === updated.id ? updated : n))
           )
@@ -93,42 +93,54 @@ export default function NotificationBell({ userId }: NotificationBellProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // 개별 알림 읽음 처리
-  const handleRead = async (notificationId: string) => {
+  // 개별 알림 읽음 처리 (낙관적 업데이트)
+  const handleRead = useCallback(async (notificationId: string) => {
+    // 낙관적 업데이트 - 즉시 UI 반영
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+    )
+    setUnreadCount((prev) => Math.max(0, prev - 1))
+
+    // 백그라운드에서 API 호출
     try {
-      const res = await fetch('/api/notifications', {
+      await fetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notification_ids: [notificationId] }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        setUnreadCount(data.unreadCount)
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
-        )
-      }
     } catch (error) {
+      // 실패 시 롤백
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: false } : n))
+      )
+      setUnreadCount((prev) => prev + 1)
       console.error('Failed to mark as read:', error)
     }
-  }
+  }, [])
 
-  // 모두 읽음 처리
-  const handleMarkAllRead = async () => {
+  // 모두 읽음 처리 (낙관적 업데이트)
+  const handleMarkAllRead = useCallback(async () => {
+    // 이전 상태 저장 (롤백용)
+    const prevNotifications = notifications
+    const prevCount = unreadCount
+
+    // 낙관적 업데이트
+    setUnreadCount(0)
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+
     try {
-      const res = await fetch('/api/notifications', {
+      await fetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mark_all_read: true }),
       })
-      if (res.ok) {
-        setUnreadCount(0)
-        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-      }
     } catch (error) {
+      // 실패 시 롤백
+      setNotifications(prevNotifications)
+      setUnreadCount(prevCount)
       console.error('Failed to mark all as read:', error)
     }
-  }
+  }, [notifications, unreadCount])
 
   return (
     <div className="relative" ref={dropdownRef}>

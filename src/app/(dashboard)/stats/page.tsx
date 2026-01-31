@@ -114,7 +114,7 @@ export default function StatsPage() {
       .eq('is_active', true)
 
     // 출결 기록 조회
-    let attendanceQuery = supabase
+    const attendanceQuery = supabase
       .from('attendance_records')
       .select('member_id, attendance_type, is_present, attendance_date, members!inner(department_id)')
       .gte('attendance_date', startDate)
@@ -126,7 +126,7 @@ export default function StatsPage() {
     const deptMap = new Map<string, { worship: number; meeting: number; total: number }>()
 
     departments.forEach(dept => {
-      const memberCount = (allMembers || []).filter(m => m.department_id === dept.id).length
+      const memberCount = (allMembers || []).filter((m: { id: string; department_id: string }) => m.department_id === dept.id).length
       deptMap.set(dept.id, { worship: 0, meeting: 0, total: memberCount })
     })
 
@@ -177,7 +177,7 @@ export default function StatsPage() {
         .eq('department_id', selectedDept)
 
       if (members && members.length > 0) {
-        query = query.in('member_id', members.map(m => m.id))
+        query = query.in('member_id', members.map((m: { id: string }) => m.id))
       }
     }
 
@@ -186,7 +186,7 @@ export default function StatsPage() {
     // 주별 그룹핑
     const weekMap = new Map<string, { worship: number; meeting: number }>()
 
-    ;(attendance || []).forEach(record => {
+    ;(attendance || []).forEach((record: { attendance_date: string; attendance_type: string }) => {
       const date = new Date(record.attendance_date)
       const weekStart = getWeekStart(date)
       const weekKey = weekStart.toISOString().split('T')[0]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, memo, useEffect } from 'react'
+import { useState, useMemo, useCallback, memo, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -191,13 +191,15 @@ const MemberListItem = memo(function MemberListItem({
 export default function MemberList({ members, departments, canEdit }: MemberListProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
+  const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
   const [selectedDept, setSelectedDept] = useState<string>('all')
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [deleteTarget, setDeleteTarget] = useState<MemberItem | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   // URL에서 부서 필터 초기화
   useEffect(() => {
@@ -224,6 +226,9 @@ export default function MemberList({ members, departments, canEdit }: MemberList
   // 필터링 메모이제이션
   const filteredMembers = useMemo(() => {
     return members.filter((member) => {
+      // 삭제된 항목 제외 (낙관적 업데이트)
+      if (deletedIds.has(member.id)) return false
+
       const searchLower = debouncedSearch.toLowerCase()
       const matchesSearch = !debouncedSearch ||
         member.name.toLowerCase().includes(searchLower) ||
@@ -232,7 +237,7 @@ export default function MemberList({ members, departments, canEdit }: MemberList
       const matchesMonth = selectedMonth === null || getBirthMonth(member.birth_date) === selectedMonth
       return matchesSearch && matchesDept && matchesMonth
     })
-  }, [members, debouncedSearch, selectedDept, selectedMonth, getBirthMonth])
+  }, [members, debouncedSearch, selectedDept, selectedMonth, getBirthMonth, deletedIds])
 
   // 월별 생일자 수 계산
   const birthCountByMonth = useMemo(() => {
@@ -272,21 +277,33 @@ export default function MemberList({ members, departments, canEdit }: MemberList
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return
-    setDeleting(true)
+    const targetId = deleteTarget.id
+
+    // 낙관적 업데이트 - 즉시 UI에서 제거
+    setDeletedIds((prev) => new Set([...prev, targetId]))
+    setDeleteTarget(null)
+
     try {
       const { error } = await supabase
         .from('members')
         .delete()
-        .eq('id', deleteTarget.id)
+        .eq('id', targetId)
 
       if (error) throw error
-      setDeleteTarget(null)
-      router.refresh()
+
+      // 백그라운드에서 새로고침
+      startTransition(() => {
+        router.refresh()
+      })
     } catch (err) {
+      // 실패 시 롤백
+      setDeletedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(targetId)
+        return next
+      })
       console.error('Failed to delete member:', err)
       alert('삭제 중 오류가 발생했습니다.')
-    } finally {
-      setDeleting(false)
     }
   }, [deleteTarget, supabase, router])
 

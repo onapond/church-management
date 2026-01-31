@@ -205,6 +205,9 @@ export default function ReportDetail({
     if (!canApprove || !currentUser) return
     setLoading(true)
 
+    // 즉시 모달 닫기 (UX 개선)
+    setShowApprovalModal(false)
+
     try {
       const now = new Date().toISOString()
       let newStatus = report.status
@@ -234,33 +237,34 @@ export default function ReportDetail({
         updateData.rejection_reason = comment
       }
 
-      await supabase
-        .from('weekly_reports')
-        .update({ ...updateData, status: newStatus })
-        .eq('id', report.id)
+      // 병렬 처리 - DB 업데이트, 히스토리, 알림을 동시에 실행
+      await Promise.all([
+        supabase
+          .from('weekly_reports')
+          .update({ ...updateData, status: newStatus })
+          .eq('id', report.id),
+        supabase.from('approval_history').insert({
+          report_id: report.id,
+          approver_id: currentUser.id,
+          from_status: report.status,
+          to_status: newStatus,
+          comment,
+        }),
+        createApprovalNotification(supabase, {
+          reportId: report.id,
+          fromStatus: report.status,
+          toStatus: newStatus,
+          departmentName: report.departments?.name || '',
+          reportType: reportType,
+          authorId: report.author_id,
+        }),
+      ])
 
-      await supabase.from('approval_history').insert({
-        report_id: report.id,
-        approver_id: currentUser.id,
-        from_status: report.status,
-        to_status: newStatus,
-        comment,
-      })
-
-      // 알림 생성
-      await createApprovalNotification(supabase, {
-        reportId: report.id,
-        fromStatus: report.status,
-        toStatus: newStatus,
-        departmentName: report.departments?.name || '',
-        reportType: reportType,
-        authorId: report.author_id,
-      })
-
-      setShowApprovalModal(false)
       router.refresh()
     } catch (error) {
       console.error(error)
+      // 실패 시 모달 다시 열기
+      setShowApprovalModal(true)
     } finally {
       setLoading(false)
     }
