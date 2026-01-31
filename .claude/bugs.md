@@ -42,7 +42,15 @@
   - `src/app/(dashboard)/stats/page.tsx`
   - `src/components/reports/ReportForm.tsx`
 
-#### 5. Git add 'nul' 파일 오류
+#### 5. Netlify 503 오류 (플랜 한도 초과)
+- **증상**: 전체 사이트에서 503 Service Unavailable 오류 발생
+- **원인**: Netlify 무료 플랜 빌드 시간/대역폭 한도 초과
+- **해결**: Vercel로 호스팅 이전
+  - 새 URL: https://church-eight-delta.vercel.app
+  - 배포 명령어: `npx vercel --prod`
+- **관련 파일**: N/A (호스팅 이슈)
+
+#### 6. Git add 'nul' 파일 오류
 - **증상**: `git add .` 실행 시 'nul' 파일 관련 오류
 - **원인**: Windows 예약 파일명 ('nul')이 프로젝트 루트에 생성됨
 - **해결**: `nul` 파일 제외하고 특정 파일만 `git add` 실행

@@ -3,7 +3,9 @@
 ## 프로젝트 개요
 - **목적**: 청파중앙교회 교육위원회 출결/보고서/교인 관리 시스템
 - **기술 스택**: Next.js 16.1.6 (Turbopack), Supabase, TypeScript, Tailwind CSS
-- **배포**: Netlify (https://church-management-cpcc.netlify.app)
+- **배포**: Vercel (https://church-eight-delta.vercel.app)
+  - 배포 명령어: `npx vercel --prod`
+  - (이전: Netlify - 무료 플랜 한도 초과로 이전)
 - **GitHub**: https://github.com/onapond/church-management
 
 ## 부서 구조
