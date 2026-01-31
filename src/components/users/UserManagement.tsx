@@ -9,7 +9,6 @@ interface User {
   email: string
   name: string
   role: string
-  is_approved: boolean
   is_active: boolean
   created_at: string
   department_id: string | null
@@ -53,19 +52,19 @@ export default function UserManagement({ users, departments }: UserManagementPro
   const supabase = createClient()
 
   const filteredUsers = users.filter((user) => {
-    if (filter === 'pending') return !user.is_approved
-    if (filter === 'approved') return user.is_approved
+    if (filter === 'pending') return !user.is_active
+    if (filter === 'approved') return user.is_active
     return true
   })
 
-  const pendingCount = users.filter((u) => !u.is_approved).length
+  const pendingCount = users.filter((u) => !u.is_active).length
 
   const handleApprove = async (userId: string) => {
     setSaving(userId)
     try {
       await supabase
         .from('users')
-        .update({ is_approved: true })
+        .update({ is_active: true })
         .eq('id', userId)
 
       startTransition(() => {
@@ -180,7 +179,7 @@ export default function UserManagement({ users, departments }: UserManagementPro
             {filteredUsers.map((user) => (
               <div
                 key={user.id}
-                className={`p-4 ${!user.is_approved ? 'bg-yellow-50/50' : ''} ${
+                className={`p-4 ${!user.is_active ? 'bg-yellow-50/50' : ''} ${
                   saving === user.id ? 'opacity-50' : ''
                 }`}
               >
@@ -189,7 +188,7 @@ export default function UserManagement({ users, departments }: UserManagementPro
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-gray-900 text-sm">{user.name}</p>
-                      {!user.is_approved && (
+                      {!user.is_active && (
                         <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
                           대기중
                         </span>
@@ -233,7 +232,7 @@ export default function UserManagement({ users, departments }: UserManagementPro
                     </select>
 
                     {/* 승인/거절 버튼 */}
-                    {!user.is_approved ? (
+                    {!user.is_active ? (
                       <>
                         <button
                           onClick={() => handleApprove(user.id)}

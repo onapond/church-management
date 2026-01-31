@@ -21,7 +21,7 @@ export default async function UsersPage() {
   const { data: users } = await supabase
     .from('users')
     .select('*, departments(name)')
-    .order('is_approved', { ascending: true })
+    .order('is_active', { ascending: true })
     .order('created_at', { ascending: false })
 
   // 부서 목록

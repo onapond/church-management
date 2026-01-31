@@ -56,12 +56,12 @@ export async function updateSession(request: NextRequest) {
   if (user && isProtectedPath) {
     const { data: userData } = await supabase
       .from('users')
-      .select('is_approved')
+      .select('is_active')
       .eq('id', user.id)
       .single()
 
     // 미승인 사용자는 승인 대기 페이지로 리디렉션
-    if (userData && !userData.is_approved) {
+    if (userData && !userData.is_active) {
       const url = request.nextUrl.clone()
       url.pathname = '/pending'
       return NextResponse.redirect(url)
@@ -72,11 +72,11 @@ export async function updateSession(request: NextRequest) {
   if (user && isPendingPage) {
     const { data: userData } = await supabase
       .from('users')
-      .select('is_approved')
+      .select('is_active')
       .eq('id', user.id)
       .single()
 
-    if (userData?.is_approved) {
+    if (userData?.is_active) {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
       return NextResponse.redirect(url)
