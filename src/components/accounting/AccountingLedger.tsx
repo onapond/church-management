@@ -2,7 +2,7 @@
 
 import { AccountingRecordWithDetails } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 
 interface AccountingLedgerProps {
   records: AccountingRecordWithDetails[]
@@ -12,6 +12,8 @@ interface AccountingLedgerProps {
 
 export default function AccountingLedger({ records, onRecordDeleted, canEdit }: AccountingLedgerProps) {
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -22,6 +24,29 @@ export default function AccountingLedger({ records, onRecordDeleted, canEdit }: 
     return amount.toLocaleString('ko-KR')
   }
 
+  // 개별 선택 토글
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  // 전체 선택/해제
+  const toggleSelectAll = useCallback(() => {
+    if (selectedIds.size === records.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(records.map(r => r.id)))
+    }
+  }, [records, selectedIds.size])
+
+  // 개별 삭제
   const handleDelete = async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
 
@@ -37,9 +62,37 @@ export default function AccountingLedger({ records, onRecordDeleted, canEdit }: 
       alert('삭제 중 오류가 발생했습니다.')
       console.error(error)
     } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
       onRecordDeleted()
     }
     setDeleting(null)
+  }
+
+  // 선택 항목 일괄 삭제
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) return
+
+    setBulkDeleting(true)
+    const supabase = createClient()
+
+    const { error } = await supabase
+      .from('accounting_records')
+      .delete()
+      .in('id', Array.from(selectedIds))
+
+    if (error) {
+      alert('삭제 중 오류가 발생했습니다.')
+      console.error(error)
+    } else {
+      setSelectedIds(new Set())
+      onRecordDeleted()
+    }
+    setBulkDeleting(false)
   }
 
   // 잔액 계산 (누적)
@@ -53,6 +106,9 @@ export default function AccountingLedger({ records, onRecordDeleted, canEdit }: 
   const totalIncome = records.reduce((sum, r) => sum + (r.income_amount || 0), 0)
   const totalExpense = records.reduce((sum, r) => sum + (r.expense_amount || 0), 0)
 
+  const isAllSelected = records.length > 0 && selectedIds.size === records.length
+  const isSomeSelected = selectedIds.size > 0
+
   if (records.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
@@ -63,11 +119,47 @@ export default function AccountingLedger({ records, onRecordDeleted, canEdit }: 
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* 선택 항목 삭제 바 */}
+      {canEdit && isSomeSelected && (
+        <div className="px-4 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
+          <span className="text-sm text-red-700">
+            {selectedIds.size}개 항목 선택됨
+          </span>
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+            className="px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50"
+          >
+            {bulkDeleting ? '삭제 중...' : '선택 삭제'}
+          </button>
+        </div>
+      )}
+
       {/* 모바일: 카드 형식 */}
       <div className="md:hidden divide-y divide-gray-100">
+        {/* 모바일 전체 선택 */}
+        {canEdit && (
+          <div className="px-3 py-2 bg-gray-50 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={isAllSelected}
+              onChange={toggleSelectAll}
+              className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            />
+            <span className="text-xs text-gray-600">전체 선택</span>
+          </div>
+        )}
         {recordsWithBalance.map((record) => (
           <div key={record.id} className="p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
+              {canEdit && (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(record.id)}
+                  onChange={() => toggleSelect(record.id)}
+                  className="w-4 h-4 mt-0.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 shrink-0"
+                />
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 shrink-0">{formatDate(record.record_date)}일</span>
@@ -135,6 +227,16 @@ export default function AccountingLedger({ records, onRecordDeleted, canEdit }: 
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              {canEdit && (
+                <th className="px-4 py-3 text-center w-12">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                </th>
+              )}
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                 일
               </th>
@@ -165,7 +267,20 @@ export default function AccountingLedger({ records, onRecordDeleted, canEdit }: 
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {recordsWithBalance.map((record) => (
-              <tr key={record.id} className="hover:bg-gray-50">
+              <tr
+                key={record.id}
+                className={`hover:bg-gray-50 ${selectedIds.has(record.id) ? 'bg-blue-50' : ''}`}
+              >
+                {canEdit && (
+                  <td className="px-4 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(record.id)}
+                      onChange={() => toggleSelect(record.id)}
+                      className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                    />
+                  </td>
+                )}
                 <td className="px-4 py-3 text-center text-sm text-gray-900">
                   {formatDate(record.record_date)}
                 </td>
@@ -202,7 +317,7 @@ export default function AccountingLedger({ records, onRecordDeleted, canEdit }: 
             ))}
             {/* 합계 행 */}
             <tr className="bg-gray-100 font-semibold">
-              <td className="px-4 py-3 text-center text-sm text-gray-900" colSpan={2}>
+              <td className="px-4 py-3 text-center text-sm text-gray-900" colSpan={canEdit ? 3 : 2}>
                 합계
               </td>
               <td className="px-4 py-3 text-right text-sm text-blue-600">
