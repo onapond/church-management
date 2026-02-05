@@ -12,16 +12,25 @@ interface Department {
   name: string
 }
 
+interface MemberDepartmentItem {
+  department_id: string
+  is_primary: boolean
+  departments: {
+    id: string
+    name: string
+  } | null
+}
+
 interface MemberItem {
   id: string
   name: string
   phone: string | null
   birth_date: string | null
   photo_url: string | null
-  department_id: string
+  department_id: string | null  // 호환성을 위해 유지
   is_active: boolean
   joined_at: string
-  departments: { name: string } | null
+  member_departments: MemberDepartmentItem[] | null
 }
 
 interface MemberListProps {
@@ -36,7 +45,7 @@ const MONTHS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value)
 
-  useMemo(() => {
+  useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedValue(value)
     }, delay)
@@ -93,7 +102,9 @@ const MemberGridCard = memo(function MemberGridCard({
         </div>
         <div className="p-2 lg:p-3">
           <p className="font-semibold text-gray-900 truncate text-xs lg:text-sm">{member.name}</p>
-          <p className="text-[10px] lg:text-sm text-gray-500 truncate">{member.departments?.name}</p>
+          <p className="text-[10px] lg:text-sm text-gray-500 truncate">
+            {member.member_departments?.map(md => md.departments?.name).filter(Boolean).join(' · ') || '-'}
+          </p>
         </div>
       </Link>
       {canEdit && (
@@ -111,6 +122,57 @@ const MemberGridCard = memo(function MemberGridCard({
           </svg>
         </button>
       )}
+    </div>
+  )
+})
+
+// 삭제 확인 모달 컴포넌트
+const DeleteConfirmModal = memo(function DeleteConfirmModal({
+  member,
+  deleting,
+  onConfirm,
+  onCancel,
+}: {
+  member: MemberItem | null
+  deleting: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  if (!member) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-5 animate-slide-up">
+        <div className="text-center">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">교인 삭제</h3>
+          <p className="text-gray-500 text-sm mb-6">
+            <strong className="text-gray-700">{member.name}</strong>님을 삭제하시겠습니까?
+            <br />
+            <span className="text-red-500">이 작업은 되돌릴 수 없습니다.</span>
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={deleting}
+            className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={deleting}
+            className="flex-1 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            {deleting ? '삭제 중...' : '삭제'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 })
@@ -155,7 +217,9 @@ const MemberListItem = memo(function MemberListItem({
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-900 text-sm lg:text-base">{member.name}</p>
           <div className="flex items-center gap-1.5 text-xs lg:text-sm text-gray-500 mt-0.5">
-            <span className="truncate">{member.departments?.name}</span>
+            <span className="truncate">
+              {member.member_departments?.map(md => md.departments?.name).filter(Boolean).join(' · ') || '-'}
+            </span>
             {member.phone && (
               <>
                 <span className="hidden lg:inline">·</span>
@@ -194,23 +258,16 @@ export default function MemberList({ members, departments, canEdit }: MemberList
   const supabase = useMemo(() => createClient(), [])
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
-  const [selectedDept, setSelectedDept] = useState<string>('all')
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [deleteTarget, setDeleteTarget] = useState<MemberItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
-  // URL에서 부서 필터 초기화
-  useEffect(() => {
-    const deptFromUrl = searchParams.get('dept')
-    if (deptFromUrl) {
-      setSelectedDept(deptFromUrl)
-    }
-    const monthFromUrl = searchParams.get('month')
-    if (monthFromUrl) {
-      setSelectedMonth(parseInt(monthFromUrl, 10))
-    }
+  // URL에서 파생된 상태 (useEffect 대신 직접 계산)
+  const selectedDept = searchParams.get('dept') || 'all'
+  const selectedMonth = useMemo(() => {
+    const monthParam = searchParams.get('month')
+    return monthParam ? parseInt(monthParam, 10) : null
   }, [searchParams])
 
   // 검색어 디바운스 (300ms)
@@ -233,7 +290,9 @@ export default function MemberList({ members, departments, canEdit }: MemberList
       const matchesSearch = !debouncedSearch ||
         member.name.toLowerCase().includes(searchLower) ||
         member.phone?.includes(debouncedSearch)
-      const matchesDept = selectedDept === 'all' || member.department_id === selectedDept
+      // 부서 필터링: member_departments 배열에서 확인
+      const matchesDept = selectedDept === 'all' ||
+        member.member_departments?.some(md => md.department_id === selectedDept)
       const matchesMonth = selectedMonth === null || getBirthMonth(member.birth_date) === selectedMonth
       return matchesSearch && matchesDept && matchesMonth
     })
@@ -257,8 +316,7 @@ export default function MemberList({ members, departments, canEdit }: MemberList
 
   const handleDeptChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const newDept = e.target.value
-    setSelectedDept(newDept)
-    // URL 업데이트
+    // URL만 업데이트 (상태는 URL에서 파생)
     const params = new URLSearchParams()
     if (newDept !== 'all') params.set('dept', newDept)
     if (selectedMonth !== null) params.set('month', selectedMonth.toString())
@@ -267,13 +325,16 @@ export default function MemberList({ members, departments, canEdit }: MemberList
 
   const handleMonthClick = useCallback((month: number) => {
     const newMonth = selectedMonth === month ? null : month
-    setSelectedMonth(newMonth)
-    // URL 업데이트
+    // URL만 업데이트 (상태는 URL에서 파생)
     const params = new URLSearchParams()
     if (selectedDept !== 'all') params.set('dept', selectedDept)
     if (newMonth !== null) params.set('month', newMonth.toString())
     router.push(`/members${params.toString() ? '?' + params.toString() : ''}`)
   }, [router, selectedDept, selectedMonth])
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteTarget(null)
+  }, [])
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return
@@ -312,7 +373,7 @@ export default function MemberList({ members, departments, canEdit }: MemberList
       name: member.name,
       phone: member.phone,
       birthDate: member.birth_date || '',
-      department: member.departments?.name || '',
+      department: member.member_departments?.map(md => md.departments?.name).filter(Boolean).join(', ') || '',
       isActive: member.is_active ? '활동' : '비활동',
       joinedAt: new Date(member.joined_at).toLocaleDateString('ko-KR'),
     }))
@@ -480,41 +541,12 @@ export default function MemberList({ members, departments, canEdit }: MemberList
       )}
 
       {/* 삭제 확인 모달 */}
-      {deleteTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-5 animate-slide-up">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">교인 삭제</h3>
-              <p className="text-gray-500 text-sm mb-6">
-                <strong className="text-gray-700">{deleteTarget.name}</strong>님을 삭제하시겠습니까?
-                <br />
-                <span className="text-red-500">이 작업은 되돌릴 수 없습니다.</span>
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
-                className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex-1 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
-              >
-                {deleting ? '삭제 중...' : '삭제'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmModal
+        member={deleteTarget}
+        deleting={deleting}
+        onConfirm={handleDelete}
+        onCancel={handleDeleteCancel}
+      />
     </div>
   )
 }
