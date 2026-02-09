@@ -33,6 +33,7 @@ export type LayoutUser = Pick<UserData, 'id' | 'name' | 'role' | 'departments'> 
 export interface MemberDepartmentInfo {
   department_id: string
   is_primary: boolean
+  cell_id: string | null
   departments: {
     id: string
     name: string
@@ -71,4 +72,15 @@ export interface DepartmentInfo {
   id: string
   name: string
   code?: string
+}
+
+// ─── 셀 관련 ─────────────────────────────────────
+
+/** 셀 정보 */
+export interface CellInfo {
+  id: string
+  name: string
+  department_id: string
+  display_order: number
+  is_active: boolean
 }

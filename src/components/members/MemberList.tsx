@@ -32,6 +32,7 @@ export default function MemberList({ members, departments, canEdit }: MemberList
 
   // URL에서 파생된 상태 (useEffect 대신 직접 계산)
   const selectedDept = searchParams.get('dept') || 'all'
+  const selectedCell = searchParams.get('cell') || 'all'
   const selectedMonth = useMemo(() => {
     const monthParam = searchParams.get('month')
     return monthParam ? parseInt(monthParam, 10) : null
@@ -60,10 +61,15 @@ export default function MemberList({ members, departments, canEdit }: MemberList
       // 부서 필터링: member_departments 배열에서 확인
       const matchesDept = selectedDept === 'all' ||
         member.member_departments?.some(md => md.department_id === selectedDept)
+      // 셀 필터링: 선택된 부서의 member_departments에서 cell_id 확인
+      const matchesCell = selectedCell === 'all' ||
+        member.member_departments?.some(md =>
+          md.department_id === selectedDept && md.cell_id === selectedCell
+        )
       const matchesMonth = selectedMonth === null || getBirthMonth(member.birth_date) === selectedMonth
-      return matchesSearch && matchesDept && matchesMonth
+      return matchesSearch && matchesDept && matchesCell && matchesMonth
     })
-  }, [members, debouncedSearch, selectedDept, selectedMonth, getBirthMonth, deletedIds])
+  }, [members, debouncedSearch, selectedDept, selectedCell, selectedMonth, getBirthMonth, deletedIds])
 
   // 월별 생일자 수 계산
   const birthCountByMonth = useMemo(() => {
@@ -83,12 +89,20 @@ export default function MemberList({ members, departments, canEdit }: MemberList
 
   const handleDeptChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const newDept = e.target.value
-    // URL만 업데이트 (상태는 URL에서 파생)
+    // 부서 변경 시 셀 필터 초기화
     const params = new URLSearchParams()
     if (newDept !== 'all') params.set('dept', newDept)
     if (selectedMonth !== null) params.set('month', selectedMonth.toString())
     router.push(`/members${params.toString() ? '?' + params.toString() : ''}`)
   }, [router, selectedMonth])
+
+  const handleCellChange = useCallback((cellId: string) => {
+    const params = new URLSearchParams()
+    if (selectedDept !== 'all') params.set('dept', selectedDept)
+    if (cellId !== 'all') params.set('cell', cellId)
+    if (selectedMonth !== null) params.set('month', selectedMonth.toString())
+    router.push(`/members${params.toString() ? '?' + params.toString() : ''}`)
+  }, [router, selectedDept, selectedMonth])
 
   const handleMonthClick = useCallback((month: number) => {
     const newMonth = selectedMonth === month ? null : month
@@ -151,6 +165,8 @@ export default function MemberList({ members, departments, canEdit }: MemberList
         selectedDept={selectedDept}
         onDeptChange={handleDeptChange}
         departments={departments}
+        selectedCell={selectedCell}
+        onCellChange={handleCellChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onExportExcel={handleExportExcel}

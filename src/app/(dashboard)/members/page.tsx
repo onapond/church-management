@@ -21,8 +21,8 @@ export default async function MembersPage() {
   const userInfo = userResult.data as UserData | null
   const adminUser = checkAdmin(userInfo?.role || '')
 
-  // 접근 가능한 부서
-  let departments: { id: string; name: string }[] = []
+  // 접근 가능한 부서 (code 포함하여 셀 필터에서 활용)
+  let departments: { id: string; name: string; code?: string }[] = []
   if (adminUser) {
     departments = allDeptsResult.data || []
   } else {
@@ -34,7 +34,7 @@ export default async function MembersPage() {
   if (adminUser) {
     const { data } = await supabase
       .from('members')
-      .select('id, name, phone, birth_date, department_id, is_active, photo_url, joined_at, member_departments(department_id, is_primary, departments(id, name))')
+      .select('id, name, phone, birth_date, department_id, is_active, photo_url, joined_at, member_departments(department_id, is_primary, cell_id, departments(id, name))')
       .order('name')
     members = (data || []) as unknown as MemberWithDepts[]
   } else {
@@ -51,7 +51,7 @@ export default async function MembersPage() {
       if (memberIds.length > 0) {
         const { data } = await supabase
           .from('members')
-          .select('id, name, phone, birth_date, department_id, is_active, photo_url, joined_at, member_departments(department_id, is_primary, departments(id, name))')
+          .select('id, name, phone, birth_date, department_id, is_active, photo_url, joined_at, member_departments(department_id, is_primary, cell_id, departments(id, name))')
           .in('id', memberIds)
           .order('name')
         members = (data || []) as unknown as MemberWithDepts[]

@@ -9,11 +9,13 @@ import Link from 'next/link'
 interface Department {
   id: string
   name: string
+  code?: string
 }
 
 interface MemberDepartmentData {
   department_id: string
   is_primary: boolean
+  cell_id?: string | null
   departments: {
     id: string
     name: string
@@ -76,7 +78,7 @@ export default function MemberEditPage() {
     // 교인 정보 로드
     const { data: memberData, error: memberError } = await supabase
       .from('members')
-      .select('*, member_departments(department_id, is_primary, departments(id, name))')
+      .select('*, member_departments(department_id, is_primary, cell_id, departments(id, name))')
       .eq('id', params.id)
       .single()
 
@@ -89,7 +91,7 @@ export default function MemberEditPage() {
     // 부서 목록 로드
     const { data: deptData } = await supabase
       .from('departments')
-      .select('id, name')
+      .select('id, name, code')
       .order('name')
 
     setMember(memberData as Member)

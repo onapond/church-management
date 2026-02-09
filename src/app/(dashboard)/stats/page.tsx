@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import dynamic from 'next/dynamic'
 import { exportStatsToExcel } from '@/lib/excel'
 import { ChartSkeleton } from '@/components/ui/Skeleton'
+import CellFilter from '@/components/ui/CellFilter'
 
 type TabType = 'attendance' | 'reports'
 
@@ -64,6 +65,7 @@ export default function StatsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('attendance')
   const [departments, setDepartments] = useState<Department[]>([])
   const [selectedDept, setSelectedDept] = useState<string>('all')
+  const [selectedCell, setSelectedCell] = useState<string>('all')
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats[]>([])
   const [departmentStats, setDepartmentStats] = useState<DepartmentStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -76,7 +78,7 @@ export default function StatsPage() {
 
   useEffect(() => {
     loadStats()
-  }, [selectedDept, period])
+  }, [selectedDept, selectedCell, period])
 
   const loadDepartments = async () => {
     const { data } = await supabase
@@ -196,10 +198,17 @@ export default function StatsPage() {
 
     if (selectedDept !== 'all') {
       // member_departments를 통해 선택된 부서의 멤버 조회
-      const { data: memberDepts } = await supabase
+      let query = supabase
         .from('member_departments')
         .select('member_id')
         .eq('department_id', selectedDept)
+
+      // 셀 필터 적용
+      if (selectedCell !== 'all') {
+        query = query.eq('cell_id', selectedCell)
+      }
+
+      const { data: memberDepts } = await query
 
       const ids = (memberDepts || []).map((md: { member_id: string }) => md.member_id)
       memberIds = [...new Set(ids)] as string[]
@@ -247,11 +256,17 @@ export default function StatsPage() {
       total = count || 0
     } else {
       // 선택된 부서의 활성 멤버 수
-      const { data: deptMembers } = await supabase
+      let totalQuery = supabase
         .from('member_departments')
         .select('member_id, members!inner(is_active)')
         .eq('department_id', selectedDept)
         .eq('members.is_active', true)
+
+      if (selectedCell !== 'all') {
+        totalQuery = totalQuery.eq('cell_id', selectedCell)
+      }
+
+      const { data: deptMembers } = await totalQuery
       total = deptMembers?.length || 0
     }
 
@@ -331,7 +346,10 @@ export default function StatsPage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
           <select
             value={selectedDept}
-            onChange={(e) => setSelectedDept(e.target.value)}
+            onChange={(e) => {
+              setSelectedDept(e.target.value)
+              setSelectedCell('all') // 부서 변경 시 셀 초기화
+            }}
             className="w-full sm:w-auto px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="all">전체 부서</option>
@@ -339,6 +357,13 @@ export default function StatsPage() {
               <option key={dept.id} value={dept.id}>{dept.name}</option>
             ))}
           </select>
+
+          <CellFilter
+            departments={departments}
+            selectedDeptId={selectedDept}
+            selectedCellId={selectedCell}
+            onCellChange={setSelectedCell}
+          />
 
           <div className="flex bg-gray-100 rounded-lg p-1">
             {(['month', 'quarter', 'year'] as const).map((p) => (

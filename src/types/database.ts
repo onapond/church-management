@@ -70,10 +70,24 @@ export interface Database {
           member_id: string
           department_id: string
           is_primary: boolean
+          cell_id: string | null
           created_at: string
         }
         Insert: Omit<Database['public']['Tables']['member_departments']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['member_departments']['Insert']>
+      }
+      cells: {
+        Row: {
+          id: string
+          department_id: string
+          name: string
+          display_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['cells']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Database['public']['Tables']['cells']['Insert']>
       }
       members: {
         Row: {
@@ -323,6 +337,8 @@ export type Newcomer = Database['public']['Tables']['newcomers']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
 export type ReportProgram = Database['public']['Tables']['report_programs']['Row']
 export type ApprovalHistory = Database['public']['Tables']['approval_history']['Row']
+
+export type Cell = Database['public']['Tables']['cells']['Row']
 
 // 교인 + 부서 정보 조인 타입
 export interface MemberWithDepartments extends Member {

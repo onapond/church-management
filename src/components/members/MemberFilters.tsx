@@ -3,6 +3,7 @@
 import { memo } from 'react'
 import type { DepartmentInfo } from '@/types/shared'
 import { MONTHS } from '@/lib/constants'
+import CellFilter from '@/components/ui/CellFilter'
 
 interface MemberFiltersProps {
   search: string
@@ -10,6 +11,8 @@ interface MemberFiltersProps {
   selectedDept: string
   onDeptChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
   departments: DepartmentInfo[]
+  selectedCell: string
+  onCellChange: (cellId: string) => void
   viewMode: 'grid' | 'list'
   onViewModeChange: (mode: 'grid' | 'list') => void
   onExportExcel: () => void
@@ -24,6 +27,8 @@ const MemberFilters = memo(function MemberFilters({
   selectedDept,
   onDeptChange,
   departments,
+  selectedCell,
+  onCellChange,
   viewMode,
   onViewModeChange,
   onExportExcel,
@@ -62,6 +67,14 @@ const MemberFilters = memo(function MemberFilters({
               </option>
             ))}
           </select>
+
+          {/* 셀 필터 (cu1 선택 시에만 표시) */}
+          <CellFilter
+            departments={departments}
+            selectedDeptId={selectedDept}
+            selectedCellId={selectedCell}
+            onCellChange={onCellChange}
+          />
 
           {/* 보기 모드 */}
           <div className="flex bg-gray-100 rounded-xl p-1 shrink-0">

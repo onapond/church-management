@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo, useCallback, memo } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { exportAttendanceToExcel } from '@/lib/excel'
+import CellFilter from '@/components/ui/CellFilter'
 
 interface Department {
   id: string
@@ -122,12 +123,15 @@ export default function AttendanceGrid({
   attendanceDate,
 }: AttendanceGridProps) {
   const [selectedDept, setSelectedDept] = useState(defaultDepartmentId)
+  const [selectedCell, setSelectedCell] = useState('all')
   const [selectedDate, setSelectedDate] = useState(attendanceDate)
   const [members, setMembers] = useState(initialMembers)
   const [records, setRecords] = useState(initialRecords)
   const [isPending, startTransition] = useTransition()
   const [saving, setSaving] = useState<string | null>(null)
   const [bulkSaving, setBulkSaving] = useState<string | null>(null)
+  // 셀별로 필터링할 때 사용할 멤버-셀 매핑
+  const [memberCellMap, setMemberCellMap] = useState<Map<string, string | null>>(new Map())
 
   // Supabase 클라이언트를 useMemo로 캐싱
   const supabase = useMemo(() => createClient(), [])
@@ -143,26 +147,39 @@ export default function AttendanceGrid({
     return map
   }, [records])
 
-  // 통계 메모이제이션
+  // 셀별 필터링된 멤버 목록
+  const filteredMembers = useMemo(() => {
+    if (selectedCell === 'all') return members
+    return members.filter(m => memberCellMap.get(m.id) === selectedCell)
+  }, [members, selectedCell, memberCellMap])
+
+  // 통계 메모이제이션 (필터링된 멤버 기준)
   const stats = useMemo(() => {
     let worship = 0
     let meeting = 0
-    members.forEach(m => {
+    filteredMembers.forEach(m => {
       if (attendanceMap.get(`${m.id}-worship`)) worship++
       if (attendanceMap.get(`${m.id}-meeting`)) meeting++
     })
-    return { worship, meeting, total: members.length }
-  }, [members, attendanceMap])
+    return { worship, meeting, total: filteredMembers.length }
+  }, [filteredMembers, attendanceMap])
 
   const loadData = useCallback(async (deptId: string, date: string) => {
     startTransition(async () => {
-      // member_departments를 통해 해당 부서에 속한 교인 ID 조회
+      // member_departments를 통해 해당 부서에 속한 교인 ID + cell_id 조회
       const { data: memberDeptData } = await supabase
         .from('member_departments')
-        .select('member_id')
+        .select('member_id, cell_id')
         .eq('department_id', deptId)
 
       const memberIds = [...new Set((memberDeptData || []).map((md: { member_id: string }) => md.member_id))]
+
+      // 멤버-셀 매핑 구성
+      const cellMap = new Map<string, string | null>()
+      ;(memberDeptData || []).forEach((md: { member_id: string; cell_id: string | null }) => {
+        cellMap.set(md.member_id, md.cell_id)
+      })
+      setMemberCellMap(cellMap)
 
       let newMembers: MemberBasic[] = []
       if (memberIds.length > 0) {
@@ -195,6 +212,7 @@ export default function AttendanceGrid({
   const handleDeptChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const deptId = e.target.value
     setSelectedDept(deptId)
+    setSelectedCell('all') // 부서 변경 시 셀 초기화
     loadData(deptId, selectedDate)
   }, [selectedDate, loadData])
 
@@ -352,22 +370,22 @@ export default function AttendanceGrid({
   // 엑셀 내보내기
   const handleExportExcel = useCallback(() => {
     const selectedDeptObj = departments.find(d => d.id === selectedDept)
-    const exportData = members.map(member => ({
+    const exportData = filteredMembers.map(member => ({
       name: member.name,
       date: selectedDate,
       worship: attendanceMap.get(`${member.id}-worship`) ? 'O' : 'X',
       meeting: attendanceMap.get(`${member.id}-meeting`) ? 'O' : 'X',
     }))
     exportAttendanceToExcel(exportData, selectedDeptObj?.name || '전체', selectedDate)
-  }, [members, attendanceMap, selectedDate, selectedDept, departments])
+  }, [filteredMembers, attendanceMap, selectedDate, selectedDept, departments])
 
   return (
     <div className="space-y-3 lg:space-y-4">
       {/* 상단 컨트롤 */}
       <div className="bg-white rounded-2xl p-3 lg:p-4 shadow-sm border border-gray-100">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-          {/* 부서 및 날짜 선택 */}
-          <div className="flex items-center gap-2 flex-1">
+          {/* 부서, 셀, 날짜 선택 */}
+          <div className="flex flex-wrap items-center gap-2 flex-1">
             <select
               value={selectedDept}
               onChange={handleDeptChange}
@@ -379,6 +397,12 @@ export default function AttendanceGrid({
                 </option>
               ))}
             </select>
+            <CellFilter
+              departments={departments}
+              selectedDeptId={selectedDept}
+              selectedCellId={selectedCell}
+              onCellChange={setSelectedCell}
+            />
             <input
               type="date"
               value={selectedDate}
@@ -471,7 +495,7 @@ export default function AttendanceGrid({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {members.map((member, index) => (
+              {filteredMembers.map((member, index) => (
                 <MemberRow
                   key={member.id}
                   member={member}
@@ -488,7 +512,7 @@ export default function AttendanceGrid({
           </table>
         </div>
 
-        {members.length === 0 && (
+        {filteredMembers.length === 0 && (
           <div className="p-6 lg:p-8 text-center">
             <svg className="w-10 h-10 lg:w-12 lg:h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />

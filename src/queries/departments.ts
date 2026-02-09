@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Department } from '@/types/database'
+import type { Department, Cell } from '@/types/database'
 
 const supabase = createClient()
 
@@ -19,5 +19,25 @@ export function useDepartments() {
       return data || []
     },
     staleTime: 10 * 60 * 1000, // 부서 데이터는 거의 안 변하므로 10분
+  })
+}
+
+/** 특정 부서의 셀 목록 조회 */
+export function useCells(departmentId?: string) {
+  return useQuery({
+    queryKey: ['cells', departmentId],
+    queryFn: async (): Promise<Cell[]> => {
+      if (!departmentId) return []
+      const { data, error } = await supabase
+        .from('cells')
+        .select('*')
+        .eq('department_id', departmentId)
+        .eq('is_active', true)
+        .order('display_order')
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!departmentId,
+    staleTime: 10 * 60 * 1000,
   })
 }

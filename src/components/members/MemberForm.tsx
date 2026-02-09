@@ -6,15 +6,18 @@ import { createClient } from '@/lib/supabase/client'
 import type { Member } from '@/types/database'
 import PhotoUploader from './PhotoUploader'
 import DepartmentSelector from './DepartmentSelector'
+import { CU1_DEPARTMENT_CODE } from '@/lib/constants'
 
 interface Department {
   id: string
   name: string
+  code?: string
 }
 
 interface MemberDepartmentData {
   department_id: string
   is_primary: boolean
+  cell_id?: string | null
   departments: {
     id: string
     name: string
@@ -59,6 +62,13 @@ export default function MemberForm({ departments, member }: MemberFormProps) {
   // 주 소속 부서
   const [primaryDeptId, setPrimaryDeptId] = useState<string>(initialPrimaryDeptId)
 
+  // cu1 부서의 셀 선택
+  const cu1Dept = departments.find(d => d.code === CU1_DEPARTMENT_CODE)
+  const initialCellId = cu1Dept
+    ? member?.member_departments?.find(md => md.department_id === cu1Dept.id)?.cell_id || ''
+    : ''
+  const [selectedCellId, setSelectedCellId] = useState<string>(initialCellId || '')
+
   // 부서 체크박스 토글
   const handleDeptToggle = (deptId: string) => {
     setSelectedDeptIds(prev => {
@@ -69,6 +79,10 @@ export default function MemberForm({ departments, member }: MemberFormProps) {
         // 주 소속 부서가 제거되면 첫 번째 부서를 주 소속으로
         if (primaryDeptId === deptId) {
           setPrimaryDeptId(newIds[0])
+        }
+        // cu1 해제 시 셀 초기화
+        if (cu1Dept && deptId === cu1Dept.id) {
+          setSelectedCellId('')
         }
         return newIds
       } else {
@@ -171,6 +185,7 @@ export default function MemberForm({ departments, member }: MemberFormProps) {
           member_id: member.id,
           department_id: deptId,
           is_primary: deptId === primaryDeptId,
+          cell_id: (cu1Dept && deptId === cu1Dept.id && selectedCellId) ? selectedCellId : null,
         }))
 
         const { error: deptError } = await supabase
@@ -201,6 +216,7 @@ export default function MemberForm({ departments, member }: MemberFormProps) {
           member_id: newMember.id,
           department_id: deptId,
           is_primary: deptId === primaryDeptId,
+          cell_id: (cu1Dept && deptId === cu1Dept.id && selectedCellId) ? selectedCellId : null,
         }))
 
         const { error: deptError } = await supabase
@@ -294,6 +310,8 @@ export default function MemberForm({ departments, member }: MemberFormProps) {
           primaryDeptId={primaryDeptId}
           onToggle={handleDeptToggle}
           onPrimaryChange={handlePrimaryChange}
+          selectedCellId={selectedCellId}
+          onCellIdChange={setSelectedCellId}
         />
 
         {/* 직업/소속 */}

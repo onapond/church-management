@@ -23,8 +23,8 @@ export default async function NewMemberPage() {
     redirect('/members')
   }
 
-  // 등록 가능한 부서
-  let departments: { id: string; name: string }[] = []
+  // 등록 가능한 부서 (code 포함하여 셀 선택에서 활용)
+  let departments: { id: string; name: string; code?: string }[] = []
   if (adminUser) {
     const { data } = await supabase.from('departments').select('*')
     departments = data || []
