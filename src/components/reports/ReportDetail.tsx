@@ -260,6 +260,9 @@ export default function ReportDetail({
       await supabase.from('report_programs').delete().eq('report_id', report.id)
       await supabase.from('newcomers').delete().eq('report_id', report.id)
       await supabase.from('approval_history').delete().eq('report_id', report.id)
+      await supabase.from('attendance_records').delete().eq('report_id', report.id)
+      await supabase.from('notifications').delete().eq('report_id', report.id)
+      await supabase.from('report_photos').delete().eq('report_id', report.id)
 
       const { error } = await supabase.from('weekly_reports').delete().eq('id', report.id)
       if (error) throw error
