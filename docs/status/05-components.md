@@ -14,9 +14,9 @@ src/components/
 ├── dashboard/       # DashboardContent
 ├── stats/           # 통계 차트
 ├── users/           # UserManagement
-├── notifications/   # NotificationBell, NotificationItem
+├── notifications/   # NotificationBell, NotificationItem, PushPermission
 ├── pwa/             # ServiceWorkerRegistration, UpdatePrompt
-└── ui/              # Toast, ErrorBoundary, RichTextEditor, Skeleton
+└── ui/              # Toast, ErrorBoundary, RichTextEditor, Skeleton, CellFilter
 ```
 
 ---
@@ -212,6 +212,7 @@ src/components/
 - 그리드/리스트 뷰 전환
 - 검색 (이름/연락처)
 - 부서 필터링 (드롭다운)
+- **셀별 필터링** (1청년부 선택 시에만 셀 드롭다운 표시)
 - 생일 월별 필터 (1월~12월 버튼)
 - 교인 삭제 (Optimistic Update)
 - 엑셀 내보내기
@@ -335,6 +336,28 @@ src/components/
 - 개별 알림 표시
 - 읽음/읽지 않음 스타일 구분
 - 시간 표시
+
+---
+
+### PushPermission.tsx
+
+**경로**: `src/components/notifications/PushPermission.tsx`
+**타입**: 클라이언트 컴포넌트 (`'use client'`)
+
+#### Props
+
+| Prop | 타입 | 설명 |
+|------|------|------|
+| userId | string | 현재 사용자 ID |
+
+#### 기능
+
+- 웹 푸시 알림 구독/해제 버튼
+- 5단계 진행 표시 (권한 요청 → SW 확인 → VAPID → 구독 → 서버 저장)
+- 타임아웃 처리 (각 단계별)
+- 미지원 브라우저 안내 (iOS Safari → 홈 화면 추가 안내)
+- 알림 차단 상태 안내
+- NotificationBell 드롭다운 하단에 표시
 
 ---
 
@@ -524,6 +547,7 @@ App Layout
     ├── members/page
     │   └── MemberList
     │       ├── MemberFilters
+    │       │   └── CellFilter (memoized)
     │       ├── MemberGridCard (memoized)
     │       ├── MemberListItem (memoized)
     │       └── DeleteConfirmModal
@@ -533,6 +557,7 @@ App Layout
     │   └── MemberForm
     │       ├── PhotoUploader
     │       └── DepartmentSelector
+    │           └── CellFilter (memoized)
     ├── members/[id]/page
     │   └── MemberForm
     │
@@ -568,6 +593,7 @@ App Layout
 | MemberRow | AttendanceGrid.tsx |
 | MemberGridCard | members/MemberGridCard.tsx |
 | MemberListItem | members/MemberListItem.tsx |
+| CellFilter | ui/CellFilter.tsx |
 
 ### 동적 임포트 (next/dynamic)
 
@@ -587,3 +613,37 @@ App Layout
 ### useCallback / useMemo
 
 대부분의 클라이언트 컴포넌트에서 이벤트 핸들러와 Supabase 클라이언트에 적용
+
+---
+
+## 10. 셀 필터 컴포넌트
+
+### CellFilter.tsx
+
+**경로**: `src/components/ui/CellFilter.tsx`
+**타입**: 클라이언트 컴포넌트 (`'use client'`)
+
+#### Props
+
+| Prop | 타입 | 설명 |
+|------|------|------|
+| departments | Department[] | 부서 목록 (code 포함) |
+| selectedDeptId | string | 선택된 부서 ID |
+| selectedCellId | string | 선택된 셀 ID ('all' 또는 셀 UUID) |
+| onCellChange | (cellId: string) => void | 셀 변경 핸들러 |
+
+#### 기능
+
+- 셀 드롭다운 (1청년부 선택 시에만 표시)
+- `useCells()` 훅으로 셀 목록 조회
+- cu1 아닐 때 `null` 반환 (완전히 숨김)
+- `React.memo`로 메모이제이션
+
+#### 사용 페이지
+
+| 페이지 | 컴포넌트 |
+|--------|----------|
+| 교인 명단 | MemberFilters |
+| 출결 관리 | AttendanceGrid |
+| 통계 | stats/page.tsx |
+| 교인 등록/수정 | DepartmentSelector |

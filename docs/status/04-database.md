@@ -15,7 +15,8 @@
 | users | 사용자 | 인증, 역할, 부서 |
 | user_departments | 사용자-부서 매핑 | 팀장 여부 |
 | members | 교인 정보 | 교인 명단 |
-| member_departments | 교인-부서 매핑 | 다중 부서 소속 |
+| member_departments | 교인-부서 매핑 | 다중 부서 소속, 셀 소속 |
+| cells | 셀 정보 | 부서 내 소그룹 (cu1: 1셀~6셀) |
 | weekly_reports | 보고서 | 주차/모임/교육 보고서 |
 | approval_history | 결재 이력 | 상태 변경 기록 |
 | report_programs | 보고서 프로그램 | 순서지 항목 |
@@ -90,7 +91,20 @@
 | member_id | uuid | FK → members |
 | department_id | uuid | FK → departments |
 | is_primary | boolean | 주 소속 부서 여부 |
+| cell_id | uuid | FK → cells (nullable, cu1 셀 소속) |
 | created_at | timestamp | 생성일시 |
+
+### cells (셀)
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | uuid | PK |
+| department_id | uuid | FK → departments |
+| name | text | 셀 이름 (예: 1셀, 2셀) |
+| display_order | integer | 표시 순서 |
+| is_active | boolean | 활성화 여부 |
+| created_at | timestamp | 생성일시 |
+| updated_at | timestamp | 수정일시 |
 
 ### weekly_reports (보고서)
 
@@ -369,9 +383,15 @@
 │ id (PK)          │◄──────▶│ member_id (FK)     │             │
 │ name             │        │ department_id (FK) │─────────────┘
 │ phone            │        │ is_primary         │
-│ birth_date       │        └────────────────────┘
-│ photo_url        │
-└──────────────────┘
+│ birth_date       │        │ cell_id (FK)       │──┐
+│ photo_url        │        └────────────────────┘  │
+└──────────────────┘                                 ▼
+                                              ┌──────────┐
+                                              │  cells   │
+                                              ├──────────┤
+                                              │ dept_id  │
+                                              │ name     │
+                                              └──────────┘
        │
        │ 1:N
        ▼
@@ -411,6 +431,7 @@
 | user_departments | ON | authenticated SELECT |
 | members | ON | 부서 기반 접근 (관리자/회계/팀장별 분리) |
 | member_departments | ON | authenticated SELECT/INSERT/UPDATE/DELETE |
+| cells | ON | authenticated SELECT, 관리자 INSERT/UPDATE/DELETE |
 | weekly_reports | ON | 부서 기반 CRUD + 관리자 DELETE |
 | approval_history | ON | authenticated SELECT, 관리자 DELETE |
 | report_programs | ON | authenticated SELECT/INSERT/UPDATE/DELETE |
@@ -446,6 +467,9 @@
 | members | idx_members_department_id | department_id |
 | member_departments | idx_member_departments_member_id | member_id |
 | member_departments | idx_member_departments_department_id | department_id |
+| member_departments | idx_member_departments_cell_id | cell_id |
+| cells | idx_cells_department_id | department_id |
+| cells | idx_cells_display_order | (department_id, display_order) |
 | weekly_reports | idx_weekly_reports_department_id | department_id |
 | weekly_reports | idx_weekly_reports_author_id | author_id |
 | approval_history | idx_approval_history_report_id | report_id |
@@ -476,6 +500,7 @@
 | 20260209030647 | fix_performance_policies_part1 | 중복 정책 제거 + initplan 최적화 |
 | 20260209030702 | fix_performance_policies_part2 | initplan + public→authenticated 정책 |
 | 20260209030725 | fix_remaining_unindexed_fkeys | FK 인덱스 5개 추가 |
+| 20260209xxxxxx | create_cells_table | cells 테이블 생성, member_departments.cell_id 추가, 초기 데이터(1셀~6셀) |
 
 ### 마이그레이션 실행 방법
 

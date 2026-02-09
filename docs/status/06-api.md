@@ -155,7 +155,7 @@ export async function updateSession(request: NextRequest) {
 
 | 파일 | 주요 훅 | 용도 |
 |------|---------|------|
-| `departments.ts` | `useDepartments` | 부서 목록 조회 |
+| `departments.ts` | `useDepartments`, `useCells` | 부서/셀 목록 조회 |
 | `members.ts` | `useMembers`, `useDeleteMember` | 교인 CRUD |
 | `reports.ts` | `useReports` | 보고서 조회 |
 | `notifications.ts` | `useNotifications` | 알림 조회/읽음 |
@@ -189,6 +189,7 @@ export async function updateSession(request: NextRequest) {
 ### 공통 상수
 **경로**: `src/lib/constants.ts`
 - `MONTHS` - 월 목록, `MAX_FILE_SIZE` - 업로드 제한
+- `CU1_DEPARTMENT_CODE` - 1청년부 코드 ('cu1')
 - 페이지네이션, 라벨 등
 
 ### 유틸리티 함수
@@ -208,6 +209,7 @@ export async function updateSession(request: NextRequest) {
 **경로**: `src/types/shared.ts`
 - `UserData`, `UserDepartment`, `LayoutUser`
 - `MemberWithDepts`, `MemberDepartmentInfo`
+- `CellInfo` - 셀 정보 인터페이스
 - `ReportSummary`, `DepartmentInfo`
 
 ---
@@ -257,6 +259,94 @@ PATCH /api/notifications
 // 응답
 { "success": true }
 ```
+
+### 푸시 구독 API
+
+**경로**: `src/app/api/push/subscribe/route.ts`
+
+#### POST - 푸시 구독 등록
+
+```typescript
+// 요청
+POST /api/push/subscribe
+{
+  "endpoint": "https://fcm.googleapis.com/...",
+  "keys": {
+    "p256dh": "...",
+    "auth": "..."
+  }
+}
+
+// 응답
+{ "success": true }
+```
+
+- 기존 endpoint가 있으면 upsert (재활성화)
+- `push_subscriptions` 테이블에 저장
+
+---
+
+### 푸시 구독 해제 API
+
+**경로**: `src/app/api/push/unsubscribe/route.ts`
+
+#### POST - 푸시 구독 해제
+
+```typescript
+// 요청
+POST /api/push/unsubscribe
+{ "endpoint": "https://fcm.googleapis.com/..." }
+
+// 응답
+{ "success": true }
+```
+
+- `is_active: false`로 비활성화
+
+---
+
+### 푸시 전송 API
+
+**경로**: `src/app/api/push/send/route.ts`
+
+#### POST - 사용자에게 푸시 전송
+
+```typescript
+// 요청
+POST /api/push/send
+{
+  "userIds": ["user-uuid-1", "user-uuid-2"],
+  "title": "새 보고서 제출",
+  "body": "CU1부 주차 보고서가 제출되었습니다.",
+  "link": "/reports/123"
+}
+
+// 응답
+{ "success": true }
+```
+
+- 인증 필수 (로그인 사용자만)
+- `notifications.ts`의 `triggerPush()`에서 fire-and-forget으로 호출
+- 만료된 구독(410/404) 자동 비활성화
+
+---
+
+### 푸시 유틸리티
+
+**경로**: `src/lib/push.ts`
+
+#### 함수 목록
+
+| 함수 | 설명 |
+|------|------|
+| `sendPushToUser(supabase, userId, payload)` | 특정 사용자의 활성 구독에 푸시 전송 |
+| `sendPushToUsers(supabase, userIds, payload)` | 여러 사용자에게 푸시 전송 |
+
+#### 특징
+
+- `web-push` 라이브러리 사용 (서버 전용)
+- VAPID 키 lazy 초기화 (빌드 시 실행 방지)
+- 만료/실패 구독 자동 비활성화 (410 Gone, 404 Not Found)
 
 ---
 
@@ -435,6 +525,7 @@ export type Member = Database['public']['Tables']['members']['Row']
 export type WeeklyReport = Database['public']['Tables']['weekly_reports']['Row']
 export type AttendanceRecord = Database['public']['Tables']['attendance_records']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
+export type Cell = Database['public']['Tables']['cells']['Row']
 // ...
 ```
 
@@ -463,6 +554,8 @@ export interface MemberWithDepartments extends Member {
 |------|------|------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase 프로젝트 URL | O |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase 익명 키 | O |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | VAPID 공개 키 (웹 푸시) | O |
+| `VAPID_PRIVATE_KEY` | VAPID 비공개 키 (웹 푸시, 서버 전용) | O |
 
 ### 설정 방법
 

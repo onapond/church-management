@@ -163,6 +163,7 @@
 
 - 그리드/리스트 뷰 전환
 - 부서별 필터링 (드롭다운)
+- **셀별 필터링** (1청년부 선택 시에만 셀 드롭다운 표시)
 - 생일 월별 필터 (1월~12월 버튼)
 - 검색 (이름/연락처)
 - 엑셀 내보내기
@@ -307,7 +308,9 @@
 **파일**:
 - `src/components/notifications/NotificationBell.tsx`
 - `src/components/notifications/NotificationItem.tsx`
+- `src/components/notifications/PushPermission.tsx`
 - `src/lib/notifications.ts`
+- `src/lib/push.ts`
 
 ### 기능
 
@@ -315,7 +318,12 @@
 - 읽지 않은 알림 개수 배지
 - 알림 클릭 시 해당 페이지로 이동
 - 읽음 / 모두 읽음 처리
-- 실시간 업데이트 (폴링)
+- 실시간 업데이트 (Supabase Realtime)
+- **웹 푸시 알림** (Web Push API + VAPID)
+  - 푸시 구독/해제 UI (NotificationBell 하단)
+  - Service Worker 기반 백그라운드 알림
+  - iOS PWA 지원 (홈 화면 추가 안내)
+  - 결재 상태 변경 시 자동 푸시 전송
 
 ### 알림 트리거
 
