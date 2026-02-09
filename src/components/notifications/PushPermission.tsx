@@ -21,6 +21,7 @@ export default function PushPermission({ userId }: PushPermissionProps) {
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [step, setStep] = useState<string | null>(null)
 
   // 현재 상태 확인
   useEffect(() => {
@@ -43,8 +44,10 @@ export default function PushPermission({ userId }: PushPermissionProps) {
   const subscribe = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setStep(null)
     try {
       // 1. 권한 요청
+      setStep('1/5 알림 권한 요청...')
       const perm = await Notification.requestPermission()
       setPermission(perm)
       if (perm !== 'granted') {
@@ -52,42 +55,56 @@ export default function PushPermission({ userId }: PushPermissionProps) {
         return
       }
 
-      // 2. Service Worker 등록 + 준비 대기
-      let reg: ServiceWorkerRegistration
-      try {
-        // 아직 등록 안 되었을 수 있으므로 직접 등록 시도
+      // 2. Service Worker 확인/등록
+      setStep('2/5 Service Worker 확인...')
+      let reg = await navigator.serviceWorker.getRegistration('/')
+
+      if (!reg) {
+        setStep('2/5 Service Worker 등록...')
         reg = await withTimeout(
           navigator.serviceWorker.register('/sw.js', { scope: '/' }),
-          10000,
-          'Service Worker 등록'
+          15000,
+          'SW 등록'
         )
-        // active 상태가 될 때까지 대기
-        if (!reg.active) {
-          await withTimeout(
-            new Promise<void>((resolve) => {
-              const sw = reg.installing || reg.waiting
-              if (!sw) { resolve(); return }
-              sw.addEventListener('statechange', () => {
-                if (sw.state === 'activated') resolve()
-              })
-            }),
-            10000,
-            'Service Worker 활성화'
-          )
-        }
-      } catch (swErr) {
-        // 이미 등록된 경우 ready로 시도
-        reg = await withTimeout(navigator.serviceWorker.ready, 10000, 'Service Worker 준비')
       }
 
-      // 3. VAPID 키 확인
+      // active가 아니면 대기
+      if (!reg.active) {
+        setStep('2/5 Service Worker 활성화 대기...')
+        const sw = reg.installing || reg.waiting
+        if (sw) {
+          await withTimeout(
+            new Promise<void>((resolve) => {
+              if (sw.state === 'activated' || sw.state === 'activating') { resolve(); return }
+              const onStateChange = () => {
+                if (sw.state === 'activated' || sw.state === 'activating') {
+                  sw.removeEventListener('statechange', onStateChange)
+                  resolve()
+                }
+              }
+              sw.addEventListener('statechange', onStateChange)
+            }),
+            15000,
+            'SW 활성화'
+          )
+        }
+        // 최종 확인
+        if (!reg.active) {
+          setStep('2/5 Service Worker ready 대기...')
+          reg = await withTimeout(navigator.serviceWorker.ready, 15000, 'SW ready')
+        }
+      }
+
+      // 3. VAPID 키
+      setStep('3/5 VAPID 키 확인...')
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
       if (!vapidKey) {
-        setError('서버 설정 오류 (VAPID 키 없음)')
+        setError('VAPID 키 없음')
         return
       }
 
-      // 4. 푸시 구독 (15초 타임아웃)
+      // 4. 푸시 구독
+      setStep('4/5 푸시 구독 등록...')
       const applicationServerKey = urlBase64ToUint8Array(vapidKey)
       const subscription = await withTimeout(
         reg.pushManager.subscribe({
@@ -98,7 +115,8 @@ export default function PushPermission({ userId }: PushPermissionProps) {
         '푸시 구독'
       )
 
-      // 5. 서버에 저장
+      // 5. 서버 저장
+      setStep('5/5 서버 저장...')
       const subJson = subscription.toJSON()
       const res = await withTimeout(
         fetch('/api/push/subscribe', {
@@ -128,6 +146,7 @@ export default function PushPermission({ userId }: PushPermissionProps) {
       console.error('Push subscribe failed:', err)
     } finally {
       setLoading(false)
+      setStep(null)
     }
   }, [])
 
@@ -203,6 +222,9 @@ export default function PushPermission({ userId }: PushPermissionProps) {
 
   return (
     <div className="px-4 py-2 border-t border-gray-100">
+      {step && (
+        <p className="text-[10px] text-blue-500 text-center mb-1">{step}</p>
+      )}
       {error && (
         <p className="text-[11px] text-red-500 text-center mb-1">{error}</p>
       )}
