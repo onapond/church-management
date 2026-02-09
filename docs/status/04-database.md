@@ -398,15 +398,88 @@
 
 ---
 
+## 보안 (RLS)
+
+### RLS 활성화 상태
+
+모든 테이블에 RLS(Row Level Security)이 활성화되어 있음.
+
+| 테이블 | RLS | 주요 정책 |
+|--------|-----|----------|
+| departments | ON | authenticated SELECT |
+| users | ON | 자기 데이터 SELECT/UPDATE, 관리자 전체 접근 |
+| user_departments | ON | authenticated SELECT |
+| members | ON | 부서 기반 접근 (관리자/회계/팀장별 분리) |
+| member_departments | ON | authenticated SELECT/INSERT/UPDATE/DELETE |
+| weekly_reports | ON | 부서 기반 CRUD + 관리자 DELETE |
+| approval_history | ON | authenticated SELECT, 관리자 DELETE |
+| report_programs | ON | authenticated SELECT/INSERT/UPDATE/DELETE |
+| attendance_records | ON | 부서 기반 접근, 관리자 DELETE |
+| newcomers | ON | authenticated SELECT/INSERT/UPDATE, 관리자 DELETE |
+| notifications | ON | 자기 알림만 SELECT/UPDATE/DELETE |
+| push_subscriptions | ON | 자기 구독만 CRUD |
+| accounting_records | ON | authenticated CRUD |
+| expense_requests | ON | authenticated CRUD |
+
+### 뷰 보안
+
+| 뷰 | 보안 모드 |
+|----|----------|
+| pending_approvals | SECURITY INVOKER |
+| department_attendance_summary | SECURITY INVOKER |
+
+### 함수 보안
+
+모든 함수에 `SET search_path = ''` 적용 (SQL injection 방지).
+
+---
+
+## 인덱스
+
+### FK 인덱스 (성능 최적화)
+
+| 테이블 | 인덱스 | 대상 컬럼 |
+|--------|--------|----------|
+| users | idx_users_department_id | department_id |
+| user_departments | idx_user_departments_user_id | user_id |
+| user_departments | idx_user_departments_department_id | department_id |
+| members | idx_members_department_id | department_id |
+| member_departments | idx_member_departments_member_id | member_id |
+| member_departments | idx_member_departments_department_id | department_id |
+| weekly_reports | idx_weekly_reports_department_id | department_id |
+| weekly_reports | idx_weekly_reports_author_id | author_id |
+| approval_history | idx_approval_history_report_id | report_id |
+| approval_history | idx_approval_history_approver_id | approver_id |
+| report_programs | idx_report_programs_report_id | report_id |
+| attendance_records | idx_attendance_records_member_id | member_id |
+| attendance_records | idx_attendance_records_report_id | report_id |
+| newcomers | idx_newcomers_report_id | report_id |
+| newcomers | idx_newcomers_department_id | department_id |
+| notifications | idx_notifications_user_id | user_id |
+| notifications | idx_notifications_report_id | report_id |
+| push_subscriptions | idx_push_subscriptions_user_id | user_id |
+| accounting_records | idx_accounting_records_department_id | department_id |
+| expense_requests | idx_expense_requests_department_id | department_id |
+
+---
+
 ## 마이그레이션 이력
 
-| 파일 | 설명 |
-|------|------|
-| `migrations/001_member_departments.sql` | member_departments 테이블 생성 및 기존 데이터 이전 |
-| `migrations/002_merge_duplicate_members.sql` | 중복 교인 병합 (수동 실행) |
+| 버전 | 이름 | 설명 |
+|------|------|------|
+| (로컬) | 001_member_departments | member_departments 테이블 생성 및 기존 데이터 이전 |
+| (로컬) | 002_merge_duplicate_members | 중복 교인 병합 (수동 실행) |
+| 20260209023542 | add_delete_rls_policies | 5개 테이블 DELETE 정책 추가 |
+| 20260209024611 | fix_security_errors_enable_rls | 5개 테이블 RLS 활성화 + 뷰 SECURITY INVOKER |
+| 20260209025157 | fix_security_warns_functions_and_policies | 함수 search_path + public→authenticated 정책 |
+| 20260209030632 | fix_performance_indexes | FK 인덱스 15개 추가, 미사용 8개 삭제 |
+| 20260209030647 | fix_performance_policies_part1 | 중복 정책 제거 + initplan 최적화 |
+| 20260209030702 | fix_performance_policies_part2 | initplan + public→authenticated 정책 |
+| 20260209030725 | fix_remaining_unindexed_fkeys | FK 인덱스 5개 추가 |
 
 ### 마이그레이션 실행 방법
 
+Supabase MCP 도구의 `apply_migration`을 사용하거나:
 1. Supabase Dashboard → SQL Editor 접속
 2. 마이그레이션 파일 내용 복사
 3. 쿼리 실행
