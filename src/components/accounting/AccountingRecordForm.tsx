@@ -1,19 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Department, canAccessAllDepartments, INCOME_CATEGORIES, EXPENSE_CATEGORIES, ExpenseCategory } from '@/types/database'
+import { canAccessAllDepartments, INCOME_CATEGORIES, EXPENSE_CATEGORIES, ExpenseCategory } from '@/types/database'
 import { useToastContext } from '@/providers/ToastProvider'
+import { useAuth } from '@/providers/AuthProvider'
+import { useDepartments } from '@/queries/departments'
 
 export default function AccountingRecordForm() {
   const toast = useToastContext()
   const router = useRouter()
+  const { user } = useAuth()
+  const { data: allDepts = [] } = useDepartments()
   const [loading, setLoading] = useState(false)
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [userRole, setUserRole] = useState<string>('')
-  const [userDeptId, setUserDeptId] = useState<string>('')
-  const [userId, setUserId] = useState<string>('')
+
+  const isAllAccess = canAccessAllDepartments(user?.role || '')
+  const departments = useMemo(() => {
+    if (isAllAccess) return allDepts
+    return allDepts.filter(d =>
+      user?.user_departments?.some(ud => ud.departments?.id === d.id)
+    )
+  }, [isAllAccess, allDepts, user])
 
   const [formData, setFormData] = useState({
     department_id: '',
@@ -27,45 +35,12 @@ export default function AccountingRecordForm() {
 
   const [recordType, setRecordType] = useState<'income' | 'expense'>('income')
 
+  // 부서 목록 로드 시 기본값 설정
   useEffect(() => {
-    fetchUserAndDepartments()
-  }, [])
-
-  async function fetchUserAndDepartments() {
-    const supabase = createClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    setUserId(user.id)
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role, department_id')
-      .eq('id', user.id)
-      .single()
-
-    if (userData) {
-      setUserRole(userData.role)
-      setUserDeptId(userData.department_id || '')
+    if (departments.length > 0 && !formData.department_id) {
+      setFormData(prev => ({ ...prev, department_id: departments[0].id }))
     }
-
-    const { data: deptData } = await supabase
-      .from('departments')
-      .select('*')
-      .order('name')
-
-    if (deptData) {
-      if (canAccessAllDepartments(userData?.role || '')) {
-        setDepartments(deptData)
-        setFormData(prev => ({ ...prev, department_id: deptData[0]?.id || '' }))
-      } else {
-        const filtered = deptData.filter((d: Department) => d.id === userData?.department_id)
-        setDepartments(filtered)
-        setFormData(prev => ({ ...prev, department_id: userData?.department_id || '' }))
-      }
-    }
-  }
+  }, [departments])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -112,7 +87,7 @@ export default function AccountingRecordForm() {
         balance: newBalance,
         category: formData.category,
         notes: formData.notes,
-        created_by: userId
+        created_by: user?.id
       })
 
     if (error) {

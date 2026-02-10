@@ -205,3 +205,38 @@ export function useTeamLeaderMap(departmentIds: string[]) {
     staleTime: 5 * 60_000,
   })
 }
+
+/** 보고서 통계용 조회 (부서+기간 필터) */
+export interface ReportStatsRow {
+  id: string
+  department_id: string
+  report_date: string
+  status: string
+  submitted_at: string | null
+  final_approved_at: string | null
+  created_at: string
+  departments: { name: string; code: string } | null
+}
+
+export function useReportStats(selectedDept: string, startDate: string) {
+  return useQuery({
+    queryKey: ['reports', 'stats', selectedDept, startDate],
+    queryFn: async (): Promise<ReportStatsRow[]> => {
+      let query = supabase
+        .from('weekly_reports')
+        .select('id, department_id, report_date, status, submitted_at, final_approved_at, created_at, departments(name, code)')
+        .gte('report_date', startDate)
+        .order('report_date', { ascending: true })
+
+      if (selectedDept !== 'all') {
+        query = query.eq('department_id', selectedDept)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+      return (data as ReportStatsRow[]) || []
+    },
+    staleTime: 2 * 60_000,
+    placeholderData: keepPreviousData,
+  })
+}

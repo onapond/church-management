@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { useReportStats } from '@/queries/reports'
+import type { ReportStatsRow } from '@/queries/reports'
 import { ChartSkeleton } from '@/components/ui/Skeleton'
 import type {
   StatusDistribution,
@@ -53,17 +54,6 @@ interface Department {
   code: string
 }
 
-interface ReportRow {
-  id: string
-  department_id: string
-  report_date: string
-  status: string
-  submitted_at: string | null
-  final_approved_at: string | null
-  created_at: string
-  departments: { name: string; code: string } | null
-}
-
 interface ReportStatsContentProps {
   departments: Department[]
   selectedDept: string
@@ -75,10 +65,6 @@ export default function ReportStatsContent({
   selectedDept,
   period,
 }: ReportStatsContentProps) {
-  const [reports, setReports] = useState<ReportRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const supabase = useMemo(() => createClient(), [])
-
   const getStartDate = useCallback(() => {
     const now = new Date()
     if (period === 'month') {
@@ -90,28 +76,9 @@ export default function ReportStatsContent({
     return new Date(now.getFullYear(), 0, 1)
   }, [period])
 
-  useEffect(() => {
-    const loadReports = async () => {
-      setLoading(true)
-      const startDate = getStartDate().toISOString().split('T')[0]
+  const startDateStr = useMemo(() => getStartDate().toISOString().split('T')[0], [getStartDate])
 
-      let query = supabase
-        .from('weekly_reports')
-        .select('id, department_id, report_date, status, submitted_at, final_approved_at, created_at, departments(name, code)')
-        .gte('report_date', startDate)
-        .order('report_date', { ascending: true })
-
-      if (selectedDept !== 'all') {
-        query = query.eq('department_id', selectedDept)
-      }
-
-      const { data } = await query
-      setReports((data as ReportRow[]) || [])
-      setLoading(false)
-    }
-
-    loadReports()
-  }, [supabase, selectedDept, period, getStartDate])
+  const { data: reports = [], isLoading: loading } = useReportStats(selectedDept, startDateStr)
 
   // 기간 내 주(week) 수 계산
   const weeksInPeriod = useMemo(() => {

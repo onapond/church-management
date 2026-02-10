@@ -1,123 +1,45 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { ExpenseRequestWithItems, Department, canAccessAllDepartments } from '@/types/database'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useAuth } from '@/providers/AuthProvider'
+import { useDepartments } from '@/queries/departments'
+import { useExpenseRequests, useDeleteExpenseRequest } from '@/queries/accounting'
+import { canAccessAllDepartments } from '@/types/database'
 import { useToastContext } from '@/providers/ToastProvider'
 
 export default function ExpenseRequestList() {
   const toast = useToastContext()
-  const [requests, setRequests] = useState<ExpenseRequestWithItems[]>([])
-  const [departments, setDepartments] = useState<Department[]>([])
+  const { user } = useAuth()
+  const { data: allDepts = [], isLoading: deptsLoading } = useDepartments()
+
+  const canAccessAll = canAccessAllDepartments(user?.role || '')
+
+  const departments = useMemo(() => {
+    if (canAccessAll) return allDepts
+    const userDeptIds = user?.user_departments?.map(ud => ud.departments?.id) || []
+    return allDepts.filter(d => userDeptIds.includes(d.id))
+  }, [canAccessAll, allDepts, user])
+
   const [selectedDeptId, setSelectedDeptId] = useState<string>('')
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1)
-  const [loading, setLoading] = useState(true)
-  const [canAccessAll, setCanAccessAll] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchUserAndDepartments()
-  }, [])
+  // 부서 기본값 설정
+  const deptId = selectedDeptId || departments[0]?.id || ''
 
-  useEffect(() => {
-    if (selectedDeptId) {
-      fetchRequests()
-    }
-  }, [selectedDeptId, selectedYear, selectedMonth])
-
-  async function fetchUserAndDepartments() {
-    const supabase = createClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    // 사용자 정보와 부서 목록 병렬 조회
-    const [userResult, deptResult] = await Promise.all([
-      supabase
-        .from('users')
-        .select('role, user_departments(department_id)')
-        .eq('id', user.id)
-        .single(),
-      supabase
-        .from('departments')
-        .select('*')
-        .order('name')
-    ])
-
-    const userData = userResult.data
-    const deptData = deptResult.data
-
-    if (deptData && userData) {
-      const hasFullAccess = canAccessAllDepartments(userData.role)
-      setCanAccessAll(hasFullAccess)
-
-      if (hasFullAccess) {
-        setDepartments(deptData)
-        setSelectedDeptId(deptData[0]?.id || '')
-      } else {
-        // 비관리자: 소속 부서만 표시
-        const userDeptIds = userData.user_departments?.map((ud: { department_id: string }) => ud.department_id) || []
-        const filtered = deptData.filter((d: Department) => userDeptIds.includes(d.id))
-        setDepartments(filtered)
-        setSelectedDeptId(filtered[0]?.id || '')
-      }
-    }
-    setLoading(false)
-  }
-
-  async function fetchRequests() {
-    const supabase = createClient()
-
-    const startDate = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
-    const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0]
-
-    const { data, error } = await supabase
-      .from('expense_requests')
-      .select(`
-        *,
-        departments:department_id(name),
-        users:requester_id(name),
-        expense_items(*)
-      `)
-      .eq('department_id', selectedDeptId)
-      .gte('request_date', startDate)
-      .lte('request_date', endDate)
-      .order('request_date', { ascending: false })
-
-    if (error) {
-      console.error('지출결의서 조회 오류:', error)
-    } else {
-      setRequests(data || [])
-    }
-  }
+  // TanStack Query로 지출결의서 조회
+  const { data: requests = [], isLoading: requestsLoading } = useExpenseRequests(deptId, selectedYear, selectedMonth)
+  const deleteMutation = useDeleteExpenseRequest()
 
   async function handleDelete(id: string) {
     if (!confirm('정말 삭제하시겠습니까? 연결된 회계장부 내역도 함께 삭제됩니다.')) return
 
-    setDeleting(id)
-    const supabase = createClient()
-
-    // 연결된 회계장부 삭제
-    await supabase
-      .from('accounting_records')
-      .delete()
-      .eq('expense_request_id', id)
-
-    // 지출결의서 삭제 (cascade로 항목도 삭제)
-    const { error } = await supabase
-      .from('expense_requests')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
+    try {
+      await deleteMutation.mutateAsync(id)
+    } catch {
       toast.error('삭제 중 오류가 발생했습니다.')
-      console.error(error)
-    } else {
-      fetchRequests()
     }
-    setDeleting(null)
   }
 
   const formatDate = (dateStr: string) => {
@@ -132,7 +54,7 @@ export default function ExpenseRequestList() {
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
   const months = Array.from({ length: 12 }, (_, i) => i + 1)
 
-  if (loading) {
+  if (!user || deptsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -148,7 +70,7 @@ export default function ExpenseRequestList() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
             <select
-              value={selectedDeptId}
+              value={deptId}
               onChange={(e) => setSelectedDeptId(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -185,7 +107,11 @@ export default function ExpenseRequestList() {
       </div>
 
       {/* 목록 */}
-      {requests.length === 0 ? (
+      {requestsLoading ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        </div>
+      ) : requests.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
           <p className="text-gray-500">해당 기간에 지출결의서가 없습니다.</p>
           <Link
@@ -197,7 +123,7 @@ export default function ExpenseRequestList() {
         </div>
       ) : (
         <div className="space-y-4">
-          {requests.map((request) => (
+          {requests.map((request: any) => (
             <div key={request.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -215,10 +141,10 @@ export default function ExpenseRequestList() {
                   {canAccessAll && (
                     <button
                       onClick={() => handleDelete(request.id)}
-                      disabled={deleting === request.id}
+                      disabled={deleteMutation.isPending}
                       className="ml-2 px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
                     >
-                      {deleting === request.id ? '...' : '삭제'}
+                      {deleteMutation.isPending ? '...' : '삭제'}
                     </button>
                   )}
                 </div>
@@ -227,13 +153,13 @@ export default function ExpenseRequestList() {
               {/* 항목 요약 */}
               <div className="border-t border-gray-100 pt-3 mt-3">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                  {request.expense_items.slice(0, 4).map((item, idx) => (
+                  {(request.expense_items || []).slice(0, 4).map((item: any) => (
                     <div key={item.id} className="flex items-center justify-between text-sm">
                       <span className="text-gray-600 truncate">{item.description}</span>
                       <span className="text-gray-900 font-medium ml-2">{formatAmount(item.amount)}원</span>
                     </div>
                   ))}
-                  {request.expense_items.length > 4 && (
+                  {(request.expense_items || []).length > 4 && (
                     <div className="text-sm text-gray-500">
                       외 {request.expense_items.length - 4}건
                     </div>

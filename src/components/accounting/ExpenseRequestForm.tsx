@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Department, canAccessAllDepartments, EXPENSE_CATEGORIES, ExpenseCategory } from '@/types/database'
+import { canAccessAllDepartments, EXPENSE_CATEGORIES, ExpenseCategory } from '@/types/database'
 import { useToastContext } from '@/providers/ToastProvider'
+import { useAuth } from '@/providers/AuthProvider'
+import { useDepartments } from '@/queries/departments'
 
 interface ExpenseItemInput {
   id: string
@@ -18,9 +20,17 @@ interface ExpenseItemInput {
 export default function ExpenseRequestForm() {
   const router = useRouter()
   const toast = useToastContext()
+  const { user } = useAuth()
+  const { data: allDepts = [] } = useDepartments()
   const [loading, setLoading] = useState(false)
-  const [departments, setDepartments] = useState<Department[]>([])
-  const [userId, setUserId] = useState<string>('')
+
+  const isAllAccess = canAccessAllDepartments(user?.role || '')
+  const departments = useMemo(() => {
+    if (isAllAccess) return allDepts
+    return allDepts.filter(d =>
+      user?.user_departments?.some(ud => ud.departments?.id === d.id)
+    )
+  }, [isAllAccess, allDepts, user])
 
   const [formData, setFormData] = useState({
     department_id: '',
@@ -35,40 +45,12 @@ export default function ExpenseRequestForm() {
 
   const [addToLedger, setAddToLedger] = useState(true)
 
+  // 부서 목록 로드 시 기본값 설정
   useEffect(() => {
-    fetchUserAndDepartments()
-  }, [])
-
-  async function fetchUserAndDepartments() {
-    const supabase = createClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    setUserId(user.id)
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role, department_id')
-      .eq('id', user.id)
-      .single()
-
-    const { data: deptData } = await supabase
-      .from('departments')
-      .select('*')
-      .order('name')
-
-    if (deptData && userData) {
-      if (canAccessAllDepartments(userData.role)) {
-        setDepartments(deptData)
-        setFormData(prev => ({ ...prev, department_id: deptData[0]?.id || '' }))
-      } else {
-        const filtered = deptData.filter((d: Department) => d.id === userData.department_id)
-        setDepartments(filtered)
-        setFormData(prev => ({ ...prev, department_id: userData.department_id || '' }))
-      }
+    if (departments.length > 0 && !formData.department_id) {
+      setFormData(prev => ({ ...prev, department_id: departments[0].id }))
     }
-  }
+  }, [departments])
 
   function addItem() {
     setItems(prev => [
@@ -122,7 +104,7 @@ export default function ExpenseRequestForm() {
       .from('expense_requests')
       .insert({
         department_id: formData.department_id,
-        requester_id: userId,
+        requester_id: user?.id,
         request_date: formData.request_date,
         total_amount: totalAmount,
         recipient_name: formData.recipient_name,
@@ -189,7 +171,7 @@ export default function ExpenseRequestForm() {
             category: item.category,
             notes: item.notes,
             expense_request_id: expenseRequest.id,
-            created_by: userId
+            created_by: user?.id
           })
       }
     }
