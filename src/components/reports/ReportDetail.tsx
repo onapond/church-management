@@ -10,7 +10,7 @@ import { useAuth } from '@/providers/AuthProvider'
 import { canAccessAllDepartments, canViewReport } from '@/lib/permissions'
 import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useTeamLeaderIds } from '@/queries/reports'
 
-type ReportType = 'weekly' | 'meeting' | 'education'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader'
 
 interface ReportDetailProps {
   reportId: string
@@ -20,6 +20,7 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = 
   weekly: { label: '주차 보고서', icon: '📋' },
   meeting: { label: '모임 보고서', icon: '👥' },
   education: { label: '교육 보고서', icon: '📚' },
+  cell_leader: { label: '셀장 보고서', icon: '🏠' },
 }
 
 /** 결재 단계별 권한 확인 */
@@ -499,14 +500,14 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         </div>
       </div>
 
-      {/* 모임/교육 개요 (주차 보고서가 아닐 때) */}
+      {/* 모임/교육/셀장 개요 (주차 보고서가 아닐 때) */}
       {reportType !== 'weekly' && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
           <h2 className="font-semibold text-gray-900 mb-4 text-sm lg:text-base">
-            {reportType === 'meeting' ? '모임 개요' : '교육 개요'}
+            {reportType === 'cell_leader' ? '셀 모임 개요' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}
           </h2>
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-3 bg-gray-50 rounded-xl">
+            <div className={`p-3 bg-gray-50 rounded-xl ${reportType === 'cell_leader' ? 'col-span-2' : ''}`}>
               <p className="text-xs text-gray-500 mb-1">일시</p>
               <p className="text-sm font-medium text-gray-900">
                 {new Date(report.report_date).toLocaleDateString('ko-KR', {
@@ -517,10 +518,12 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
                 })}
               </p>
             </div>
-            <div className="p-3 bg-gray-50 rounded-xl">
-              <p className="text-xs text-gray-500 mb-1">장소</p>
-              <p className="text-sm font-medium text-gray-900">{report.meeting_location || '-'}</p>
-            </div>
+            {reportType !== 'cell_leader' && (
+              <div className="p-3 bg-gray-50 rounded-xl">
+                <p className="text-xs text-gray-500 mb-1">장소</p>
+                <p className="text-sm font-medium text-gray-900">{report.meeting_location || '-'}</p>
+              </div>
+            )}
             <div className="col-span-2 p-3 bg-gray-50 rounded-xl">
               <p className="text-xs text-gray-500 mb-1">참석자</p>
               <p className="text-sm font-medium text-gray-900">{report.attendees || '-'}</p>
@@ -554,11 +557,11 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         </div>
       )}
 
-      {/* 주요내용/교육내용 (모임/교육 보고서) */}
+      {/* 주요내용/교육내용/나눔내용 (모임/교육/셀장 보고서) */}
       {reportType !== 'weekly' && report.main_content && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
           <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">
-            {reportType === 'meeting' ? '주요내용' : '교육내용'}
+            {reportType === 'cell_leader' ? '나눔 내용' : reportType === 'meeting' ? '주요내용' : '교육내용'}
           </h2>
           <div className="bg-gray-50 p-4 rounded-xl">
             <div
@@ -623,16 +626,16 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         </div>
       )}
 
-      {/* 논의사항/적용점 및 기타사항 */}
+      {/* 논의사항/적용점/기도제목 및 기타사항 */}
       {(parsedNotes.discussion_notes || parsedNotes.other_notes || report.application_notes) && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
           <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">
-            {reportType === 'education' ? '적용점 및 기타사항' : '논의 및 기타사항'}
+            {reportType === 'cell_leader' ? '기도제목 및 기타사항' : reportType === 'education' ? '적용점 및 기타사항' : '논의 및 기타사항'}
           </h2>
           <div className="space-y-4">
-            {reportType === 'education' && report.application_notes && (
+            {(reportType === 'education' || reportType === 'cell_leader') && report.application_notes && (
               <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">적용점</p>
+                <p className="text-xs font-medium text-gray-500 mb-1">{reportType === 'cell_leader' ? '기도제목' : '적용점'}</p>
                 <div className="bg-gray-50 p-3 rounded-xl">
                   <div
                     className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none"
@@ -1219,9 +1222,10 @@ function generateMeetingPrintHTML(
   parsedNotes: any
 ) {
   const isEducation = reportType === 'education'
-  const typeLabel = isEducation ? '교육보고서' : '보고서'
-  const leftLabel = isEducation ? '적용점' : '논의사항'
-  const leftContent = isEducation
+  const isCellLeader = reportType === 'cell_leader'
+  const typeLabel = isCellLeader ? '셀장보고서' : isEducation ? '교육보고서' : '보고서'
+  const leftLabel = isCellLeader ? '기도제목' : isEducation ? '적용점' : '논의사항'
+  const leftContent = isCellLeader || isEducation
     ? (report.application_notes || '')
     : (parsedNotes.discussion_notes || '')
 
@@ -1290,18 +1294,23 @@ function generateMeetingPrintHTML(
   <tr>
     <td class="section-header" colspan="4">${isEducation ? '교육' : '모임'} 개요</td>
   </tr>
+  ${isCellLeader ? `
+  <tr>
+    <td class="cell" style="width:80px;background:#f5f5f5;font-weight:bold;">일 시</td>
+    <td class="cell" colspan="3">${reportDate.getFullYear()}. ${reportDate.getMonth() + 1}. ${reportDate.getDate()}.</td>
+  </tr>` : `
   <tr>
     <td class="cell" style="width:80px;background:#f5f5f5;font-weight:bold;">일 시</td>
     <td class="cell">${reportDate.getFullYear()}. ${reportDate.getMonth() + 1}. ${reportDate.getDate()}.</td>
     <td class="cell" style="width:60px;background:#f5f5f5;font-weight:bold;">장소</td>
     <td class="cell">${report.meeting_location || ''}</td>
-  </tr>
+  </tr>`}
   <tr>
     <td class="cell" style="background:#f5f5f5;font-weight:bold;">참 석 자</td>
     <td class="cell" colspan="3" style="text-align:left;">${report.attendees || ''}</td>
   </tr>
 </table>
-<table style="width:100%;margin-bottom:12px;">
+${!isCellLeader ? `<table style="width:100%;margin-bottom:12px;">
   <tr><td class="section-header" colspan="4">진행순서</td></tr>
   <tr style="background:#f5f5f5;">
     <td class="cell" style="width:100px;font-weight:bold;">시간</td>
@@ -1310,10 +1319,10 @@ function generateMeetingPrintHTML(
     <td class="cell" style="width:70px;font-weight:bold;">비고</td>
   </tr>
   ${programRows}
-</table>
+</table>` : ''}
 ${report.main_content ? `
 <table style="width:100%;margin-bottom:12px;">
-  <tr><td class="section-header">${isEducation ? '교 육 명' : '주요내용'}</td></tr>
+  <tr><td class="section-header">${isCellLeader ? '나눔 내용' : isEducation ? '교 육 명' : '주요내용'}</td></tr>
   <tr>
     <td class="cell" style="min-height:80px;vertical-align:top;text-align:left;padding:10px;white-space:pre-wrap;line-height:1.6;">
 ㆍ ${report.main_content}

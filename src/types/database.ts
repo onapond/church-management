@@ -3,7 +3,7 @@
 
 export type UserRole = 'super_admin' | 'president' | 'accountant' | 'team_leader' | 'member'
 export type DepartmentCode = 'ck' | 'cu' | 'cu_worship' | 'youth' | 'cu1' | 'cu2' | 'leader'
-export type ReportType = 'weekly' | 'meeting' | 'education'
+export type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader'
 export type ApprovalStatus =
   | 'draft'
   | 'submitted'

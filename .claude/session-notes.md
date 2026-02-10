@@ -1,5 +1,31 @@
 # 세션 노트
 
+## 작업 내역 (2026-02-10, 세션 4)
+
+### 완료된 작업
+1. [엑셀 사진 임포트 - CU2부] - DB 직접 업데이트 (코드 변경 없음)
+   - `2청년 주소록_0207.cell` (한셀 파일, ZIP 기반) 파싱
+   - 사진 임포트: 13장 JPEG 추출 → Supabase Storage 업로드 → 12명 `photo_url` 업데이트
+   - 김재우는 cu2 미등록(cu1에 이미 사진 있음) → 스킵
+   - 사진 없는 2명: 김민혁, 송준호
+
+2. [청소년부 데이터 업데이트] - DB 직접 업데이트
+   - `2026 청소년부 주소록.xlsx` → 사진 없음 (데이터만)
+   - 8명 phone, birth_date, occupation(학교) 업데이트
+
+3. [보호자(guardian) 컬럼 추가] - `78e1c67`
+   - DB: `members` 테이블에 `guardian varchar(100)` 컬럼 추가 (마이그레이션)
+   - 청소년부 8명 보호자 데이터 입력
+   - `database.ts`: Member 타입에 guardian 추가
+   - `members/[id]/page.tsx`: 상세 화면에 직업/소속 + 보호자 카드 표시 (조건부)
+   - `members/[id]/edit/page.tsx`: Member 인터페이스에 guardian 추가
+   - `MemberForm.tsx`: 보호자 입력 필드 + 수정/등록 시 저장
+
+### 커밋 이력
+- `78e1c67` - Add guardian field to members and display in member detail/form (5파일)
+
+---
+
 ## 작업 내역 (2026-02-10, 세션 3)
 
 ### 완료된 작업

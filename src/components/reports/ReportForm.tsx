@@ -23,7 +23,7 @@ const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
   ),
 })
 
-type ReportType = 'weekly' | 'meeting' | 'education'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader'
 
 interface Department {
   id: string
@@ -74,6 +74,7 @@ const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   weekly: '주차 보고서',
   meeting: '모임 보고서',
   education: '교육 보고서',
+  cell_leader: '셀장 보고서',
 }
 
 // 섹션 정의
@@ -363,12 +364,12 @@ export default function ReportForm({
         total_registered: totalRegistered,
         worship_attendance: totalWorship,
         meeting_attendance: totalMeeting,
-        // 모임/교육 전용 필드
+        // 모임/교육/셀장 전용 필드
         meeting_title: reportType !== 'weekly' ? form.meeting_title : null,
-        meeting_location: reportType !== 'weekly' ? form.meeting_location : null,
+        meeting_location: reportType !== 'weekly' && reportType !== 'cell_leader' ? form.meeting_location : null,
         attendees: reportType !== 'weekly' ? form.attendees : null,
         main_content: reportType !== 'weekly' ? form.main_content : null,
-        application_notes: reportType === 'education' ? form.application_notes : null,
+        application_notes: reportType === 'education' || reportType === 'cell_leader' ? form.application_notes : null,
         notes: JSON.stringify({
           sermon_title: form.sermon_title,
           sermon_scripture: form.sermon_scripture,
@@ -419,8 +420,8 @@ export default function ReportForm({
         reportId = report.id
       }
 
-      // 프로그램 저장
-      if (programs.length > 0) {
+      // 프로그램 저장 (셀장 보고서 제외)
+      if (reportType !== 'cell_leader' && programs.length > 0) {
         const { error: programError } = await supabase
           .from('report_programs')
           .insert(
@@ -513,6 +514,10 @@ export default function ReportForm({
     if (reportType === 'weekly') {
       return SECTIONS
     }
+    if (reportType === 'cell_leader') {
+      // 셀장 보고서: 순서/출결/새신자 제외
+      return SECTIONS.filter(s => !['program', 'attendance', 'newcomer'].includes(s.id))
+    }
     // 모임/교육 보고서는 출결/새신자 섹션 제외
     return SECTIONS.filter(s => !['attendance', 'newcomer'].includes(s.id))
   }, [reportType])
@@ -552,20 +557,20 @@ export default function ReportForm({
         className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 space-y-4 scroll-mt-24"
       >
         <h2 className="font-semibold text-gray-900 text-base md:text-lg border-b pb-2">
-          {reportType === 'weekly' ? '기본 정보' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}
+          {reportType === 'weekly' ? '기본 정보' : reportType === 'cell_leader' ? '셀 모임 개요' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}
         </h2>
 
         {/* 모임/교육 제목 */}
         {reportType !== 'weekly' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {reportType === 'meeting' ? '모임명' : '교육명'}
+              {reportType === 'cell_leader' ? '셀 모임명' : reportType === 'meeting' ? '모임명' : '교육명'}
             </label>
             <input
               type="text"
               value={form.meeting_title}
               onChange={(e) => setForm({ ...form, meeting_title: e.target.value })}
-              placeholder={reportType === 'meeting' ? '예: 청년1 셀장모임' : '예: 리더 교육'}
+              placeholder={reportType === 'cell_leader' ? '예: 1셀 모임' : reportType === 'meeting' ? '예: 청년1 셀장모임' : '예: 리더 교육'}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             />
           </div>
@@ -603,6 +608,7 @@ export default function ReportForm({
 
           {reportType !== 'weekly' && (
             <>
+              {reportType !== 'cell_leader' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">장소</label>
                 <input
@@ -613,6 +619,7 @@ export default function ReportForm({
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </div>
+              )}
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">참석자</label>
                 <input
@@ -642,14 +649,16 @@ export default function ReportForm({
         </div>
       </div>
 
-      {/* 진행순서 */}
-      <ProgramTable
-        programs={programs}
-        onAdd={addProgram}
-        onUpdate={updateProgram}
-        onRemove={removeProgram}
-        sectionRef={setSectionRef('program')}
-      />
+      {/* 진행순서 (셀장 보고서 제외) */}
+      {reportType !== 'cell_leader' && (
+        <ProgramTable
+          programs={programs}
+          onAdd={addProgram}
+          onUpdate={updateProgram}
+          onRemove={removeProgram}
+          sectionRef={setSectionRef('program')}
+        />
+      )}
 
       {/* 말씀 정보 (주차 보고서만) */}
       {reportType === 'weekly' && (
@@ -679,16 +688,16 @@ export default function ReportForm({
         </div>
       )}
 
-      {/* 주요내용 (모임/교육 보고서) */}
+      {/* 주요내용 (모임/교육/셀장 보고서) */}
       {reportType !== 'weekly' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
           <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">
-            {reportType === 'meeting' ? '주요내용' : '교육내용'}
+            {reportType === 'cell_leader' ? '나눔 내용' : reportType === 'meeting' ? '주요내용' : '교육내용'}
           </label>
           <RichTextEditor
             value={form.main_content}
             onChange={(value) => setForm({ ...form, main_content: value })}
-            placeholder={reportType === 'meeting' ? '주요 내용을 입력하세요' : '교육 내용을 입력하세요'}
+            placeholder={reportType === 'cell_leader' ? '셀 모임에서 나눈 내용을 입력하세요' : reportType === 'meeting' ? '주요 내용을 입력하세요' : '교육 내용을 입력하세요'}
             minHeight="150px"
           />
         </div>
@@ -735,15 +744,15 @@ export default function ReportForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div>
             <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">
-              {reportType === 'education' ? '적용점' : '논의(특이)사항'}
+              {reportType === 'cell_leader' ? '기도제목' : reportType === 'education' ? '적용점' : '논의(특이)사항'}
             </label>
             <RichTextEditor
-              value={reportType === 'education' ? form.application_notes : form.discussion_notes}
+              value={reportType === 'cell_leader' || reportType === 'education' ? form.application_notes : form.discussion_notes}
               onChange={(value) => setForm({
                 ...form,
-                [reportType === 'education' ? 'application_notes' : 'discussion_notes']: value
+                [reportType === 'cell_leader' || reportType === 'education' ? 'application_notes' : 'discussion_notes']: value
               })}
-              placeholder={reportType === 'education' ? '적용점을 입력하세요' : '논의사항을 입력하세요'}
+              placeholder={reportType === 'cell_leader' ? '기도제목을 입력하세요' : reportType === 'education' ? '적용점을 입력하세요' : '논의사항을 입력하세요'}
               minHeight="120px"
             />
           </div>

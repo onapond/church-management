@@ -8,7 +8,7 @@ import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { canAccessAllDepartments, canWriteReport as checkCanWriteReport, getAccessibleDepartmentIds, canViewReport } from '@/lib/permissions'
 
-type ReportType = 'weekly' | 'meeting' | 'education'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader'
 
 interface Report {
   id: string
@@ -28,6 +28,7 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string; colo
   weekly: { label: '주차 보고서', icon: '📋', color: 'blue' },
   meeting: { label: '모임 보고서', icon: '👥', color: 'green' },
   education: { label: '교육 보고서', icon: '📚', color: 'purple' },
+  cell_leader: { label: '셀장 보고서', icon: '🏠', color: 'teal' },
 }
 
 export default function ReportListClient() {
