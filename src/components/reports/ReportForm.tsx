@@ -577,22 +577,21 @@ export default function ReportForm({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {reportType === 'weekly' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
-              <select
-                value={form.department_id}
-                onChange={(e) => setForm({ ...form, department_id: e.target.value })}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
-              >
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* 부서 (모든 보고서 공통) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
+            <select
+              value={form.department_id}
+              onChange={(e) => setForm({ ...form, department_id: e.target.value })}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+            >
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -629,20 +628,6 @@ export default function ReportForm({
                   placeholder="예: 전홍균, 강현숙, 신요한, 김유창 (총 4명)"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
-                <select
-                  value={form.department_id}
-                  onChange={(e) => setForm({ ...form, department_id: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
-                >
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
               </div>
             </>
           )}
