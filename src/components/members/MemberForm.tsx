@@ -64,6 +64,7 @@ export default function MemberForm({ departments, member, newcomerData }: Member
     birth_date: member?.birth_date || newcomerData?.birth_date || '',
     address: member?.address || newcomerData?.address || '',
     occupation: member?.occupation || newcomerData?.affiliation || '',
+    guardian: (member as any)?.guardian || '',
   })
 
   // 새신자의 부서 기본 선택
@@ -183,6 +184,7 @@ export default function MemberForm({ departments, member, newcomerData }: Member
             birth_date: form.birth_date || null,
             address: form.address || null,
             occupation: form.occupation || null,
+            guardian: form.guardian || null,
             department_id: primaryDeptId,
             photo_url,
             photo_updated_at: file ? new Date().toISOString() : member?.photo_updated_at,
@@ -351,6 +353,18 @@ export default function MemberForm({ departments, member, newcomerData }: Member
             type="text"
             value={form.occupation}
             onChange={(e) => setForm({ ...form, occupation: e.target.value })}
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          />
+        </div>
+
+        {/* 보호자 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">보호자</label>
+          <input
+            type="text"
+            value={form.guardian}
+            onChange={(e) => setForm({ ...form, guardian: e.target.value })}
+            placeholder="예: 홍길동 집사"
             className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
         </div>

@@ -30,6 +30,7 @@ interface Member {
   birth_date: string | null
   address: string | null
   occupation: string | null
+  guardian: string | null
   photo_url: string | null
   photo_updated_at: string | null
   department_id: string | null

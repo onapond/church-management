@@ -1,69 +1,115 @@
 # 세션 노트
 
-## 작업 내역 (2026-02-10)
+## 작업 내역 (2026-02-10, 세션 3)
+
+### 완료된 작업
+1. [엑셀 데이터 임포트 - CU1부] - DB 직접 업데이트 (코드 변경 없음)
+   - `1청년부 전체 명단 (26.01.31).xlsx` 파싱
+   - 셀 배정: 1셀 6명, 2셀 6명, 3셀 4명 (16명 `cell_id` 업데이트)
+   - 사진 임포트: xlsx에서 28장 JPEG 추출 → Supabase Storage 업로드 → `photo_url` 업데이트
+   - 사진 없는 7명: 송준선, 이승재, 한수연, 김동혁, 이지욱, 박승조, 구현서
+
+2. [edit/new 페이지 Client 전환] - `defd87f`
+   - `reports/new/page.tsx`: useState/useEffect → `useAuth()` + `useDepartments()` + `useMemo`
+   - `reports/[id]/edit/page.tsx`: 서버 컴포넌트 126줄 → thin wrapper 10줄
+   - `EditReportClient.tsx` 신규: `useAuth` + `useReportDetail` + `useReportPrograms` + `useReportNewcomers` + `useDepartments`
+   - 캐싱된 데이터 재사용으로 edit 페이지 즉시 표시
+
+2. [새신자 → 교인 전환 기능] - `4eb9383`
+   - `ReportDetail.tsx`: 새신자 카드에 "교인 전환" 버튼 + "전환 완료" 배지
+   - `members/new/page.tsx`: `newcomerId` searchParam으로 새신자 데이터 조회, 제목/설명 변경
+   - `MemberForm.tsx`: `newcomerData` prop으로 폼 자동 채움 (이름, 연락처, 생년월일, 주소, 소속→직업, 부서)
+   - 교인 등록 후 `newcomers.converted_to_member_id`에 member ID 기록
+   - 이미 전환된 새신자는 버튼 대신 "전환 완료" 배지 표시
+
+2. [보고서 열람 권한 제한] - `91395f5`
+   - `canViewReport()` 함수 추가 (permissions.ts): 7단계 권한 체크
+     - 작성자 → draft 차단 → 관리자 → 부서확인 → 팀장(is_team_leader=true) → 셀장(peer) → 멤버
+   - DB: 김효정, 김선웅 `is_team_leader=true` 설정 (cu1 부서 팀장)
+   - `ReportDetail.tsx`: `canAccessAllDepartments` → `canViewReport` 교체, `useTeamLeaderIds` 훅 추가
+   - `ReportListClient.tsx`: 부서별 팀장 ID 조회 + `filteredReports` client-side 필터링
+   - `queries/reports.ts`: `useTeamLeaderIds(departmentId)` 훅 추가
+
+2. [알림 로직 + 권한 테스트] - `cfa3e8e`
+   - `permissions.test.ts`: canViewReport 12개 테스트 추가 (총 34개)
+   - `notifications.test.ts`: 21개 테스트 신규 (Supabase mock 헬퍼 포함)
+     - getRecipientsByRole, createNotification, createNotifications
+     - createApprovalNotification (상태별 수신자 라우팅, 메시지 치환)
+     - getUnreadCount, markAsRead, markAllAsRead
+   - 전체 67개 테스트 통과 (기존 34 → 67)
+
+### 커밋 이력
+- `defd87f` - Convert report edit/new pages to useAuth + TanStack Query client pattern (3파일)
+- `4eb9383` - Add newcomer to member conversion feature (3파일)
+- `91395f5` - Add report viewing permission based on team leader hierarchy (4파일)
+- `cfa3e8e` - Add tests for canViewReport and notification logic (2파일)
+
+### 보고서 열람 권한 규칙
+| 역할 | 열람 범위 |
+|------|-----------|
+| 작성자 본인 | 항상 (draft 포함) |
+| super_admin, president, accountant | 모든 보고서 |
+| 부서 팀장 (is_team_leader=true) | 부서 전체 보고서 |
+| 셀장 (is_team_leader=false, role=team_leader) | 셀장끼리만 |
+| 일반 멤버 | 자기 보고서만 |
+| 타인의 draft | 차단 |
+
+---
+
+## 작업 내역 (2026-02-10, 세션 2)
+
+### 완료된 작업
+1. [결재 캐시 무효화] - `060d3e8`
+   - ReportDetail에서 결재/취소/삭제 후 TanStack Query 캐시 자동 무효화
+   - `queryClient.invalidateQueries` 추가 (approvals + reports 키)
+
+2. [보고서 상세 Client 전환] - `060d3e8`
+   - `reports/[id]/page.tsx`: 서버 컴포넌트 130줄 → thin client 9줄
+   - `ReportDetail.tsx`: props 7개 → `reportId` 1개, useAuth + 4개 쿼리 훅 사용
+   - `queries/reports.ts`: useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory 추가
+   - 부서 접근 제한/결재 권한 체크 클라이언트에서 처리
+
+3. [반려 재제출 기능] - `da87061`
+   - 반려 사유 표시 카드 (빨간색) + "수정 후 재제출" 버튼
+   - `edit/page.tsx`: rejected 상태도 수정 허용 (기존 draft만 가능)
+   - `ReportForm.tsx`: 재제출 시 반려 필드(rejected_by, rejection_reason) 초기화
+   - 재제출 시 결재 알림 발송 (기존엔 신규 제출만)
+
+4. [셀 관리 페이지] - `8c0d68b`
+   - `/settings/cells` 신규 페이지 (관리자 전용)
+   - `CellManager.tsx`: 부서 선택 → 셀 CRUD (추가, 인라인 이름 수정, 순서 변경, 활성/비활성)
+   - `departments.ts`: useAllCells, useCreateCell, useUpdateCell, useReorderCells 훅 추가
+   - Sidebar + Header에 "셀 관리" 메뉴 추가
+
+### 커밋 이력
+- `060d3e8` - Refactor all pages to useAuth + TanStack Query client pattern (18파일)
+- `da87061` - Add rejected report resubmission flow (3파일)
+- `8c0d68b` - Add cell management page for admin users (5파일)
+
+---
+
+## 작업 내역 (2026-02-10, 세션 1)
 
 ### 완료된 작업
 1. [페이지 로딩 최적화 Phase 2] - 나머지 5개 페이지 변환 완료
-   - Dashboard: `DashboardContent` → useAuth + 4개 대시보드 훅
-   - Members: 새 `MembersClient` 래퍼 → useAuth + useDepartments + useMembers
-   - Reports: `ReportListClient` → useAuth + useDepartments (props 제거)
-   - Attendance: 새 `AttendanceClient` 래퍼 → useAuth + useDepartments + 초기 로드
-   - Users: 새 `UsersClient` 래퍼 → useAuth + useAllUsers + useDepartments
+   - Dashboard, Members, Reports, Attendance, Users → useAuth + TanStack Query
    - 새 파일: `queries/dashboard.ts`, `queries/users.ts`, `MembersClient.tsx`, `AttendanceClient.tsx`, `UsersClient.tsx`
-   - TypeScript 검사 통과, 빌드 성공, Vercel 배포 완료
-   - **미커밋** (배포는 완료)
-
-2. [문서 업데이트] - 05-components, 06-api 업데이트
+2. [문서 업데이트] - 05-components, 06-api
 
 ### 참고사항
-- 전체 9개 페이지 모두 `useAuth()` + TanStack Query 패턴으로 전환 완료
-- 아키텍처 교훈: 서버 컴포넌트 방식은 매번 서버 fetch 필요 → 캐싱 불가. 클라이언트 훅이 정답
-- 코드량 약 365줄 감소 (서버 로직 제거, 클라이언트 훅으로 대체)
+- 전체 12개 페이지 모두 `useAuth()` + TanStack Query 패턴으로 전환 완료 (edit/new 포함)
+- 아키텍처 교훈: 서버 컴포넌트 방식은 매번 서버 fetch → 캐싱 불가. 클라이언트 훅이 정답
 
 ---
 
 ## 작업 내역 (2026-02-09)
 
 ### 완료된 작업
-1. [보고서 통계 대시보드] - `/stats` 페이지에 탭 UI로 추가
-   - 출결 통계 | 보고서 통계 탭 전환
-   - 요약 카드 4개, 차트 4개, 부서별 상세 테이블
-   - 관련 파일: `src/components/stats/ReportStatsCharts.tsx`, `ReportStatsContent.tsx`
-   - 커밋: `5f99845`
-
-2. [셀별 필터 기능 - 단계 1] - DB + 타입 + 쿼리 훅
-   - Supabase 마이그레이션: `cells` 테이블 생성, `member_departments.cell_id` 추가
-   - 초기 데이터: cu1 부서에 1셀~6셀 삽입
-   - `database.ts`, `shared.ts`, `constants.ts`, `departments.ts` 업데이트
-   - **미커밋** (로컬 변경 상태)
-
-3. [셀별 필터 기능 - 단계 2] - UI 적용 (4개 페이지)
-   - `CellFilter.tsx` 공통 컴포넌트 신규 생성
-   - 교인 명단: MemberFilters + MemberList (cell URL 파라미터)
-   - 교인 등록/수정: DepartmentSelector + MemberForm (cell_id 저장)
-   - 출결 관리: AttendanceGrid (셀 필터 + memberCellMap)
-   - 통계: stats/page.tsx (셀 필터 + 데이터 쿼리 필터링)
-   - TypeScript 검사 통과, 빌드 성공
-   - **미커밋** (로컬 변경 상태)
-
-4. [웹 푸시 알림 구현] - 전체 완료
-   - 서버: `src/lib/push.ts`, `src/app/api/push/{subscribe,unsubscribe,send}/route.ts`
-   - 클라이언트: `src/components/notifications/PushPermission.tsx`
-   - 커밋: `8055f38` ~ `4693462` (10개 커밋)
-
-5. [iOS PWA 호환성 수정] - 근본 원인 해결
-   - `cache.addAll()` → 개별 `cache.add` + PWA 아이콘 생성
-
-6. [Supabase 보안/성능] - Security/Performance Advisor 전체 해결
-
-7. [문서 업데이트] - 02-features, 04-database, 05-components, 06-api (셀 필터 + 푸시 반영)
-
-### 참고사항
-- `cells` 테이블: cu1 부서 전용, 1셀~6셀 (display_order로 정렬)
-- `CellFilter` 컴포넌트: cu1 선택 시에만 표시, React.memo 적용
-- `useCells()` 훅: staleTime 10분
-- 셀 필터 변경 시 URL `?dept=xxx&cell=yyy`로 유지 (교인 명단)
-- 부서 변경 시 셀 자동 초기화 ('all')
+1. [보고서 통계 대시보드] - 커밋 `5f99845`
+2. [셀별 필터 기능] - DB + 타입 + 쿼리 + UI (4개 페이지)
+3. [웹 푸시 알림 구현] - 커밋 `8055f38` ~ `4693462`
+4. [iOS PWA 호환성 수정]
+5. [Supabase 보안/성능 Advisor 해결]
 
 ---
 
@@ -78,15 +124,21 @@
 ## 다음 작업
 
 ### 우선순위 높음
-- [ ] 셀별 필터 기능 커밋 및 배포
-- [ ] 단계 3: 셀 관리 페이지 (관리자 CRUD) - `settings/cells`
 - [ ] 푸시 알림 E2E 테스트
 
 ### 우선순위 중간
-- [x] ~~보고서 통계 대시보드~~ (완료 2/9)
-- [x] ~~셀별 필터 기능 단계 1~2~~ (완료 2/9, 미커밋)
-- [ ] 새신자 → 정식 교인 전환 기능
 - [ ] 보고서 인쇄 기능 개선
+
+### 완료
+- [x] ~~셀별 필터 기능~~ (완료 2/9)
+- [x] ~~셀 관리 페이지~~ (완료 2/10)
+- [x] ~~보고서 상세 Client 전환~~ (완료 2/10)
+- [x] ~~결재 캐시 무효화~~ (완료 2/10)
+- [x] ~~반려 재제출~~ (완료 2/10)
+- [x] ~~보고서 열람 권한 제한~~ (완료 2/10)
+- [x] ~~푸시 알림 테스트~~ (완료 2/10, 67개 테스트)
+- [x] ~~새신자 → 교인 전환~~ (완료 2/10)
+- [x] ~~edit/new 페이지 Client 전환~~ (완료 2/10)
 
 ---
 
@@ -95,3 +147,8 @@
 - **사용자 승인 필드**: `is_active` (is_approved 아님)
 - **Supabase Storage**: member-photos 버킷
 - **보고서 삭제 순서**: report_programs → newcomers → approval_history → attendance_records → notifications → report_photos → weekly_reports
+- **셀 관리**: `/settings/cells` (관리자 전용), 모든 부서에 셀 추가 가능
+- **결재 흐름**: draft → submitted → coordinator_reviewed → manager_approved → final_approved (rejected에서 재제출 가능)
+- **보고서 열람 권한**: `canViewReport()` in permissions.ts, `is_team_leader` 플래그로 팀장/셀장 구분
+- **cu1 팀장**: 김효정, 김선웅 (is_team_leader=true), 나머지는 셀장 (is_team_leader=false)
+- **새신자 전환**: 보고서 상세 → "교인 전환" 버튼 → `/members/new?newcomerId=xxx` → 등록 후 `converted_to_member_id` 업데이트
