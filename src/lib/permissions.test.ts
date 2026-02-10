@@ -10,6 +10,7 @@ import {
   isTeamLeader,
   getAccessibleDepartmentIds,
   getTeamLeaderDepartments,
+  canViewReport,
 } from './permissions'
 import type { UserData } from '@/types/shared'
 
@@ -167,5 +168,121 @@ describe('getTeamLeaderDepartments', () => {
     const result = getTeamLeaderDepartments(user)
     expect(result).toHaveLength(1)
     expect(result[0].name).toBe('CU2부')
+  })
+})
+
+// ─── canViewReport 테스트 ──────────────────────────────
+
+describe('canViewReport', () => {
+  const report = { author_id: 'author-1', department_id: 'dept-1', status: 'submitted' }
+
+  it('null 사용자는 열람 불가', () => {
+    expect(canViewReport(null, report, false)).toBe(false)
+  })
+
+  it('작성자는 항상 열람 가능', () => {
+    const user = createUser({ id: 'author-1', role: 'member' })
+    expect(canViewReport(user, report, false)).toBe(true)
+  })
+
+  it('작성자는 draft도 열람 가능', () => {
+    const user = createUser({ id: 'author-1', role: 'member' })
+    const draftReport = { ...report, status: 'draft' }
+    expect(canViewReport(user, draftReport, false)).toBe(true)
+  })
+
+  it('타인의 draft는 열람 불가', () => {
+    const user = createUser({ id: 'other', role: 'super_admin' })
+    const draftReport = { ...report, status: 'draft' }
+    expect(canViewReport(user, draftReport, false)).toBe(false)
+  })
+
+  it('super_admin은 모든 보고서 열람 가능', () => {
+    const user = createUser({ id: 'admin', role: 'super_admin' })
+    expect(canViewReport(user, report, false)).toBe(true)
+    expect(canViewReport(user, report, true)).toBe(true)
+  })
+
+  it('president는 모든 보고서 열람 가능', () => {
+    const user = createUser({ id: 'pres', role: 'president' })
+    expect(canViewReport(user, report, false)).toBe(true)
+  })
+
+  it('accountant는 모든 보고서 열람 가능', () => {
+    const user = createUser({ id: 'acc', role: 'accountant' })
+    expect(canViewReport(user, report, true)).toBe(true)
+  })
+
+  it('다른 부서 소속이면 열람 불가', () => {
+    const user = createUser({
+      id: 'other',
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-2',
+        is_team_leader: false,
+        departments: { id: 'dept-2', name: '청소년부', code: 'youth' },
+      }],
+    })
+    expect(canViewReport(user, report, false)).toBe(false)
+  })
+
+  it('부서 팀장(is_team_leader=true)은 부서 전체 보고서 열람', () => {
+    const user = createUser({
+      id: 'leader',
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-1',
+        is_team_leader: true,
+        departments: { id: 'dept-1', name: '1청년', code: 'cu1' },
+      }],
+    })
+    // 팀장이 작성한 보고서도 열람 가능
+    expect(canViewReport(user, report, true)).toBe(true)
+    // 셀장이 작성한 보고서도 열람 가능
+    expect(canViewReport(user, report, false)).toBe(true)
+  })
+
+  it('셀장(is_team_leader=false)은 다른 셀장 보고서만 열람', () => {
+    const user = createUser({
+      id: 'cell-leader',
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-1',
+        is_team_leader: false,
+        departments: { id: 'dept-1', name: '1청년', code: 'cu1' },
+      }],
+    })
+    // 셀장이 작성한 보고서 → 열람 가능
+    expect(canViewReport(user, report, false)).toBe(true)
+    // 팀장이 작성한 보고서 → 열람 불가
+    expect(canViewReport(user, report, true)).toBe(false)
+  })
+
+  it('일반 멤버는 타인 보고서 열람 불가', () => {
+    const user = createUser({
+      id: 'member-1',
+      role: 'member',
+      user_departments: [{
+        department_id: 'dept-1',
+        is_team_leader: false,
+        departments: { id: 'dept-1', name: '1청년', code: 'cu1' },
+      }],
+    })
+    expect(canViewReport(user, report, false)).toBe(false)
+  })
+
+  it('같은 부서 팀장끼리 서로 열람 가능 (youth 시나리오)', () => {
+    const teamLeaderA = createUser({
+      id: 'tl-a',
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-youth',
+        is_team_leader: false,
+        departments: { id: 'dept-youth', name: '청소년부', code: 'youth' },
+      }],
+    })
+    const reportByB = { author_id: 'tl-b', department_id: 'dept-youth', status: 'submitted' }
+    // 둘 다 is_team_leader=false → peer 열람 가능
+    expect(canViewReport(teamLeaderA, reportByB, false)).toBe(true)
   })
 })
