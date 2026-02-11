@@ -25,6 +25,32 @@ export interface CellAttendance {
   note: string
 }
 
+// 프로젝트 보고서 타입
+export interface ProjectContentItem {
+  col1: string
+  col2: string
+  col3: string
+  col4: string
+  order_index: number
+}
+
+export interface ProjectScheduleItem {
+  schedule: string
+  detail: string
+  note: string
+  order_index: number
+}
+
+export interface ProjectBudgetItem {
+  category: string
+  subcategory: string
+  item_name: string
+  basis: string
+  amount: number
+  note: string
+  order_index: number
+}
+
 // 5분 단위 시간 옵션 (모듈 레벨 캐싱)
 export const TIME_OPTIONS: string[] = (() => {
   const options: string[] = []

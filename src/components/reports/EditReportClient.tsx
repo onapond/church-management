@@ -4,17 +4,18 @@ import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
-import { useReportDetail, useReportPrograms, useReportNewcomers } from '@/queries/reports'
+import { useReportDetail, useReportPrograms, useReportNewcomers, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems } from '@/queries/reports'
 import { isAdmin as checkAdmin } from '@/lib/permissions'
 import ReportForm from '@/components/reports/ReportForm'
 
-type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
 
 const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = {
   weekly: { label: '주차 보고서', icon: '📋' },
   meeting: { label: '모임 보고서', icon: '👥' },
   education: { label: '교육 보고서', icon: '📚' },
   cell_leader: { label: '셀장 보고서', icon: '🏠' },
+  project: { label: '프로젝트 계획', icon: '📑' },
 }
 
 interface EditReportClientProps {
@@ -29,6 +30,9 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
   const { data: programs = [], isLoading: programsLoading } = useReportPrograms(reportId)
   const { data: newcomers = [] } = useReportNewcomers(reportId)
   const { data: allDepartments = [], isLoading: deptsLoading } = useDepartments()
+  const { data: projectContentItems = [] } = useProjectContentItems(reportId)
+  const { data: projectScheduleItems = [] } = useProjectScheduleItems(reportId)
+  const { data: projectBudgetItems = [] } = useProjectBudgetItems(reportId)
 
   // 작성 가능 부서
   const departments = useMemo(() => {
@@ -94,6 +98,9 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
     application_notes: (report as any).application_notes,
     programs: programs || [],
     newcomers: newcomers || [],
+    projectContentItems: projectContentItems || [],
+    projectScheduleItems: projectScheduleItems || [],
+    projectBudgetItems: projectBudgetItems || [],
   }
 
   return (

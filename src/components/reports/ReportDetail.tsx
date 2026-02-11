@@ -8,9 +8,9 @@ import { createApprovalNotification } from '@/lib/notifications'
 import { useToastContext } from '@/providers/ToastProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import { canAccessAllDepartments, canViewReport } from '@/lib/permissions'
-import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useTeamLeaderIds } from '@/queries/reports'
+import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useTeamLeaderIds, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems } from '@/queries/reports'
 
-type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
 
 interface ReportDetailProps {
   reportId: string
@@ -21,6 +21,7 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = 
   meeting: { label: '모임 보고서', icon: '👥' },
   education: { label: '교육 보고서', icon: '📚' },
   cell_leader: { label: '셀장 보고서', icon: '🏠' },
+  project: { label: '프로젝트 계획', icon: '📑' },
 }
 
 /** 결재 단계별 권한 확인 */
@@ -51,6 +52,9 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   const { data: newcomers = [] } = useReportNewcomers(reportId)
   const { data: history = [] } = useApprovalHistory(reportId)
   const { data: teamLeaderIds = [] } = useTeamLeaderIds(report?.department_id)
+  const { data: projectContentItems = [] } = useProjectContentItems(reportId)
+  const { data: projectScheduleItems = [] } = useProjectScheduleItems(reportId)
+  const { data: projectBudgetItems = [] } = useProjectBudgetItems(reportId)
 
   // 권한 계산
   const userRole = currentUser?.role || ''
@@ -210,6 +214,17 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         : `<tr><td class="cell" colspan="6" style="height:28px;"></td></tr>`
 
       html = generateWeeklyPrintHTML(getDeptDisplayName(), report, reportDate, programRows, attendanceRows, newcomerRows, parsedNotes)
+    } else if (reportType === 'project') {
+      // 프로젝트 계획서 인쇄
+      html = generateProjectPrintHTML(
+        report.meeting_title || getDeptDisplayName(),
+        report,
+        reportDate,
+        parsedNotes,
+        projectContentItems,
+        projectScheduleItems,
+        projectBudgetItems
+      )
     } else {
       // 모임/교육 보고서 인쇄
       const programRows = programs.length > 0
@@ -262,7 +277,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
     }
 
     setShowPrintOptions(false)
-  }, [report, programs, newcomers, getDeptDisplayName, reportType])
+  }, [report, programs, newcomers, getDeptDisplayName, reportType, projectContentItems, projectScheduleItems, projectBudgetItems])
 
   // 제출 취소 처리
   const handleCancelSubmission = async () => {
@@ -315,6 +330,9 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
       await supabase.from('attendance_records').delete().eq('report_id', report.id)
       await supabase.from('notifications').delete().eq('report_id', report.id)
       await supabase.from('report_photos').delete().eq('report_id', report.id)
+      await supabase.from('project_content_items').delete().eq('report_id', report.id)
+      await supabase.from('project_schedule_items').delete().eq('report_id', report.id)
+      await supabase.from('project_budget_items').delete().eq('report_id', report.id)
 
       const { error } = await supabase.from('weekly_reports').delete().eq('id', report.id)
       if (error) throw error
@@ -500,8 +518,8 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         </div>
       </div>
 
-      {/* 모임/교육/셀장 개요 (주차 보고서가 아닐 때) */}
-      {reportType !== 'weekly' && (
+      {/* 모임/교육/셀장 개요 (주차/프로젝트 보고서가 아닐 때) */}
+      {reportType !== 'weekly' && reportType !== 'project' && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
           <h2 className="font-semibold text-gray-900 mb-4 text-sm lg:text-base">
             {reportType === 'cell_leader' ? '셀 모임 개요' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}
@@ -532,6 +550,139 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         </div>
       )}
 
+      {/* 프로젝트: 개요/목적/조직도 */}
+      {reportType === 'project' && (
+        <div className="space-y-4">
+          {report.main_content && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+              <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">1. 개요</h2>
+              <div className="bg-gray-50 p-4 rounded-xl">
+                <div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.main_content }} />
+              </div>
+            </div>
+          )}
+          {report.application_notes && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+              <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">2. 목적</h2>
+              <div className="bg-gray-50 p-4 rounded-xl">
+                <div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.application_notes }} />
+              </div>
+            </div>
+          )}
+          {parsedNotes.organization && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+              <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">3. 조직도</h2>
+              <div className="bg-gray-50 p-4 rounded-xl">
+                <div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: parsedNotes.organization }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 프로젝트: 세부계획 (내용 + 일정표) */}
+      {reportType === 'project' && (projectContentItems.length > 0 || projectScheduleItems.length > 0) && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6 space-y-5">
+          <h2 className="font-semibold text-gray-900 text-sm lg:text-base">4. 세부 계획</h2>
+          {projectContentItems.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-2">내용</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">항목</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">내용</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">담당</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectContentItems.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-100 last:border-b-0">
+                        <td className="px-3 py-2 text-gray-900">{item.col1}</td>
+                        <td className="px-3 py-2 text-gray-700">{item.col2}</td>
+                        <td className="px-3 py-2 text-gray-700">{item.col3}</td>
+                        <td className="px-3 py-2 text-gray-500">{item.col4}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {projectScheduleItems.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-2">세부 일정표</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 border-b" style={{ width: '30%' }}>일정표</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">세부내용</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 border-b" style={{ width: '20%' }}>비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectScheduleItems.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-100 last:border-b-0">
+                        <td className="px-3 py-2 text-gray-900">{item.schedule}</td>
+                        <td className="px-3 py-2 text-gray-700">{item.detail}</td>
+                        <td className="px-3 py-2 text-gray-500">{item.note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 프로젝트: 예산 */}
+      {reportType === 'project' && projectBudgetItems.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">
+            5. 예산 <span className="text-xs font-normal text-gray-400">(단위: 원)</span>
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b text-xs">관</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b text-xs">항</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b text-xs">목</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b text-xs">산출 근거</th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-600 border-b text-xs">예산액</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 border-b text-xs">비고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projectBudgetItems.map((item) => (
+                  <tr key={item.id} className="border-b border-gray-100 last:border-b-0">
+                    <td className="px-3 py-2 text-gray-900 text-xs">{item.category}</td>
+                    <td className="px-3 py-2 text-gray-700 text-xs">{item.subcategory}</td>
+                    <td className="px-3 py-2 text-gray-700 text-xs">{item.item_name}</td>
+                    <td className="px-3 py-2 text-gray-600 text-xs">{item.basis}</td>
+                    <td className="px-3 py-2 text-right font-medium text-gray-900 text-xs">{item.amount ? item.amount.toLocaleString() : ''}</td>
+                    <td className="px-3 py-2 text-gray-500 text-xs">{item.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-blue-50">
+                  <td colSpan={4} className="px-3 py-2 text-right font-bold text-gray-900 text-sm">합계</td>
+                  <td className="px-3 py-2 text-right font-bold text-blue-700 text-sm">
+                    {projectBudgetItems.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString()}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* 진행 순서 */}
       {programs.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
@@ -557,8 +708,8 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         </div>
       )}
 
-      {/* 주요내용/교육내용/나눔내용 (모임/교육/셀장 보고서) */}
-      {reportType !== 'weekly' && report.main_content && (
+      {/* 주요내용/교육내용/나눔내용 (모임/교육/셀장 보고서, 프로젝트 제외) */}
+      {reportType !== 'weekly' && reportType !== 'project' && report.main_content && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
           <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">
             {reportType === 'cell_leader' ? '나눔 내용' : reportType === 'meeting' ? '주요내용' : '교육내용'}
@@ -1342,6 +1493,228 @@ ${leftContent ? leftContent.split('\\n').map((line: string) => 'ㆍ ' + line).jo
     <td class="cell" style="min-height:120px;vertical-align:top;text-align:left;padding:10px;white-space:pre-wrap;line-height:1.6;">
 ${parsedNotes.other_notes ? parsedNotes.other_notes.split('\\n').map((line: string) => 'ㆍ ' + line).join('\\n') : 'ㆍ\\nㆍ\\nㆍ'}
     </td>
+  </tr>
+</table>
+<script>window.onload = function() { setTimeout(function() { window.print(); }, 200); };</script>
+</body>
+</html>`
+}
+
+// 프로젝트 계획서 인쇄 HTML 생성
+function generateProjectPrintHTML(
+  title: string,
+  report: any,
+  reportDate: Date,
+  parsedNotes: any,
+  contentItems: any[],
+  scheduleItems: any[],
+  budgetItems: any[]
+) {
+  // HTML 태그 제거 (리치텍스트 → 플레인텍스트)
+  const stripHtml = (html: string) => {
+    if (!html) return ''
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  }
+
+  // 세부계획 내용
+  const contentRows = contentItems.length > 0
+    ? contentItems.map(c => `<tr>
+        <td class="cell" style="text-align:left;">${c.col1 || ''}</td>
+        <td class="cell" style="text-align:left;">${c.col2 || ''}</td>
+        <td class="cell">${c.col3 || ''}</td>
+        <td class="cell">${c.col4 || ''}</td>
+      </tr>`).join('')
+    : `<tr><td class="cell" colspan="4" style="height:40px;"></td></tr>`
+
+  // 일정표
+  const scheduleRows = scheduleItems.length > 0
+    ? scheduleItems.map(s => `<tr>
+        <td class="cell">${s.schedule || ''}</td>
+        <td class="cell" style="text-align:left;">${s.detail || ''}</td>
+        <td class="cell">${s.note || ''}</td>
+      </tr>`).join('')
+    : `<tr><td class="cell" colspan="3" style="height:40px;"></td></tr>`
+
+  // 예산 (관/항 rowspan 처리)
+  let budgetRows = ''
+  if (budgetItems.length > 0) {
+    // 관별/항별 그룹핑
+    const groups: Record<string, Record<string, typeof budgetItems>> = {}
+    for (const b of budgetItems) {
+      const cat = b.category || ''
+      const sub = b.subcategory || ''
+      if (!groups[cat]) groups[cat] = {}
+      if (!groups[cat][sub]) groups[cat][sub] = []
+      groups[cat][sub].push(b)
+    }
+
+    for (const [cat, subs] of Object.entries(groups)) {
+      const catTotal = Object.values(subs).flat().length
+      let catFirst = true
+      for (const [sub, items] of Object.entries(subs)) {
+        let subFirst = true
+        for (const item of items) {
+          budgetRows += `<tr>
+            ${catFirst ? `<td class="cell" rowspan="${catTotal}" style="font-weight:bold;vertical-align:middle;">${cat}</td>` : ''}
+            ${subFirst ? `<td class="cell" rowspan="${items.length}" style="vertical-align:middle;">${sub}</td>` : ''}
+            <td class="cell">${item.item_name || ''}</td>
+            <td class="cell" style="text-align:left;">${item.basis || ''}</td>
+            <td class="cell" style="text-align:right;">${item.amount ? item.amount.toLocaleString() : ''}</td>
+            <td class="cell">${item.note || ''}</td>
+          </tr>`
+          catFirst = false
+          subFirst = false
+        }
+      }
+    }
+  } else {
+    budgetRows = `<tr><td class="cell" colspan="6" style="height:40px;"></td></tr>`
+  }
+
+  const budgetTotal = budgetItems.reduce((sum: number, b: any) => sum + (b.amount || 0), 0)
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>[${title}] 프로젝트계획(안)</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    @media print {
+      html, body { width: 210mm; height: 297mm; }
+      body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+      font-size: 10pt;
+      line-height: 1.4;
+      padding: 15mm 15mm 10mm 15mm;
+      color: #000;
+    }
+    table { border-collapse: collapse; }
+    .cell {
+      border: 1px solid #000;
+      padding: 5px 8px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    .section-header {
+      background: linear-gradient(135deg, #d4e5f7 0%, #e8f0f8 100%);
+      font-weight: bold;
+      text-align: center;
+      padding: 8px;
+      border: 1px solid #000;
+    }
+    .section-num {
+      display: inline-block;
+      background: #6b7b8d;
+      color: #fff;
+      width: 22px;
+      height: 22px;
+      line-height: 22px;
+      text-align: center;
+      font-size: 10pt;
+      font-weight: bold;
+      margin-right: 8px;
+    }
+    .section-title {
+      font-size: 13pt;
+      font-weight: bold;
+      margin: 16px 0 8px 0;
+      display: flex;
+      align-items: center;
+    }
+    .content-block {
+      border: 1px solid #ccc;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      min-height: 40px;
+      line-height: 1.6;
+    }
+    .approval-box { border: 1px solid #000; }
+    .approval-box td { border: 1px solid #000; padding: 4px 10px; text-align: center; }
+    .approval-box .label { background: #f0f0f0; font-weight: bold; }
+    .approval-box .sign-area { height: 45px; min-width: 70px; }
+  </style>
+</head>
+<body>
+<div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+  <table class="approval-box" style="font-size:9pt;">
+    <tr>
+      <td rowspan="2" class="label" style="width:40px;">결재</td>
+      <td style="width:100px;text-align:center;">작성자</td>
+      <td style="width:100px;text-align:center;">부장</td>
+    </tr>
+    <tr>
+      <td class="sign-area" style="height:50px;"></td>
+      <td class="sign-area" style="height:50px;text-align:left;padding-left:8px;">강현숙</td>
+    </tr>
+    <tr>
+      <td class="label">협조</td>
+      <td style="text-align:left;padding-left:8px;height:30px;">신요한</td>
+      <td style="text-align:left;padding-left:8px;height:30px;">전홍균</td>
+    </tr>
+  </table>
+</div>
+<div style="text-align:center;margin-bottom:6px;">
+  <div style="font-size:20pt;font-weight:bold;color:#000;">[프로젝트 계획] (안)</div>
+</div>
+<div style="text-align:right;margin-bottom:20px;font-size:11pt;">
+  ${reportDate.getFullYear()} ${report.departments?.name || '교육부'}
+</div>
+
+<div class="section-title"><span class="section-num">1</span> 개요</div>
+<div class="content-block">${report.main_content ? stripHtml(report.main_content) : ''}</div>
+
+<div class="section-title"><span class="section-num">2</span> 목적</div>
+<div class="content-block">${report.application_notes ? stripHtml(report.application_notes) : ''}</div>
+
+<div class="section-title"><span class="section-num">3</span> 조직도</div>
+<div class="content-block">${parsedNotes.organization ? stripHtml(parsedNotes.organization) : ''}</div>
+
+<div class="section-title"><span class="section-num">4</span> 세부 계획</div>
+<div style="margin-bottom:4px;font-size:9pt;">○ 내용</div>
+<table style="width:100%;margin-bottom:12px;">
+  <tr style="background:#6b7b8d;">
+    <td class="cell" style="color:#fff;font-weight:bold;width:25%;">항목</td>
+    <td class="cell" style="color:#fff;font-weight:bold;">내용</td>
+    <td class="cell" style="color:#fff;font-weight:bold;width:15%;">담당</td>
+    <td class="cell" style="color:#fff;font-weight:bold;width:15%;">비고</td>
+  </tr>
+  ${contentRows}
+</table>
+
+<div style="margin-bottom:4px;font-size:9pt;">○ 세부 일정표</div>
+<table style="width:100%;margin-bottom:16px;">
+  <tr style="background:#6b7b8d;">
+    <td class="cell" style="color:#fff;font-weight:bold;width:25%;">일정표</td>
+    <td class="cell" style="color:#fff;font-weight:bold;">세부내용</td>
+    <td class="cell" style="color:#fff;font-weight:bold;width:15%;">비고</td>
+  </tr>
+  ${scheduleRows}
+</table>
+
+<div class="section-title"><span class="section-num">5</span> 예산</div>
+<div style="text-align:right;margin-bottom:4px;font-size:9pt;">(단위: 원)</div>
+<table style="width:100%;">
+  <tr style="background:#6b7b8d;">
+    <td class="cell" colspan="3" style="color:#fff;font-weight:bold;">과목</td>
+    <td class="cell" rowspan="2" style="color:#fff;font-weight:bold;background:#6b7b8d;vertical-align:middle;">산출 근거</td>
+    <td class="cell" rowspan="2" style="color:#fff;font-weight:bold;background:#6b7b8d;width:12%;vertical-align:middle;">예산액</td>
+    <td class="cell" rowspan="2" style="color:#fff;font-weight:bold;background:#6b7b8d;width:10%;vertical-align:middle;">비고</td>
+  </tr>
+  <tr style="background:#6b7b8d;">
+    <td class="cell" style="color:#fff;font-weight:bold;width:12%;">관</td>
+    <td class="cell" style="color:#fff;font-weight:bold;width:12%;">항</td>
+    <td class="cell" style="color:#fff;font-weight:bold;width:16%;">목</td>
+  </tr>
+  ${budgetRows}
+  <tr style="background:#e6f0ff;">
+    <td class="cell" colspan="3" style="font-weight:bold;">계</td>
+    <td class="cell"></td>
+    <td class="cell" style="font-weight:bold;text-align:right;">${budgetTotal > 0 ? budgetTotal.toLocaleString() : '0'}</td>
+    <td class="cell"></td>
   </tr>
 </table>
 <script>window.onload = function() { setTimeout(function() { window.print(); }, 200); };</script>

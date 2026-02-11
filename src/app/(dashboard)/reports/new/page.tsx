@@ -7,13 +7,14 @@ import { useDepartments } from '@/queries/departments'
 import { isAdmin as checkAdmin } from '@/lib/permissions'
 import ReportForm from '@/components/reports/ReportForm'
 
-type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
 
 const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = {
   weekly: { label: '주차 보고서', icon: '📋' },
   meeting: { label: '모임 보고서', icon: '👥' },
   education: { label: '교육 보고서', icon: '📚' },
   cell_leader: { label: '셀장 보고서', icon: '🏠' },
+  project: { label: '프로젝트 계획', icon: '📑' },
 }
 
 export default function NewReportPage() {

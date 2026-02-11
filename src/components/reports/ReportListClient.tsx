@@ -8,13 +8,14 @@ import { useDepartments } from '@/queries/departments'
 import { useReports, useTeamLeaderMap } from '@/queries/reports'
 import { canAccessAllDepartments, canWriteReport as checkCanWriteReport, getAccessibleDepartmentIds, canViewReport } from '@/lib/permissions'
 
-type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
 
 const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string; color: string }> = {
   weekly: { label: '주차 보고서', icon: '📋', color: 'blue' },
   meeting: { label: '모임 보고서', icon: '👥', color: 'green' },
   education: { label: '교육 보고서', icon: '📚', color: 'purple' },
   cell_leader: { label: '셀장 보고서', icon: '🏠', color: 'teal' },
+  project: { label: '프로젝트 계획', icon: '📑', color: 'orange' },
 }
 
 export default function ReportListClient() {
@@ -90,7 +91,7 @@ export default function ReportListClient() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-lg lg:text-xl font-bold text-gray-900">보고서</h1>
-          <p className="text-sm text-gray-500 mt-0.5">주차/모임/교육 보고서 관리</p>
+          <p className="text-sm text-gray-500 mt-0.5">보고서 및 프로젝트 계획 관리</p>
         </div>
         {canWriteReport && (
           <Link
@@ -174,7 +175,8 @@ export default function ReportListClient() {
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                   selectedType === 'weekly' ? 'bg-blue-100' :
                   selectedType === 'meeting' ? 'bg-green-100' :
-                  selectedType === 'cell_leader' ? 'bg-teal-100' : 'bg-purple-100'
+                  selectedType === 'cell_leader' ? 'bg-teal-100' :
+                  selectedType === 'project' ? 'bg-orange-100' : 'bg-purple-100'
                 }`}>
                   <span className="text-lg">{REPORT_TYPE_CONFIG[selectedType].icon}</span>
                 </div>

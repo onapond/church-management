@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { createApprovalNotification } from '@/lib/notifications'
 import { useToastContext } from '@/providers/ToastProvider'
 import dynamic from 'next/dynamic'
-import type { Program, Newcomer, CellAttendance } from './types'
+import type { Program, Newcomer, CellAttendance, ProjectContentItem, ProjectScheduleItem, ProjectBudgetItem } from './types'
 import ProgramTable from './ProgramTable'
 import AttendanceInput from './AttendanceInput'
 import NewcomerSection from './NewcomerSection'
@@ -23,7 +23,7 @@ const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
   ),
 })
 
-type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
 
 interface Department {
   id: string
@@ -42,6 +42,32 @@ interface ExistingReport {
   attendees: string | null
   main_content: string | null
   application_notes: string | null
+  // 프로젝트 보고서 전용
+  projectContentItems?: Array<{
+    id: string
+    col1: string
+    col2: string
+    col3: string
+    col4: string
+    order_index: number
+  }>
+  projectScheduleItems?: Array<{
+    id: string
+    schedule: string
+    detail: string
+    note: string
+    order_index: number
+  }>
+  projectBudgetItems?: Array<{
+    id: string
+    category: string
+    subcategory: string
+    item_name: string
+    basis: string
+    amount: number
+    note: string
+    order_index: number
+  }>
   programs: Array<{
     id: string
     start_time: string
@@ -75,6 +101,7 @@ const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   meeting: '모임 보고서',
   education: '교육 보고서',
   cell_leader: '셀장 보고서',
+  project: '프로젝트 계획',
 }
 
 // 섹션 정의
@@ -83,6 +110,10 @@ const SECTIONS = [
   { id: 'program', label: '순서', icon: '⏱️' },
   { id: 'attendance', label: '출결', icon: '✅' },
   { id: 'newcomer', label: '새신자', icon: '👋' },
+  // 프로젝트 전용 섹션
+  { id: 'overview', label: '개요', icon: '📝' },
+  { id: 'plan', label: '계획', icon: '📊' },
+  { id: 'budget', label: '예산', icon: '💰' },
   { id: 'photos', label: '사진', icon: '📷' },
   { id: 'notes', label: '논의', icon: '💬' },
 ]
@@ -166,6 +197,8 @@ export default function ReportForm({
     attendees: existingReport?.attendees || '',
     main_content: existingReport?.main_content || '',
     application_notes: existingReport?.application_notes || '',
+    // 프로젝트 보고서 전용
+    organization: parsedNotes.organization || '',
   })
 
   // 프로그램 초기화 (기존 데이터가 있으면 사용)
@@ -207,6 +240,41 @@ export default function ReportForm({
     : []
 
   const [newcomers, setNewcomers] = useState<Newcomer[]>(initialNewcomers)
+
+  // 프로젝트 보고서: 세부계획 내용 (4열 테이블)
+  const initialContentItems: ProjectContentItem[] = existingReport?.projectContentItems?.length
+    ? existingReport.projectContentItems.map(c => ({
+        col1: c.col1 || '', col2: c.col2 || '', col3: c.col3 || '', col4: c.col4 || '', order_index: c.order_index,
+      }))
+    : [{ col1: '', col2: '', col3: '', col4: '', order_index: 0 }]
+  const [contentItems, setContentItems] = useState<ProjectContentItem[]>(initialContentItems)
+
+  // 프로젝트 보고서: 세부 일정표
+  const initialScheduleItems: ProjectScheduleItem[] = existingReport?.projectScheduleItems?.length
+    ? existingReport.projectScheduleItems.map(s => ({
+        schedule: s.schedule || '', detail: s.detail || '', note: s.note || '', order_index: s.order_index,
+      }))
+    : [{ schedule: '', detail: '', note: '', order_index: 0 }]
+  const [scheduleItems, setScheduleItems] = useState<ProjectScheduleItem[]>(initialScheduleItems)
+
+  // 프로젝트 보고서: 예산
+  const DEFAULT_BUDGET: ProjectBudgetItem[] = [
+    { category: '교육위원회', subcategory: '예배비', item_name: '환경조성비', basis: '', amount: 0, note: '', order_index: 0 },
+    { category: '교육위원회', subcategory: '예배비', item_name: '특별활동비', basis: '', amount: 0, note: '', order_index: 1 },
+    { category: '교육위원회', subcategory: '교육비', item_name: '강사비(특강)', basis: '', amount: 0, note: '', order_index: 2 },
+    { category: '교육위원회', subcategory: '교육비', item_name: '연구비', basis: '', amount: 0, note: '', order_index: 3 },
+    { category: '교육위원회', subcategory: '교육비', item_name: '소그룹비/리더모임비', basis: '', amount: 0, note: '', order_index: 4 },
+    { category: '교육위원회', subcategory: '기타운영비', item_name: '심방비', basis: '', amount: 0, note: '', order_index: 5 },
+    { category: '교육위원회', subcategory: '기타운영비', item_name: '경조사비', basis: '', amount: 0, note: '', order_index: 6 },
+    { category: '교육위원회', subcategory: '기타운영비', item_name: '예비비', basis: '', amount: 0, note: '', order_index: 7 },
+  ]
+  const initialBudgetItems: ProjectBudgetItem[] = existingReport?.projectBudgetItems?.length
+    ? existingReport.projectBudgetItems.map(b => ({
+        category: b.category || '', subcategory: b.subcategory || '', item_name: b.item_name || '',
+        basis: b.basis || '', amount: b.amount || 0, note: b.note || '', order_index: b.order_index,
+      }))
+    : DEFAULT_BUDGET
+  const [budgetItems, setBudgetItems] = useState<ProjectBudgetItem[]>(initialBudgetItems)
 
   const [attendanceSummary, setAttendanceSummary] = useState({
     total: 0,
@@ -304,6 +372,39 @@ export default function ReportForm({
     setNewcomers(prev => prev.map((n, i) => (i === index ? { ...n, [field]: value } : n)))
   }, [])
 
+  // 프로젝트: 세부계획 내용 관리
+  const addContentItem = useCallback(() => {
+    setContentItems(prev => [...prev, { col1: '', col2: '', col3: '', col4: '', order_index: prev.length }])
+  }, [])
+  const removeContentItem = useCallback((index: number) => {
+    setContentItems(prev => prev.filter((_, i) => i !== index))
+  }, [])
+  const updateContentItem = useCallback((index: number, field: keyof ProjectContentItem, value: string) => {
+    setContentItems(prev => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)))
+  }, [])
+
+  // 프로젝트: 일정표 관리
+  const addScheduleItem = useCallback(() => {
+    setScheduleItems(prev => [...prev, { schedule: '', detail: '', note: '', order_index: prev.length }])
+  }, [])
+  const removeScheduleItem = useCallback((index: number) => {
+    setScheduleItems(prev => prev.filter((_, i) => i !== index))
+  }, [])
+  const updateScheduleItem = useCallback((index: number, field: keyof ProjectScheduleItem, value: string) => {
+    setScheduleItems(prev => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)))
+  }, [])
+
+  // 프로젝트: 예산 관리
+  const addBudgetItem = useCallback(() => {
+    setBudgetItems(prev => [...prev, { category: '', subcategory: '', item_name: '', basis: '', amount: 0, note: '', order_index: prev.length }])
+  }, [])
+  const removeBudgetItem = useCallback((index: number) => {
+    setBudgetItems(prev => prev.filter((_, i) => i !== index))
+  }, [])
+  const updateBudgetItem = useCallback((index: number, field: keyof ProjectBudgetItem, value: string | number) => {
+    setBudgetItems(prev => prev.map((b, i) => (i === index ? { ...b, [field]: value } : b)))
+  }, [])
+
   // 사진 추가
   const handlePhotoAdd = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -364,18 +465,19 @@ export default function ReportForm({
         total_registered: totalRegistered,
         worship_attendance: totalWorship,
         meeting_attendance: totalMeeting,
-        // 모임/교육/셀장 전용 필드
+        // 모임/교육/셀장/프로젝트 전용 필드
         meeting_title: reportType !== 'weekly' ? form.meeting_title : null,
-        meeting_location: reportType !== 'weekly' && reportType !== 'cell_leader' ? form.meeting_location : null,
-        attendees: reportType !== 'weekly' ? form.attendees : null,
+        meeting_location: reportType !== 'weekly' && reportType !== 'cell_leader' && reportType !== 'project' ? form.meeting_location : null,
+        attendees: reportType !== 'weekly' && reportType !== 'project' ? form.attendees : null,
         main_content: reportType !== 'weekly' ? form.main_content : null,
-        application_notes: reportType === 'education' || reportType === 'cell_leader' ? form.application_notes : null,
+        application_notes: ['education', 'cell_leader', 'project'].includes(reportType) ? form.application_notes : null,
         notes: JSON.stringify({
           sermon_title: form.sermon_title,
           sermon_scripture: form.sermon_scripture,
           discussion_notes: form.discussion_notes,
           other_notes: form.other_notes,
           cell_attendance: reportType === 'weekly' ? cellAttendance : [],
+          organization: reportType === 'project' ? form.organization : undefined,
         }),
         status: isDraft ? 'draft' : 'submitted',
         submitted_at: isDraft ? null : new Date().toISOString(),
@@ -420,8 +522,8 @@ export default function ReportForm({
         reportId = report.id
       }
 
-      // 프로그램 저장 (셀장 보고서 제외)
-      if (reportType !== 'cell_leader' && programs.length > 0) {
+      // 프로그램 저장 (셀장/프로젝트 보고서 제외)
+      if (reportType !== 'cell_leader' && reportType !== 'project' && programs.length > 0) {
         const { error: programError } = await supabase
           .from('report_programs')
           .insert(
@@ -455,6 +557,41 @@ export default function ReportForm({
           )
 
         if (newcomerError) throw newcomerError
+      }
+
+      // 프로젝트 보고서: 세부계획/일정표/예산 저장
+      if (reportType === 'project') {
+        // 기존 데이터 삭제 (수정 모드)
+        if (editMode && existingReport) {
+          await supabase.from('project_content_items').delete().eq('report_id', reportId)
+          await supabase.from('project_schedule_items').delete().eq('report_id', reportId)
+          await supabase.from('project_budget_items').delete().eq('report_id', reportId)
+        }
+        // 세부계획 내용
+        if (contentItems.some(c => c.col1 || c.col2 || c.col3 || c.col4)) {
+          await supabase.from('project_content_items').insert(
+            contentItems.filter(c => c.col1 || c.col2 || c.col3 || c.col4).map((c, i) => ({
+              report_id: reportId, col1: c.col1, col2: c.col2, col3: c.col3, col4: c.col4, order_index: i,
+            }))
+          )
+        }
+        // 세부 일정표
+        if (scheduleItems.some(s => s.schedule || s.detail)) {
+          await supabase.from('project_schedule_items').insert(
+            scheduleItems.filter(s => s.schedule || s.detail).map((s, i) => ({
+              report_id: reportId, schedule: s.schedule, detail: s.detail, note: s.note, order_index: i,
+            }))
+          )
+        }
+        // 예산
+        if (budgetItems.some(b => b.item_name || b.amount > 0)) {
+          await supabase.from('project_budget_items').insert(
+            budgetItems.filter(b => b.item_name || b.amount > 0).map((b, i) => ({
+              report_id: reportId, category: b.category, subcategory: b.subcategory, item_name: b.item_name,
+              basis: b.basis, amount: b.amount, note: b.note, order_index: i,
+            }))
+          )
+        }
       }
 
       // 사진 업로드
@@ -512,14 +649,18 @@ export default function ReportForm({
   // 현재 보고서 유형에 맞는 섹션 필터링
   const visibleSections = useMemo(() => {
     if (reportType === 'weekly') {
-      return SECTIONS
+      return SECTIONS.filter(s => !['overview', 'plan', 'budget'].includes(s.id))
     }
     if (reportType === 'cell_leader') {
-      // 셀장 보고서: 순서/출결/새신자 제외
+      // 셀장 보고서: 순서/출결/새신자/프로젝트 섹션 제외
+      return SECTIONS.filter(s => !['program', 'attendance', 'newcomer', 'overview', 'plan', 'budget'].includes(s.id))
+    }
+    if (reportType === 'project') {
+      // 프로젝트: 순서/출결/새신자 제외, 개요/계획/예산 포함
       return SECTIONS.filter(s => !['program', 'attendance', 'newcomer'].includes(s.id))
     }
-    // 모임/교육 보고서는 출결/새신자 섹션 제외
-    return SECTIONS.filter(s => !['attendance', 'newcomer'].includes(s.id))
+    // 모임/교육 보고서는 출결/새신자/프로젝트 섹션 제외
+    return SECTIONS.filter(s => !['attendance', 'newcomer', 'overview', 'plan', 'budget'].includes(s.id))
   }, [reportType])
 
   // sectionRef 콜백 생성
@@ -557,20 +698,20 @@ export default function ReportForm({
         className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 space-y-4 scroll-mt-24"
       >
         <h2 className="font-semibold text-gray-900 text-base md:text-lg border-b pb-2">
-          {reportType === 'weekly' ? '기본 정보' : reportType === 'cell_leader' ? '셀 모임 개요' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}
+          {reportType === 'weekly' ? '기본 정보' : reportType === 'cell_leader' ? '셀 모임 개요' : reportType === 'project' ? '프로젝트 기본 정보' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}
         </h2>
 
         {/* 모임/교육 제목 */}
         {reportType !== 'weekly' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {reportType === 'cell_leader' ? '셀 모임명' : reportType === 'meeting' ? '모임명' : '교육명'}
+              {reportType === 'cell_leader' ? '셀 모임명' : reportType === 'project' ? '프로젝트명' : reportType === 'meeting' ? '모임명' : '교육명'}
             </label>
             <input
               type="text"
               value={form.meeting_title}
               onChange={(e) => setForm({ ...form, meeting_title: e.target.value })}
-              placeholder={reportType === 'cell_leader' ? '예: 1셀 모임' : reportType === 'meeting' ? '예: 청년1 셀장모임' : '예: 리더 교육'}
+              placeholder={reportType === 'cell_leader' ? '예: 1셀 모임' : reportType === 'project' ? '예: 2024 교육부 프로젝트' : reportType === 'meeting' ? '예: 청년1 셀장모임' : '예: 리더 교육'}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             />
           </div>
@@ -605,7 +746,7 @@ export default function ReportForm({
             />
           </div>
 
-          {reportType !== 'weekly' && (
+          {reportType !== 'weekly' && reportType !== 'project' && (
             <>
               {reportType !== 'cell_leader' && (
               <div>
@@ -634,8 +775,8 @@ export default function ReportForm({
         </div>
       </div>
 
-      {/* 진행순서 (셀장 보고서 제외) */}
-      {reportType !== 'cell_leader' && (
+      {/* 진행순서 (셀장/프로젝트 보고서 제외) */}
+      {reportType !== 'cell_leader' && reportType !== 'project' && (
         <ProgramTable
           programs={programs}
           onAdd={addProgram}
@@ -673,8 +814,8 @@ export default function ReportForm({
         </div>
       )}
 
-      {/* 주요내용 (모임/교육/셀장 보고서) */}
-      {reportType !== 'weekly' && (
+      {/* 주요내용 (모임/교육/셀장 보고서 - 프로젝트 제외) */}
+      {reportType !== 'weekly' && reportType !== 'project' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
           <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">
             {reportType === 'cell_leader' ? '나눔 내용' : reportType === 'meeting' ? '주요내용' : '교육내용'}
@@ -685,6 +826,196 @@ export default function ReportForm({
             placeholder={reportType === 'cell_leader' ? '셀 모임에서 나눈 내용을 입력하세요' : reportType === 'meeting' ? '주요 내용을 입력하세요' : '교육 내용을 입력하세요'}
             minHeight="150px"
           />
+        </div>
+      )}
+
+      {/* 프로젝트: 개요/목적/조직도 */}
+      {reportType === 'project' && (
+        <div
+          ref={(el) => { sectionRefs.current['overview'] = el }}
+          data-section="overview"
+          className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 space-y-4 scroll-mt-24"
+        >
+          <h2 className="font-semibold text-gray-900 text-base md:text-lg border-b pb-2">개요 / 목적 / 조직도</h2>
+          <div>
+            <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">1. 개요</label>
+            <RichTextEditor
+              value={form.main_content}
+              onChange={(value) => setForm({ ...form, main_content: value })}
+              placeholder="프로젝트 개요를 입력하세요"
+              minHeight="120px"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">2. 목적</label>
+            <RichTextEditor
+              value={form.application_notes}
+              onChange={(value) => setForm({ ...form, application_notes: value })}
+              placeholder="프로젝트 목적을 입력하세요"
+              minHeight="120px"
+            />
+          </div>
+          <div>
+            <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">3. 조직도</label>
+            <RichTextEditor
+              value={form.organization}
+              onChange={(value) => setForm({ ...form, organization: value })}
+              placeholder="조직 구성을 입력하세요"
+              minHeight="100px"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 프로젝트: 세부계획 (내용 + 일정표) */}
+      {reportType === 'project' && (
+        <div
+          ref={(el) => { sectionRefs.current['plan'] = el }}
+          data-section="plan"
+          className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 space-y-6 scroll-mt-24"
+        >
+          <h2 className="font-semibold text-gray-900 text-base md:text-lg border-b pb-2">4. 세부 계획</h2>
+
+          {/* 내용 테이블 (4열) */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="font-medium text-gray-700 text-sm">내용</label>
+              <button
+                type="button"
+                onClick={addContentItem}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+              >
+                + 행 추가
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">항목</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">내용</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">담당</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">비고</th>
+                    <th className="px-2 py-2 border-b w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contentItems.map((item, i) => (
+                    <tr key={i} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-1 py-1"><input type="text" value={item.col1} onChange={(e) => updateContentItem(i, 'col1', e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="항목" /></td>
+                      <td className="px-1 py-1"><input type="text" value={item.col2} onChange={(e) => updateContentItem(i, 'col2', e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="내용" /></td>
+                      <td className="px-1 py-1"><input type="text" value={item.col3} onChange={(e) => updateContentItem(i, 'col3', e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="담당" /></td>
+                      <td className="px-1 py-1"><input type="text" value={item.col4} onChange={(e) => updateContentItem(i, 'col4', e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="비고" /></td>
+                      <td className="px-1 py-1 text-center">
+                        {contentItems.length > 1 && (
+                          <button type="button" onClick={() => removeContentItem(i)} className="text-red-400 hover:text-red-600 text-lg leading-none">&times;</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 세부 일정표 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="font-medium text-gray-700 text-sm">세부 일정표</label>
+              <button
+                type="button"
+                onClick={addScheduleItem}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+              >
+                + 행 추가
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b" style={{ width: '30%' }}>일정표</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b">세부내용</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600 border-b" style={{ width: '20%' }}>비고</th>
+                    <th className="px-2 py-2 border-b w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scheduleItems.map((item, i) => (
+                    <tr key={i} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-1 py-1"><input type="text" value={item.schedule} onChange={(e) => updateScheduleItem(i, 'schedule', e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="예: 3월 1주차" /></td>
+                      <td className="px-1 py-1"><input type="text" value={item.detail} onChange={(e) => updateScheduleItem(i, 'detail', e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="세부내용" /></td>
+                      <td className="px-1 py-1"><input type="text" value={item.note} onChange={(e) => updateScheduleItem(i, 'note', e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" placeholder="비고" /></td>
+                      <td className="px-1 py-1 text-center">
+                        {scheduleItems.length > 1 && (
+                          <button type="button" onClick={() => removeScheduleItem(i)} className="text-red-400 hover:text-red-600 text-lg leading-none">&times;</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 프로젝트: 예산 */}
+      {reportType === 'project' && (
+        <div
+          ref={(el) => { sectionRefs.current['budget'] = el }}
+          data-section="budget"
+          className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 scroll-mt-24"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-gray-900 text-base md:text-lg">5. 예산 <span className="text-xs font-normal text-gray-400">(단위: 원)</span></h2>
+            <button
+              type="button"
+              onClick={addBudgetItem}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+            >
+              + 항목 추가
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="px-2 py-2 text-left font-medium text-gray-600 border-b text-xs" style={{ width: '12%' }}>관</th>
+                  <th className="px-2 py-2 text-left font-medium text-gray-600 border-b text-xs" style={{ width: '14%' }}>항</th>
+                  <th className="px-2 py-2 text-left font-medium text-gray-600 border-b text-xs" style={{ width: '16%' }}>목</th>
+                  <th className="px-2 py-2 text-left font-medium text-gray-600 border-b text-xs" style={{ width: '20%' }}>산출 근거</th>
+                  <th className="px-2 py-2 text-right font-medium text-gray-600 border-b text-xs" style={{ width: '14%' }}>예산액</th>
+                  <th className="px-2 py-2 text-left font-medium text-gray-600 border-b text-xs" style={{ width: '14%' }}>비고</th>
+                  <th className="px-1 py-2 border-b w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {budgetItems.map((item, i) => (
+                  <tr key={i} className="border-b border-gray-100 last:border-b-0">
+                    <td className="px-1 py-1"><input type="text" value={item.category} onChange={(e) => updateBudgetItem(i, 'category', e.target.value)} className="w-full px-1.5 py-1.5 border border-gray-200 rounded text-xs" /></td>
+                    <td className="px-1 py-1"><input type="text" value={item.subcategory} onChange={(e) => updateBudgetItem(i, 'subcategory', e.target.value)} className="w-full px-1.5 py-1.5 border border-gray-200 rounded text-xs" /></td>
+                    <td className="px-1 py-1"><input type="text" value={item.item_name} onChange={(e) => updateBudgetItem(i, 'item_name', e.target.value)} className="w-full px-1.5 py-1.5 border border-gray-200 rounded text-xs" /></td>
+                    <td className="px-1 py-1"><input type="text" value={item.basis} onChange={(e) => updateBudgetItem(i, 'basis', e.target.value)} className="w-full px-1.5 py-1.5 border border-gray-200 rounded text-xs" placeholder="산출 근거" /></td>
+                    <td className="px-1 py-1"><input type="number" value={item.amount || ''} onChange={(e) => updateBudgetItem(i, 'amount', parseInt(e.target.value) || 0)} className="w-full px-1.5 py-1.5 border border-gray-200 rounded text-xs text-right" placeholder="0" /></td>
+                    <td className="px-1 py-1"><input type="text" value={item.note} onChange={(e) => updateBudgetItem(i, 'note', e.target.value)} className="w-full px-1.5 py-1.5 border border-gray-200 rounded text-xs" /></td>
+                    <td className="px-1 py-1 text-center">
+                      <button type="button" onClick={() => removeBudgetItem(i)} className="text-red-400 hover:text-red-600 text-lg leading-none">&times;</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-blue-50">
+                  <td colSpan={4} className="px-3 py-2 text-right font-bold text-gray-900 text-sm">합계</td>
+                  <td className="px-3 py-2 text-right font-bold text-blue-700 text-sm">
+                    {budgetItems.reduce((sum, b) => sum + (b.amount || 0), 0).toLocaleString()}
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
       )}
 
@@ -737,7 +1068,7 @@ export default function ReportForm({
                 ...form,
                 [reportType === 'cell_leader' || reportType === 'education' ? 'application_notes' : 'discussion_notes']: value
               })}
-              placeholder={reportType === 'cell_leader' ? '기도제목을 입력하세요' : reportType === 'education' ? '적용점을 입력하세요' : '논의사항을 입력하세요'}
+              placeholder={reportType === 'cell_leader' ? '기도제목을 입력하세요' : reportType === 'education' ? '적용점을 입력하세요' : reportType === 'project' ? '논의사항을 입력하세요' : '논의사항을 입력하세요'}
               minHeight="120px"
             />
           </div>

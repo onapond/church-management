@@ -26,7 +26,7 @@ export interface ReportListItem {
 
 // ─── 보고서 상세 타입 ──────────────────────────────
 
-type ReportType = 'weekly' | 'meeting' | 'education'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
 
 export interface ReportDetailData extends WeeklyReport {
   report_type: ReportType
@@ -203,6 +203,90 @@ export function useTeamLeaderMap(departmentIds: string[]) {
     },
     enabled: departmentIds.length > 0,
     staleTime: 5 * 60_000,
+  })
+}
+
+// ─── 프로젝트 보고서 관련 훅 ──────────────────────
+
+export interface ProjectContentItemData {
+  id: string
+  col1: string
+  col2: string
+  col3: string
+  col4: string
+  order_index: number
+}
+
+export interface ProjectScheduleItemData {
+  id: string
+  schedule: string
+  detail: string
+  note: string
+  order_index: number
+}
+
+export interface ProjectBudgetItemData {
+  id: string
+  category: string
+  subcategory: string
+  item_name: string
+  basis: string
+  amount: number
+  note: string
+  order_index: number
+}
+
+/** 프로젝트 세부계획 내용 조회 */
+export function useProjectContentItems(reportId: string | undefined) {
+  return useQuery({
+    queryKey: ['reports', 'project-content', reportId],
+    queryFn: async (): Promise<ProjectContentItemData[]> => {
+      const { data, error } = await supabase
+        .from('project_content_items')
+        .select('*')
+        .eq('report_id', reportId!)
+        .order('order_index')
+      if (error) throw error
+      return (data || []) as ProjectContentItemData[]
+    },
+    enabled: !!reportId,
+    staleTime: 30_000,
+  })
+}
+
+/** 프로젝트 세부 일정표 조회 */
+export function useProjectScheduleItems(reportId: string | undefined) {
+  return useQuery({
+    queryKey: ['reports', 'project-schedule', reportId],
+    queryFn: async (): Promise<ProjectScheduleItemData[]> => {
+      const { data, error } = await supabase
+        .from('project_schedule_items')
+        .select('*')
+        .eq('report_id', reportId!)
+        .order('order_index')
+      if (error) throw error
+      return (data || []) as ProjectScheduleItemData[]
+    },
+    enabled: !!reportId,
+    staleTime: 30_000,
+  })
+}
+
+/** 프로젝트 예산 조회 */
+export function useProjectBudgetItems(reportId: string | undefined) {
+  return useQuery({
+    queryKey: ['reports', 'project-budget', reportId],
+    queryFn: async (): Promise<ProjectBudgetItemData[]> => {
+      const { data, error } = await supabase
+        .from('project_budget_items')
+        .select('*')
+        .eq('report_id', reportId!)
+        .order('order_index')
+      if (error) throw error
+      return (data || []) as ProjectBudgetItemData[]
+    },
+    enabled: !!reportId,
+    staleTime: 30_000,
   })
 }
 
