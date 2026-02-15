@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 function AuthForm() {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -37,6 +37,34 @@ function AuthForm() {
 
     router.push(redirect)
     router.refresh()
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setSuccess(null)
+    setLoading(true)
+
+    if (!email.trim()) {
+      setError('이메일을 입력해주세요.')
+      setLoading(false)
+      return
+    }
+
+    const supabase = createClient()
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+    })
+
+    if (error) {
+      setError('비밀번호 재설정 요청에 실패했습니다. 잠시 후 다시 시도해주세요.')
+      setLoading(false)
+      return
+    }
+
+    setSuccess('비밀번호 재설정 링크를 이메일로 보냈습니다. 이메일을 확인해주세요.')
+    setLoading(false)
   }
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -96,35 +124,40 @@ function AuthForm() {
     }, 1500)
   }
 
+  const handleSubmit = mode === 'login' ? handleLogin : mode === 'signup' ? handleSignup : handleForgotPassword
+
+  const submitLabel = mode === 'login' ? '로그인' : mode === 'signup' ? '회원가입' : '재설정 링크 보내기'
+  const loadingLabel = mode === 'login' ? '로그인 중...' : mode === 'signup' ? '가입 중...' : '전송 중...'
+
   return (
     <div>
-      {/* 탭 전환 */}
+      {/* 3개 탭 전환 */}
       <div className="flex mb-6 bg-gray-100 rounded-xl p-1">
-        <button
-          type="button"
-          onClick={() => { setMode('login'); setError(null); setSuccess(null); }}
-          className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-            mode === 'login'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          로그인
-        </button>
-        <button
-          type="button"
-          onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
-          className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${
-            mode === 'signup'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          회원가입
-        </button>
+        {([
+          { key: 'login', label: '로그인' },
+          { key: 'signup', label: '회원가입' },
+          { key: 'forgot', label: '비밀번호 찾기' },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => { setMode(tab.key); setError(null); setSuccess(null); }}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+              mode === tab.key
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <form onSubmit={mode === 'login' ? handleLogin : handleSignup} className="space-y-4">
+      {mode === 'forgot' && (
+        <p className="text-sm text-gray-500 mb-4">가입한 이메일을 입력하면 비밀번호 재설정 링크를 보내드립니다.</p>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* 이름 (회원가입 시만) */}
         {mode === 'signup' && (
           <div>
@@ -158,21 +191,24 @@ function AuthForm() {
           />
         </div>
 
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
-            비밀번호
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
-            placeholder={mode === 'signup' ? '6자 이상 입력' : '••••••••'}
-          />
-        </div>
+        {/* 비밀번호 (로그인/회원가입 시만) */}
+        {mode !== 'forgot' && (
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+              비밀번호
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+              placeholder={mode === 'signup' ? '6자 이상 입력' : '••••••••'}
+            />
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm">
@@ -197,10 +233,10 @@ function AuthForm() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              {mode === 'login' ? '로그인 중...' : '가입 중...'}
+              {loadingLabel}
             </span>
           ) : (
-            mode === 'login' ? '로그인' : '회원가입'
+            submitLabel
           )}
         </button>
       </form>
