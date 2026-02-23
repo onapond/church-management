@@ -92,19 +92,20 @@ src/
 - 반응형: `lg:` 프리픽스로 데스크톱 스타일 구분
 
 ## 배포 프로세스 (필수 규칙)
-**반드시 로컬에서 빌드 → Vercel에는 배포만 (원격 빌드 금지)**
+**반드시 로컬에서 `npm run build` 성공을 확인한 후 배포**
 ```bash
-# 1. 로컬 빌드 확인
+# 1. 로컬 빌드 확인 (필수 — 이 단계 없이 배포 금지)
 npm run build
 
 # 2. Git 커밋/푸시
 git add <files> && git commit -m "커밋 메시지" && git push origin main
 
-# 3. Vercel 로컬 빌드 + 배포 (원격 빌드 하지 않음)
-npx vercel build --prod && npx vercel deploy --prebuilt --prod
+# 3. Vercel 배포
+npx vercel --prod
 ```
-- **절대 `npx vercel --prod` 단독 사용 금지** (원격에서 빌드됨)
-- 항상 `--prebuilt` 플래그로 로컬 빌드 결과물만 업로드
+- Vercel 프로젝트 설정: `framework: nextjs`, `buildCommand: next build`
+- `--prebuilt`는 Next.js 16 RSC segments 호환 문제로 사용 불가
+- 로컬 `npm run build`로 빌드 에러를 반드시 사전 확인 후 배포할 것
 - **프로덕션 URL**: https://church-eight-delta.vercel.app
 - GitHub 자동 배포 미연결 (수동 배포 필요)
 
