@@ -13,6 +13,8 @@ export type ApprovalStatus =
   | 'rejected'
   | 'revision_requested'
 export type AttendanceType = 'worship' | 'meeting'
+export type VisitationStatus = 'scheduled' | 'completed' | 'cancelled'
+export type VisitationReason = 'hospital' | 'newcomer' | 'regular' | 'encouragement' | 'other'
 
 // 회계 카테고리
 export type ExpenseCategory =
@@ -285,6 +287,28 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['expense_items']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['expense_items']['Insert']>
       }
+      visitations: {
+        Row: {
+          id: string
+          member_id: string | null
+          member_name: string
+          department_id: string | null
+          visit_date: string
+          visit_time: string | null
+          visitor: string
+          reason: VisitationReason
+          status: VisitationStatus
+          notes: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['visitations']['Row'], 'id' | 'created_at' | 'updated_at' | 'status' | 'reason'> & {
+          status?: VisitationStatus
+          reason?: VisitationReason
+        }
+        Update: Partial<Database['public']['Tables']['visitations']['Insert']>
+      }
       accounting_records: {
         Row: {
           id: string
@@ -367,6 +391,9 @@ export interface MemberWithDepartments extends Member {
     }
   }>
 }
+
+// 심방 관련 타입
+export type Visitation = Database['public']['Tables']['visitations']['Row']
 
 // 회계 관련 타입
 export type ExpenseRequest = Database['public']['Tables']['expense_requests']['Row']

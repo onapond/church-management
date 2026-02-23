@@ -24,6 +24,21 @@ export const APPROVAL_STATUS_LABELS: Record<string, string> = {
   revision_requested: '수정 요청',
 }
 
+// ─── 심방 ─────────────────────────────────────────
+export const VISITATION_REASON_LABELS: Record<string, string> = {
+  hospital: '병원',
+  newcomer: '신입',
+  regular: '정기',
+  encouragement: '격려',
+  other: '기타',
+}
+
+export const VISITATION_STATUS_LABELS: Record<string, string> = {
+  scheduled: '예정',
+  completed: '완료',
+  cancelled: '취소',
+}
+
 // ─── 부서 코드 ───────────────────────────────────────
 export const CU1_DEPARTMENT_CODE = 'cu1'
 

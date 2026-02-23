@@ -91,11 +91,20 @@ src/
 - Tailwind CSS v4, 모바일 우선 설계
 - 반응형: `lg:` 프리픽스로 데스크톱 스타일 구분
 
-## 배포 프로세스
+## 배포 프로세스 (필수 규칙)
+**반드시 로컬에서 빌드 → Vercel에는 배포만 (원격 빌드 금지)**
 ```bash
-git add . && git commit -m "커밋 메시지" && git push origin main
-npx vercel --prod
+# 1. 로컬 빌드 확인
+npm run build
+
+# 2. Git 커밋/푸시
+git add <files> && git commit -m "커밋 메시지" && git push origin main
+
+# 3. Vercel 로컬 빌드 + 배포 (원격 빌드 하지 않음)
+npx vercel build --prod && npx vercel deploy --prebuilt --prod
 ```
+- **절대 `npx vercel --prod` 단독 사용 금지** (원격에서 빌드됨)
+- 항상 `--prebuilt` 플래그로 로컬 빌드 결과물만 업로드
 - **프로덕션 URL**: https://church-eight-delta.vercel.app
 - GitHub 자동 배포 미연결 (수동 배포 필요)
 
@@ -113,7 +122,7 @@ npx vercel --prod
 ```bash
 npm run dev          # 개발 서버 (http://localhost:3000)
 npm run build        # 빌드
-npm test             # vitest 테스트 (34개)
+npm test             # vitest 테스트 (93개)
 npx tsc --noEmit     # 타입 체크
 npx vercel --prod    # Vercel 프로덕션 배포
 ```

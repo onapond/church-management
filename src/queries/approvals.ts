@@ -84,7 +84,7 @@ export function useCompletedReports(userRole: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return transformReports(data || [])
+      return (data || []) as ApprovalReport[]
     },
     enabled: !!userRole,
     staleTime: 0,
