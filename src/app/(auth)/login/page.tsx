@@ -5,19 +5,24 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 function AuthForm() {
-  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
   const router = useRouter()
   const searchParams = useSearchParams()
   const rawRedirect = searchParams.get('redirect') || '/dashboard'
   // 오픈 리다이렉트 방어: 상대 경로만 허용, 프로토콜 상대 URL(//) 차단
   const redirect = (rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')) ? rawRedirect : '/dashboard'
+  const urlError = searchParams.get('error')
+
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(() => {
+    if (urlError === 'reset_link_expired') return '비밀번호 재설정 링크가 만료되었거나 유효하지 않습니다. 다시 시도해주세요.'
+    if (urlError === 'auth_callback_failed') return '인증에 실패했습니다. 다시 시도해주세요.'
+    return null
+  })
+  const [success, setSuccess] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,7 +61,7 @@ function AuthForm() {
     const supabase = createClient()
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      redirectTo: '/reset-password',
     })
 
     if (error) {
