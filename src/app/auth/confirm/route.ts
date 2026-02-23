@@ -10,10 +10,20 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
-  const next = searchParams.get('next') ?? '/reset-password'
+  const rawNext = searchParams.get('next') ?? '/reset-password'
 
-  // 오픈 리다이렉트 방어
-  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/reset-password'
+  // 절대 URL에서 경로만 추출, 상대 경로는 그대로 사용
+  let safeNext = '/reset-password'
+  try {
+    if (rawNext.startsWith('/') && !rawNext.startsWith('//')) {
+      safeNext = rawNext
+    } else {
+      const url = new URL(rawNext)
+      safeNext = url.pathname
+    }
+  } catch {
+    safeNext = '/reset-password'
+  }
 
   if (token_hash && type) {
     const supabase = await createClient()
