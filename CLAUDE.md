@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **앱 이름**: 청파중앙교회 교육위원회 관리 시스템
 - **기술 스택**: Next.js 16.1.6, Supabase, TypeScript, Tailwind CSS v4
 - **배포**: Vercel (https://church-eight-delta.vercel.app)
-- **GitHub**: https://github.com/onapond/church-management
+- **GitHub**: https://github.com/onapond/church-management (remote: onapond)
 
 ## 시작 시 필수 확인 문서
 **새 세션 시작 시 반드시 아래 파일들을 먼저 읽어주세요:**
