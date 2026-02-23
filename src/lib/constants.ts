@@ -42,5 +42,8 @@ export const VISITATION_STATUS_LABELS: Record<string, string> = {
 // ─── 부서 코드 ───────────────────────────────────────
 export const CU1_DEPARTMENT_CODE = 'cu1'
 
+// 교인 명단/출결에서 제외할 부서 (원소속이 다른 곳에 있어 이중 카운트 방지)
+export const HIDDEN_DEPARTMENT_CODES = ['leader', 'cu_worship']
+
 // ─── 월 이름 ────────────────────────────────────────
 export const MONTHS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']

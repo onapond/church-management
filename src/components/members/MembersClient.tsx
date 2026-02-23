@@ -5,6 +5,7 @@ import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { useMembers } from '@/queries/members'
 import { isAdmin as checkAdmin, canEditMembers, canAccessAllDepartments, getAccessibleDepartmentIds } from '@/lib/permissions'
+import { HIDDEN_DEPARTMENT_CODES } from '@/lib/constants'
 import MemberList from './MemberList'
 
 export default function MembersClient() {
@@ -14,17 +15,21 @@ export default function MembersClient() {
   const adminUser = checkAdmin(user?.role || '')
   const isAllAccess = canAccessAllDepartments(user?.role || '')
 
-  // 접근 가능한 부서
+  // 접근 가능한 부서 (리더부/CU워십 제외 — 원소속에서 이미 카운트)
   const departments = useMemo(() => {
-    if (isAllAccess) return allDepts
-    return user?.user_departments?.map((ud) => ud.departments) || []
+    const visible = (depts: typeof allDepts) =>
+      depts.filter(d => !HIDDEN_DEPARTMENT_CODES.includes(d.code))
+    if (isAllAccess) return visible(allDepts)
+    return user?.user_departments?.map((ud) => ud.departments).filter(d => !HIDDEN_DEPARTMENT_CODES.includes(d.code)) || []
   }, [isAllAccess, allDepts, user])
 
-  // useMembers에 전달할 부서 ID (관리자는 undefined → 전체, 비관리자는 소속 부서)
+  // useMembers에 전달할 부서 ID (표시 부서만 — 숨긴 부서 교인 제외)
   const departmentIds = useMemo(() => {
-    if (isAllAccess) return undefined
-    return getAccessibleDepartmentIds(user)
-  }, [isAllAccess, user])
+    if (isAllAccess) return departments.map(d => d.id)
+    return getAccessibleDepartmentIds(user)?.filter(id =>
+      departments.some(d => d.id === id)
+    )
+  }, [isAllAccess, user, departments])
 
   const { data: members = [], isLoading: membersLoading } = useMembers(departmentIds)
 

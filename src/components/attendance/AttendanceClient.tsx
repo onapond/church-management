@@ -6,6 +6,7 @@ import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { useAttendanceMembers, useAttendanceRecordsBrief } from '@/queries/attendance'
 import { canAccessAllDepartments } from '@/lib/permissions'
+import { HIDDEN_DEPARTMENT_CODES } from '@/lib/constants'
 import AttendanceGrid from './AttendanceGrid'
 
 export default function AttendanceClient() {
@@ -20,11 +21,13 @@ export default function AttendanceClient() {
     return toLocalDateString(sunday)
   }, [])
 
-  // 접근 가능한 부서
+  // 접근 가능한 부서 (리더부/CU워십 제외)
   const departments = useMemo(() => {
+    const visible = (depts: typeof allDepts) =>
+      depts.filter(d => !HIDDEN_DEPARTMENT_CODES.includes(d.code))
     if (!user) return []
-    if (canAccessAllDepartments(user.role)) return allDepts
-    return user.user_departments?.map((ud) => ud.departments) || []
+    if (canAccessAllDepartments(user.role)) return visible(allDepts)
+    return user.user_departments?.map((ud) => ud.departments).filter(d => !HIDDEN_DEPARTMENT_CODES.includes(d.code)) || []
   }, [user, allDepts])
 
   const defaultDeptId = departments[0]?.id
