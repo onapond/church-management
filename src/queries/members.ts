@@ -6,7 +6,7 @@ import type { MemberWithDepts } from '@/types/shared'
 
 const supabase = createClient()
 
-const MEMBER_SELECT = 'id, name, phone, birth_date, department_id, is_active, photo_url, joined_at, member_departments(department_id, is_primary, departments(id, name))'
+const MEMBER_SELECT = 'id, name, phone, birth_date, department_id, is_active, photo_url, joined_at, member_departments(department_id, is_primary, cell_id, departments(id, name))'
 
 /** 전체 교인 목록 조회 */
 export function useMembers(departmentIds?: string[]) {

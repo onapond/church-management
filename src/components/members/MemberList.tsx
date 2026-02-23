@@ -6,6 +6,7 @@ import { exportMembersToExcel } from '@/lib/excel'
 import type { MemberWithDepts, DepartmentInfo } from '@/types/shared'
 import { useDebounce } from '@/hooks/useDebounce'
 import { useDeleteMember } from '@/queries/members'
+import { useCells } from '@/queries/departments'
 import { useToastContext } from '@/providers/ToastProvider'
 import MemberGridCard from './MemberGridCard'
 import MemberListItem from './MemberListItem'
@@ -38,6 +39,14 @@ export default function MemberList({ members, departments, canEdit }: MemberList
     return monthParam ? parseInt(monthParam, 10) : null
   }, [searchParams])
 
+  // 선택된 부서의 셀 목록 (정렬용)
+  const { data: cells = [] } = useCells(selectedDept !== 'all' ? selectedDept : undefined)
+  const cellOrderMap = useMemo(() => {
+    const map = new Map<string, number>()
+    cells.forEach((c, i) => map.set(c.id, i))
+    return map
+  }, [cells])
+
   // 검색어 디바운스 (300ms)
   const debouncedSearch = useDebounce(search, 300)
 
@@ -48,9 +57,9 @@ export default function MemberList({ members, departments, canEdit }: MemberList
     return date.getMonth() + 1 // 0-indexed이므로 +1
   }, [])
 
-  // 필터링 메모이제이션
+  // 필터링 + 셀별 정렬 메모이제이션
   const filteredMembers = useMemo(() => {
-    return members.filter((member) => {
+    const filtered = members.filter((member) => {
       // 삭제된 항목 제외 (낙관적 업데이트)
       if (deletedIds.has(member.id)) return false
 
@@ -69,7 +78,21 @@ export default function MemberList({ members, departments, canEdit }: MemberList
       const matchesMonth = selectedMonth === null || getBirthMonth(member.birth_date) === selectedMonth
       return matchesSearch && matchesDept && matchesCell && matchesMonth
     })
-  }, [members, debouncedSearch, selectedDept, selectedCell, selectedMonth, getBirthMonth, deletedIds])
+
+    // 부서 선택 시 셀별 정렬 (셀 display_order → 이름순, 셀 없는 교인은 마지막)
+    if (selectedDept !== 'all' && cellOrderMap.size > 0) {
+      filtered.sort((a, b) => {
+        const aCellId = a.member_departments?.find(md => md.department_id === selectedDept)?.cell_id
+        const bCellId = b.member_departments?.find(md => md.department_id === selectedDept)?.cell_id
+        const aOrder = aCellId ? (cellOrderMap.get(aCellId) ?? 999) : 999
+        const bOrder = bCellId ? (cellOrderMap.get(bCellId) ?? 999) : 999
+        if (aOrder !== bOrder) return aOrder - bOrder
+        return a.name.localeCompare(b.name, 'ko')
+      })
+    }
+
+    return filtered
+  }, [members, debouncedSearch, selectedDept, selectedCell, selectedMonth, getBirthMonth, deletedIds, cellOrderMap])
 
   // 월별 생일자 수 계산
   const birthCountByMonth = useMemo(() => {
