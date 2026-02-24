@@ -96,10 +96,20 @@ export function getTeamLeaderDepartments(user: UserData | null): Array<{ id: str
 
 // ─── 보고서 열람 권한 ─────────────────────────────────
 
+/** 모든 보고서를 열람할 수 있는 사용자인지 확인 (관리자 + 팀장) */
+export function canViewAllReports(user: UserData | null): boolean {
+  if (!user) return false
+  if (canAccessAllDepartments(user.role)) return true
+  return user.user_departments?.some(ud => ud.is_team_leader) ?? false
+}
+
 /**
  * 보고서 열람 권한 체크
  * - 작성자: 항상 가능 (임시저장 포함)
- * - 일반 사용자: 제출된 보고서(draft 제외)는 누구나 열람 가능
+ * - 관리자/결재자 (super_admin, president, accountant): 모든 보고서
+ * - 팀장 (is_team_leader=true): 모든 보고서
+ * - 셀장 (role=team_leader, is_team_leader=false): 소속 부서 보고서만
+ * - 일반 멤버: 본인 보고서만
  */
 export function canViewReport(
   user: UserData | null,
@@ -114,6 +124,18 @@ export function canViewReport(
   // 2. 임시저장(draft)은 작성자만
   if (report.status === 'draft') return false
 
-  // 3. 그 외 인증된 사용자는 모든 보고서 열람 가능
-  return true
+  // 3. 관리자/결재자 → 모든 보고서
+  if (canAccessAllDepartments(user.role)) return true
+
+  // 4. 팀장 → 모든 보고서
+  if (user.user_departments?.some(ud => ud.is_team_leader)) return true
+
+  // 5. 셀장 (role=team_leader) → 소속 부서 보고서만
+  if (user.role === 'team_leader') {
+    const deptIds = user.user_departments?.map(ud => ud.department_id) || []
+    return deptIds.includes(report.department_id)
+  }
+
+  // 6. 일반 멤버 → 본인 보고서만 (위에서 author_id 체크로 이미 처리됨)
+  return false
 }

@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
-import { useReports, useTeamLeaderMap } from '@/queries/reports'
-import { canAccessAllDepartments, canWriteReport as checkCanWriteReport, getAccessibleDepartmentIds, canViewReport } from '@/lib/permissions'
+import { useReports } from '@/queries/reports'
+import { canAccessAllDepartments, canWriteReport as checkCanWriteReport, getAccessibleDepartmentIds, canViewReport, canViewAllReports } from '@/lib/permissions'
 
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
 
@@ -25,13 +25,14 @@ export default function ReportListClient() {
   const router = useRouter()
 
   const isAdmin = canAccessAllDepartments(user?.role || '')
+  const canViewAll = canViewAllReports(user)
   const canWriteReport = checkCanWriteReport(user)
   const userDepartmentIds = useMemo(() => getAccessibleDepartmentIds(user), [user])
 
   const departments = useMemo(() => {
-    if (isAdmin) return allDepartments
+    if (canViewAll) return allDepartments
     return allDepartments.filter(d => userDepartmentIds.includes(d.id))
-  }, [isAdmin, allDepartments, userDepartmentIds])
+  }, [canViewAll, allDepartments, userDepartmentIds])
 
   // URL에서 타입/부서 읽기
   const selectedType = (searchParams.get('type') as ReportType) || 'weekly'
@@ -41,25 +42,18 @@ export default function ReportListClient() {
   const { data: reports = [], isLoading, isFetching } = useReports({
     reportType: selectedType,
     departmentId: selectedDept !== 'all' ? selectedDept : undefined,
-    departmentIds: selectedDept === 'all' && !isAdmin ? userDepartmentIds : undefined,
+    departmentIds: selectedDept === 'all' && !canViewAll ? userDepartmentIds : undefined,
   })
-
-  // 팀장 ID 맵 조회 (열람 권한 필터링용)
-  const { data: teamLeaderMap = {} } = useTeamLeaderMap(
-    isAdmin ? [] : userDepartmentIds
-  )
 
   // 열람 권한 필터링
   const filteredReports = useMemo(() => {
-    return reports.filter(report => {
-      // 1. 작성 중(draft) 보고서는 오직 본인만 볼 수 있음 (관리자 포함)
-      if (report.status === 'draft') {
-        return user?.id === report.author_id
-      }
-
-      // 2. 그 외(제출됨 이상) 보고서는 누구나 열람 가능 (이전 수정사항 반영)
-      return true
-    })
+    return reports.filter(report =>
+      canViewReport(user, {
+        author_id: report.author_id,
+        department_id: report.department_id,
+        status: report.status,
+      })
+    )
   }, [reports, user])
 
   const handleTypeChange = useCallback((type: ReportType) => {
@@ -132,7 +126,7 @@ export default function ReportListClient() {
       </div>
 
       {/* 부서 필터 */}
-      {(isAdmin || departments.length > 1) && (
+      {(canViewAll || departments.length > 1) && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => handleDeptChange('all')}

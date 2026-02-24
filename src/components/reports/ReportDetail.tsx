@@ -9,7 +9,7 @@ import { useToastContext } from '@/providers/ToastProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import DOMPurify from 'dompurify'
 import { canAccessAllDepartments, canViewReport, canDeleteReport, canEditReport } from '@/lib/permissions'
-import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useTeamLeaderIds, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems, useChangeReportType } from '@/queries/reports'
+import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems, useChangeReportType } from '@/queries/reports'
 import { useCellMembers, useCellAttendanceRecords } from '@/queries/attendance'
 import { escapeHtml, printHtmlInIframe } from '@/lib/utils'
 
@@ -53,7 +53,6 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   const { data: programs = [], isLoading: programsLoading } = useReportPrograms(reportId)
   const { data: newcomers = [] } = useReportNewcomers(reportId)
   const { data: history = [] } = useApprovalHistory(reportId)
-  const { data: teamLeaderIds = [] } = useTeamLeaderIds(report?.department_id)
   const { data: projectContentItems = [] } = useProjectContentItems(reportId)
   const { data: projectScheduleItems = [] } = useProjectScheduleItems(reportId)
   const { data: projectBudgetItems = [] } = useProjectBudgetItems(reportId)
@@ -232,8 +231,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
     )
   }
 
-  const authorIsTeamLeader = teamLeaderIds.includes(report.author_id)
-  if (!canViewReport(currentUser, report, authorIsTeamLeader)) {
+  if (!canViewReport(currentUser, report)) {
     return (
       <div className="max-w-4xl mx-auto p-4 md:p-6 text-center">
         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-8">

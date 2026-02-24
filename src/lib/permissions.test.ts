@@ -242,7 +242,7 @@ describe('canViewReport', () => {
     expect(canViewReport(user, report, false)).toBe(true)
   })
 
-  it('셀장(is_team_leader=false)은 다른 셀장 보고서만 열람', () => {
+  it('셀장(is_team_leader=false)은 소속 부서 보고서만 열람', () => {
     const user = createUser({
       id: 'cell-leader',
       role: 'team_leader',
@@ -252,10 +252,12 @@ describe('canViewReport', () => {
         departments: { id: 'dept-1', name: '1청년', code: 'cu1' },
       }],
     })
-    // 셀장이 작성한 보고서 → 열람 가능
+    // 같은 부서(dept-1) 보고서 → 열람 가능 (작성자 무관)
     expect(canViewReport(user, report, false)).toBe(true)
-    // 팀장이 작성한 보고서 → 열람 불가
-    expect(canViewReport(user, report, true)).toBe(false)
+    expect(canViewReport(user, report, true)).toBe(true)
+    // 다른 부서 보고서 → 열람 불가
+    const otherDeptReport = { author_id: 'other', department_id: 'dept-2', status: 'submitted' }
+    expect(canViewReport(user, otherDeptReport)).toBe(false)
   })
 
   it('일반 멤버는 타인 보고서 열람 불가', () => {
