@@ -43,6 +43,32 @@ export function canDeleteMembers(user: UserData | null): boolean {
   return canEditMembers(user)
 }
 
+/** 보고서 삭제 권한
+ * - 관리자: 모든 보고서 삭제 가능
+ * - 작성자: 'draft' 또는 'rejected' 상태일 때만 삭제 가능
+ */
+export function canDeleteReport(
+  user: UserData | null,
+  report: { author_id: string; status: string }
+): boolean {
+  if (!user) return false
+  if (canAccessAllDepartments(user.role)) return true
+  return user.id === report.author_id && ['draft', 'rejected'].includes(report.status)
+}
+
+/** 보고서 수정 권한
+ * - 관리자: 모든 보고서 수정 가능
+ * - 작성자: 'draft' 또는 'rejected' 상태일 때만 수정 가능
+ */
+export function canEditReport(
+  user: UserData | null,
+  report: { author_id: string; status: string }
+): boolean {
+  if (!user) return false
+  if (canAccessAllDepartments(user.role)) return true
+  return user.id === report.author_id && ['draft', 'rejected'].includes(report.status)
+}
+
 /** 결재 권한 (회장/부장/최고관리자) */
 export function canApprove(role: string): boolean {
   return ['super_admin', 'president', 'accountant'].includes(role)

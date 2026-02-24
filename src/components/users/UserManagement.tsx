@@ -166,16 +166,32 @@ export default function UserManagement({ users, departments }: UserManagementPro
         return
       }
 
-      // user_departments 테이블도 업데이트 (기존 부서 삭제 후 새로 추가)
-      if (userChanges.department_id) {
+      // user_departments 테이블도 업데이트
+      if (userChanges.department_id !== undefined) {
+        // 기존 부서 삭제
         await supabase
           .from('user_departments')
           .delete()
           .eq('user_id', userId)
 
-        await supabase
-          .from('user_departments')
-          .upsert({ user_id: userId, department_id: userChanges.department_id, is_team_leader: false })
+        // 새로운 부서가 있으면 추가 (기존 팀장 권한 유지 여부 확인 필요하나, 
+        // 일단 기본적으로 role에 따라 처리하거나 기존 데이터 유지 시도)
+        if (userChanges.department_id) {
+          // 기존 팀장 여부 확인
+          const { data: existingDept } = await supabase
+            .from('user_departments')
+            .select('is_team_leader')
+            .eq('user_id', userId)
+            .maybeSingle()
+
+          await supabase
+            .from('user_departments')
+            .upsert({ 
+              user_id: userId, 
+              department_id: userChanges.department_id, 
+              is_team_leader: existingDept?.is_team_leader || updateData.role === 'team_leader'
+            })
+        }
       }
 
       // 변경사항 초기화

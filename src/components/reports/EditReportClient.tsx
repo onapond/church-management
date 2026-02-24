@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { useReportDetail, useReportPrograms, useReportNewcomers, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems } from '@/queries/reports'
-import { isAdmin as checkAdmin } from '@/lib/permissions'
+import { isAdmin as checkAdmin, canEditReport } from '@/lib/permissions'
 import ReportForm from '@/components/reports/ReportForm'
 
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
@@ -69,8 +69,8 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
     )
   }
 
-  // 권한 체크: 작성자이고 draft 또는 rejected 상태일 때만 수정 가능
-  if (report.author_id !== user.id || !['draft', 'rejected'].includes(report.status)) {
+  // 권한 체크: 작성자(draft/rejected 상태) 또는 관리자만 수정 가능
+  if (!canEditReport(user, { author_id: report.author_id, status: report.status })) {
     router.push(`/reports/${reportId}`)
     return null
   }

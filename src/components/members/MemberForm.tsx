@@ -156,7 +156,8 @@ export default function MemberForm({ departments, member, newcomerData }: Member
         if (!ALLOWED_EXTENSIONS.includes(fileExt)) {
           throw new Error('지원하지 않는 파일 확장자입니다.')
         }
-        const fileName = `${member?.id || 'new'}_${Date.now()}.${fileExt}`
+        // 수정 시에는 기존 ID 사용, 신규 등록 시에는 'new' 대신 타임스탬프 활용
+        const fileName = `${isEdit ? member.id : 'new_' + Date.now()}.${fileExt}`
         const filePath = `members/${fileName}`
 
         // 기존 사진 삭제 (수정 시)

@@ -6,6 +6,7 @@ import { useDepartments } from '@/queries/departments'
 import { useVisitations, useUpdateVisitation, useDeleteVisitation, type VisitationWithDetails } from '@/queries/visitations'
 import { useToast } from '@/hooks/useToast'
 import { VISITATION_REASON_LABELS, VISITATION_STATUS_LABELS, MONTHS } from '@/lib/constants'
+import { isAdminRole } from '@/lib/permissions'
 import type { VisitationStatus } from '@/types/database'
 import dynamic from 'next/dynamic'
 
@@ -353,6 +354,9 @@ const VisitationList = memo(function VisitationList({
     <div className="bg-white rounded-2xl border divide-y">
       {visitations.map(v => {
         const isOwner = v.created_by === currentUserId
+        const isAdmin = isAdminRole(user?.role || '')
+        const canManage = isOwner || isAdmin
+
         return (
           <div key={v.id} className="p-4 hover:bg-gray-50 transition-colors">
             <div className="flex items-start justify-between gap-3">
@@ -381,7 +385,7 @@ const VisitationList = memo(function VisitationList({
               </div>
 
               {/* 액션 버튼 */}
-              {isOwner && (
+              {canManage && (
                 <div className="flex items-center gap-1 shrink-0">
                   {v.status === 'scheduled' && (
                     <button

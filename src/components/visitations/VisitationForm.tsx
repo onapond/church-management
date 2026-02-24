@@ -111,7 +111,16 @@ function VisitationFormInner({ visitation, defaultDate, onClose }: VisitationFor
             <label className="block text-sm font-medium text-gray-700 mb-1">부서</label>
             <select
               value={departmentId}
-              onChange={e => { setDepartmentId(e.target.value); setMemberId(''); setMemberName('') }}
+              onChange={e => { 
+                const newDeptId = e.target.value
+                setDepartmentId(newDeptId)
+                // 만약 선택된 교인이 있고, 새로운 부서가 '전체'가 아니며, 
+                // 교인의 부서와 일치하지 않는다면 선택 해제 (간단하게 구현하기 위해 id가 있을 때만 체크)
+                if (memberId && newDeptId && members.find(m => m.id === memberId)?.member_departments?.[0]?.department_id !== newDeptId) {
+                  setMemberId('')
+                  setMemberName('')
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">전체</option>

@@ -8,7 +8,7 @@ import { createApprovalNotification } from '@/lib/notifications'
 import { useToastContext } from '@/providers/ToastProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import DOMPurify from 'dompurify'
-import { canAccessAllDepartments, canViewReport } from '@/lib/permissions'
+import { canAccessAllDepartments, canViewReport, canDeleteReport, canEditReport } from '@/lib/permissions'
 import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useTeamLeaderIds, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems, useChangeReportType } from '@/queries/reports'
 import { useCellMembers, useCellAttendanceRecords } from '@/queries/attendance'
 
@@ -209,10 +209,18 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
     if (frameDoc) {
       frameDoc.open(); frameDoc.write(html); frameDoc.close()
       printFrame.onload = () => {
-        setTimeout(() => {
-          printFrame.contentWindow?.focus(); printFrame.contentWindow?.print()
-          setTimeout(() => { document.body.removeChild(printFrame) }, 1000)
-        }, 250)
+        try {
+          printFrame.contentWindow?.focus(); 
+          printFrame.contentWindow?.print()
+        } catch (e) {
+          console.error('Print error:', e)
+        } finally {
+          setTimeout(() => { 
+            if (printFrame.parentNode === document.body) {
+              document.body.removeChild(printFrame) 
+            }
+          }, 1000)
+        }
       }
     }
     setShowPrintOptions(false)
@@ -268,7 +276,10 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
 
   // 5. 이벤트 핸들러
   const handleCancelSubmission = async () => {
-    if (currentUser?.id !== report.author_id || report.status !== 'submitted') return
+    // 본인 또는 관리자만 취소 가능
+    const canCancel = currentUser?.id === report.author_id || canAccessAllDepartments(userRole)
+    if (!canCancel || report.status !== 'submitted') return
+    
     setLoading(true); setShowCancelModal(false)
     try {
       await supabase.from('weekly_reports').update({ status: 'draft', submitted_at: null }).eq('id', report.id)
@@ -283,10 +294,18 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   }
 
   const handleDelete = async () => {
-    if (!canDelete) return
+    if (!canDeleteReport(currentUser, report)) return
     setLoading(true); setShowDeleteModal(false)
     try {
       const tid = report.id
+      
+      // 1. Storage 사진 삭제
+      const { data: files } = await supabase.storage.from('report-photos').list(tid)
+      if (files && files.length > 0) {
+        await supabase.storage.from('report-photos').remove(files.map(f => `${tid}/${f.name}`))
+      }
+
+      // 2. DB 데이터 삭제 (CASCADE 설정에 의해 상단 하위 데이터는 자동 삭제되나, 수동 삭제를 통해 확실히 함)
       await supabase.from('report_programs').delete().eq('report_id', tid)
       await supabase.from('newcomers').delete().eq('report_id', tid)
       await supabase.from('approval_history').delete().eq('report_id', tid)
@@ -298,6 +317,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
       await supabase.from('project_budget_items').delete().eq('report_id', tid)
       const { error } = await supabase.from('weekly_reports').delete().eq('id', tid)
       if (error) throw error
+
       await queryClient.invalidateQueries({ queryKey: ['approvals'] })
       await queryClient.invalidateQueries({ queryKey: ['reports'] })
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -345,7 +365,8 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   }
 
   const typeConfig = REPORT_TYPE_CONFIG[reportType]
-  const canCancelSubmission = currentUser?.id === report.author_id && report.status === 'submitted'
+  const canCancelSubmission = (currentUser?.id === report.author_id || canAccessAllDepartments(userRole)) && report.status === 'submitted'
+  const canEdit = canEditReport(currentUser, report)
 
   return (
     <div className="space-y-4 lg:space-y-6 max-w-4xl mx-auto">
@@ -367,10 +388,10 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
             <p className="text-sm text-gray-400 mt-0.5">작성자: {report.users?.name}{reportType !== 'weekly' && report.departments?.name && ` · ${report.departments.name}`}</p>
           </div>
           <div className="flex items-center gap-1">
-            {canDelete && <button onClick={() => { setNewReportType(reportType); setShowTypeChangeModal(true) }} className="p-2.5 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-100 transition-colors" title="타입 변경"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg></button>}
-            {canDelete && <button onClick={() => setShowDeleteModal(true)} className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors" title="삭제"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>}
+            {canAccessAllDepartments(userRole) && <button onClick={() => { setNewReportType(reportType); setShowTypeChangeModal(true) }} className="p-2.5 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-100 transition-colors" title="타입 변경"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg></button>}
+            {canDeleteReport(currentUser, report) && <button onClick={() => setShowDeleteModal(true)} className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors" title="삭제"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>}
             {canCancelSubmission && <button onClick={() => setShowCancelModal(true)} className="p-2.5 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 transition-colors" title="제출 취소"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>}
-            {currentUser?.id === report.author_id && ['draft', 'rejected'].includes(report.status) && <button onClick={() => router.push(`/reports/${report.id}/edit`)} className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors" title="수정"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>}
+            {canEdit && <button onClick={() => router.push(`/reports/${report.id}/edit`)} className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors" title="수정"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>}
             <button onClick={() => setShowPrintOptions(true)} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors" title="인쇄"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg></button>
             <button onClick={() => router.back()} className="p-2.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors" title="닫기"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
           </div>

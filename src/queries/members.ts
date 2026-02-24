@@ -51,7 +51,22 @@ export function useDeleteMember() {
 
   return useMutation({
     mutationFn: async (memberId: string) => {
-      // 관련 데이터 먼저 삭제
+      // 1. 사진 URL 조회를 위해 교인 정보 가져오기
+      const { data: member } = await supabase
+        .from('members')
+        .select('photo_url')
+        .eq('id', memberId)
+        .single()
+
+      // 2. Storage 사진 삭제
+      if (member?.photo_url) {
+        const photoPath = member.photo_url.split('/member-photos/')[1]?.split('?')[0]
+        if (photoPath) {
+          await supabase.storage.from('member-photos').remove([photoPath])
+        }
+      }
+
+      // 3. 관련 데이터 및 교인 삭제
       await supabase.from('member_departments').delete().eq('member_id', memberId)
       const { error } = await supabase.from('members').delete().eq('id', memberId)
       if (error) throw error

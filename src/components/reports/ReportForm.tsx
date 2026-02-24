@@ -586,6 +586,14 @@ export default function ReportForm({
     setExistingReportStatus(null)
 
     try {
+      // 0. 권한 체크 (편집 모드일 때)
+      if (editMode && existingReport) {
+        if (!canEditReport(authorId ? { id: authorId, role: (await supabase.from('users').select('role').eq('id', authorId).single()).data?.role } as any : null, { author_id: existingReport.author_id, status: existingReportStatus || 'draft' })) {
+          toast.error('이 보고서를 수정할 권한이 없습니다.')
+          return
+        }
+      }
+
       // 셀별 합계 계산 (주차 보고서)
       const totalRegistered = reportType === 'weekly'
         ? (cellAttendance.reduce((sum, c) => sum + (Number(c.registered) || 0), 0) || attendanceSummary.total)
@@ -637,10 +645,19 @@ export default function ReportForm({
       let reportId: string
 
       if (editMode && existingReport) {
-        // 수정 모드 (재제출 시 반려 정보 초기화)
+        // 수정 모드 (재제출 시 모든 결재 정보 및 반려 정보 초기화)
         const updatePayload = {
           ...reportData,
           ...(!isDraft ? {
+            coordinator_id: null,
+            coordinator_reviewed_at: null,
+            coordinator_comment: null,
+            manager_id: null,
+            manager_approved_at: null,
+            manager_comment: null,
+            final_approver_id: null,
+            final_approved_at: null,
+            final_comment: null,
             rejected_by: null,
             rejected_at: null,
             rejection_reason: null,
@@ -668,7 +685,7 @@ export default function ReportForm({
           await supabase.from('project_budget_items').delete().eq('report_id', reportId)
         }
       } else {
-        // 신규 생성 시 중복 체크 (주차 보고서만)
+        // 신규 생성 시 중복 체크
         if (reportType === 'weekly') {
           const { data: existing, error: checkError } = await supabase
             .from('weekly_reports')
@@ -685,6 +702,27 @@ export default function ReportForm({
             setExistingReportId(existing.id)
             setExistingReportStatus(existing.status)
             toast.warning(`이미 ${weekNumber}주차 보고서가 존재합니다.`)
+            setLoading(false)
+            return
+          }
+        } else {
+          // 주차 보고서 외의 유형에 대해서도 동일 날짜/부서/유형 중복 체크
+          const { data: existing, error: checkError } = await supabase
+            .from('weekly_reports')
+            .select('id, status, meeting_title')
+            .eq('department_id', form.department_id)
+            .eq('report_date', form.report_date)
+            .eq('report_type', reportType)
+            .maybeSingle()
+            
+          if (checkError) console.error('중복 체크 오류:', checkError)
+
+          if (existing) {
+            const typeLabel = REPORT_TYPE_LABELS[reportType]
+            setError(`이미 해당 날짜에 동일한 ${typeLabel}가 존재합니다.`)
+            setExistingReportId(existing.id)
+            setExistingReportStatus(existing.status)
+            toast.warning(`이미 해당 날짜에 동일한 ${typeLabel}가 존재합니다.`)
             setLoading(false)
             return
           }
