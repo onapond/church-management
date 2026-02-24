@@ -24,7 +24,7 @@ function VisitationFormInner({ visitation, defaultDate, onClose }: VisitationFor
 
   const isEdit = !!visitation
 
-  const primaryDeptId = user?.user_departments?.find(ud => ud)?.department_id || ''
+  const primaryDeptId = user?.user_departments?.[0]?.department_id || ''
   const [departmentId, setDepartmentId] = useState(visitation?.department_id || primaryDeptId)
   const [memberName, setMemberName] = useState(visitation?.member_name || '')
   const [memberId, setMemberId] = useState(visitation?.member_id || '')
@@ -33,6 +33,8 @@ function VisitationFormInner({ visitation, defaultDate, onClose }: VisitationFor
   const [visitor, setVisitor] = useState(visitation?.visitor || user?.name || '')
   const [reason, setReason] = useState<VisitationReason>(visitation?.reason || 'regular')
   const [notes, setNotes] = useState(visitation?.notes || '')
+  const [prayerTopics, setPrayerTopics] = useState(visitation?.prayer_topics || '')
+  const [reportContent, setReportContent] = useState(visitation?.report_content || '')
   const [showMemberSearch, setShowMemberSearch] = useState(false)
   const [memberSearch, setMemberSearch] = useState('')
 
@@ -71,6 +73,8 @@ function VisitationFormInner({ visitation, defaultDate, onClose }: VisitationFor
           visitor: visitor.trim(),
           reason,
           notes: notes.trim() || null,
+          prayer_topics: prayerTopics.trim() || null,
+          report_content: reportContent.trim() || null,
         })
         addToast('심방 일정이 수정되었습니다.', 'success')
       } else {
@@ -83,6 +87,8 @@ function VisitationFormInner({ visitation, defaultDate, onClose }: VisitationFor
           visitor: visitor.trim(),
           reason,
           notes: notes.trim() || null,
+          prayer_topics: prayerTopics.trim() || null,
+          report_content: reportContent.trim() || null,
           created_by: user.id,
         })
         addToast('심방 일정이 등록되었습니다.', 'success')
@@ -91,7 +97,7 @@ function VisitationFormInner({ visitation, defaultDate, onClose }: VisitationFor
     } catch {
       addToast('저장 중 오류가 발생했습니다.', 'error')
     }
-  }, [memberName, visitDate, visitor, user, isEdit, visitation, memberId, departmentId, visitTime, reason, notes, onClose, createVisitation, updateVisitation, addToast])
+  }, [memberName, visitDate, visitor, user, isEdit, visitation, memberId, departmentId, visitTime, reason, notes, prayerTopics, reportContent, onClose, createVisitation, updateVisitation, addToast])
 
   const isPending = createVisitation.isPending || updateVisitation.isPending
 
@@ -252,7 +258,31 @@ function VisitationFormInner({ visitation, defaultDate, onClose }: VisitationFor
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="심방 관련 메모..."
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            />
+          </div>
+
+          {/* 심방 내용 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">심방 내용 (보고서용)</label>
+            <textarea
+              value={reportContent}
+              onChange={e => setReportContent(e.target.value)}
+              placeholder="심방 중에 나눈 대화 내용 등..."
               rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            />
+          </div>
+
+          {/* 기도 제목 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">기도 제목</label>
+            <textarea
+              value={prayerTopics}
+              onChange={e => setPrayerTopics(e.target.value)}
+              placeholder="기도가 필요한 내용..."
+              rows={2}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
             />
           </div>

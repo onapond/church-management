@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/useToast'
 import { VISITATION_REASON_LABELS, VISITATION_STATUS_LABELS, MONTHS } from '@/lib/constants'
 import { isAdminRole } from '@/lib/permissions'
 import type { VisitationStatus } from '@/types/database'
+import { escapeHtml, printHtmlInIframe } from '@/lib/utils'
 import dynamic from 'next/dynamic'
 
 const VisitationForm = dynamic(() => import('./VisitationForm'), { ssr: false })
@@ -95,6 +96,93 @@ export default function VisitationClient() {
       addToast('삭제 중 오류가 발생했습니다.', 'error')
     }
   }, [deleteVisitation, addToast])
+
+  // 인쇄
+  const handlePrint = useCallback((v: VisitationWithDetails) => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>심방보고서 - ${escapeHtml(v.member_name)}</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; font-size: 11pt; }
+          .container { width: 100%; max-width: 800px; margin: 0 auto; }
+          .header { display: flex; align-items: start; justify-content: space-between; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 15px; }
+          .logo-text { font-size: 9pt; color: #666; line-height: 1.2; }
+          .title { font-size: 24pt; font-weight: bold; text-align: center; letter-spacing: 0.5em; flex: 1; margin: 0 20px; }
+          .approval-table { border-collapse: collapse; font-size: 8.5pt; margin-top: -10px; }
+          .approval-table td { border: 1px solid #000; padding: 4px 8px; text-align: center; }
+          .bg-gray { background-color: #f3f4f6; font-weight: bold; }
+          .info-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+          .info-table th, .info-table td { border: 1px solid #999; padding: 10px; text-align: left; }
+          .info-table th { background-color: #f9fafb; width: 100px; text-align: center; font-weight: bold; }
+          .section-title { background-color: #eff6ff; padding: 6px 12px; font-weight: bold; border: 1px solid #999; border-bottom: none; margin-top: 20px; }
+          .content-box { border: 1px solid #999; padding: 15px; min-height: 250px; white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word; }
+          .prayer-box { border: 1px solid #999; padding: 15px; min-height: 120px; white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word; }
+          .footer { margin-top: 40px; text-align: center; color: #666; font-size: 10pt; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo-text">
+              청파중앙교회<br/>Cheongpa Joongang Church
+            </div>
+            <div class="title">심방보고서</div>
+            <table class="approval-table">
+              <tr>
+                <td rowspan="2" class="bg-gray" style="width:25px;">결<br/>재</td>
+                <td style="width:55px;">작성자</td>
+                <td style="width:55px;">부장</td>
+              </tr>
+              <tr>
+                <td style="height:45px;"></td>
+                <td style="height:45px;">강현숙</td>
+              </tr>
+              <tr>
+                <td class="bg-gray">협조</td>
+                <td>신요한</td>
+                <td>전홍균</td>
+              </tr>
+            </table>
+          </div>
+
+          <table class="info-table">
+            <tr>
+              <th>대상자</th>
+              <td style="width:35%;">${escapeHtml(v.member_name)}</td>
+              <th>소속부서</th>
+              <td>${escapeHtml(v.departments?.name || '-')}</td>
+            </tr>
+            <tr>
+              <th>일시</th>
+              <td>${escapeHtml(v.visit_date.replace(/-/g, '.'))} ${escapeHtml(v.visit_time?.slice(0, 5) || '')}</td>
+              <th>심방구분</th>
+              <td>${escapeHtml(VISITATION_REASON_LABELS[v.reason])}</td>
+            </tr>
+            <tr>
+              <th>심방자</th>
+              <td colspan="3">${escapeHtml(v.visitor)}</td>
+            </tr>
+          </table>
+
+          <div class="section-title">심방 내용</div>
+          <div class="content-box">${escapeHtml(v.report_content || v.notes || '-')}</div>
+
+          <div class="section-title">기도 제목</div>
+          <div class="prayer-box">${escapeHtml(v.prayer_topics || '-')}</div>
+
+          <div class="footer">
+            청파중앙교회 ${escapeHtml(v.departments?.name || '')}
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+    printHtmlInIframe(html)
+  }, [])
 
   return (
     <div className="space-y-4">
@@ -197,9 +285,11 @@ export default function VisitationClient() {
           <VisitationList
             visitations={selectedVisitations}
             currentUserId={user?.id || ''}
+            isAdmin={isAdminRole(user?.role || '')}
             onEdit={handleEdit}
             onStatusChange={handleStatusChange}
             onDelete={handleDelete}
+            onPrint={handlePrint}
           />
         </div>
       )}
@@ -334,13 +424,15 @@ const CalendarView = memo(function CalendarView({
 interface VisitationListProps {
   visitations: VisitationWithDetails[]
   currentUserId: string
+  isAdmin: boolean
   onEdit: (v: VisitationWithDetails) => void
   onStatusChange: (id: string, status: VisitationStatus) => void
   onDelete: (v: VisitationWithDetails) => void
+  onPrint: (v: VisitationWithDetails) => void
 }
 
 const VisitationList = memo(function VisitationList({
-  visitations, currentUserId, onEdit, onStatusChange, onDelete,
+  visitations, currentUserId, isAdmin, onEdit, onStatusChange, onDelete, onPrint,
 }: VisitationListProps) {
   if (visitations.length === 0) {
     return (
@@ -354,7 +446,6 @@ const VisitationList = memo(function VisitationList({
     <div className="bg-white rounded-2xl border divide-y">
       {visitations.map(v => {
         const isOwner = v.created_by === currentUserId
-        const isAdmin = isAdminRole(user?.role || '')
         const canManage = isOwner || isAdmin
 
         return (
@@ -408,6 +499,12 @@ const VisitationList = memo(function VisitationList({
                     className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
                   >
                     수정
+                  </button>
+                  <button
+                    onClick={() => onPrint(v)}
+                    className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200"
+                  >
+                    보고서
                   </button>
                   <button
                     onClick={() => onDelete(v)}

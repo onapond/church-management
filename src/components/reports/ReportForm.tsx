@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { createApprovalNotification } from '@/lib/notifications'
+import { canEditReport } from '@/lib/permissions'
 import { useToastContext } from '@/providers/ToastProvider'
 import dynamic from 'next/dynamic'
 import type { Program, Newcomer, CellAttendance, ProjectContentItem, ProjectScheduleItem, ProjectBudgetItem } from './types'
@@ -40,6 +41,7 @@ interface Department {
 interface ExistingReport {
   id: string
   department_id: string
+  author_id: string
   report_date: string
   week_number: number | null
   notes: string | null

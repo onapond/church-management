@@ -299,6 +299,8 @@ export interface Database {
           reason: VisitationReason
           status: VisitationStatus
           notes: string | null
+          prayer_topics: string | null
+          report_content: string | null
           created_by: string
           created_at: string
           updated_at: string
@@ -306,6 +308,8 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['visitations']['Row'], 'id' | 'created_at' | 'updated_at' | 'status' | 'reason'> & {
           status?: VisitationStatus
           reason?: VisitationReason
+          prayer_topics?: string | null
+          report_content?: string | null
         }
         Update: Partial<Database['public']['Tables']['visitations']['Insert']>
       }

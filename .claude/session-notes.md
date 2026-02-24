@@ -1,5 +1,141 @@
 # 세션 노트
 
+## 작업 내역 (2026-02-23, 세션 12)
+
+### 완료된 작업
+1. [비밀번호 재설정 빈 화면 버그 수정] — `d9c720c` ~ `fecd97a`
+   - **버그**: 비밀번호 찾기 이메일 링크 클릭 시 빈 화면
+   - **근본 원인 1**: Supabase PKCE 흐름에서 `/auth/confirm` 라우트 누락 (token_hash 검증 불가)
+   - **근본 원인 2**: Supabase Site URL이 `localhost:3000`으로 설정돼 있어 이메일 링크가 localhost로 리다이렉트
+   - **수정 내용**:
+     1. `src/app/auth/confirm/route.ts` 신규 생성 — `verifyOtp({ type, token_hash })` 처리
+     2. `src/app/(auth)/login/page.tsx` — URL 에러 파라미터 처리 (reset_link_expired, auth_callback_failed)
+     3. Supabase 대시보드 Site URL → `https://church-eight-delta.vercel.app` 변경 (사용자 수동)
+   - **커밋**: `d9c720c`, `ff4a4af`, `fecd97a` (3회 반복 수정)
+
+### 커밋 이력
+- `d9c720c` - fix: 비밀번호 재설정 빈 화면 버그 수정 (PKCE confirm 라우트 추가)
+- `ff4a4af` - fix: redirectTo를 절대 URL로 복원 (이메일 미발송 수정)
+- `fecd97a` - fix: redirectTo를 callback 경로로 복원 (code 교환 필요)
+
+---
+
+## 작업 내역 (2026-02-23, 세션 11)
+
+### 완료된 작업
+1. [심방 일정표 기능 추가] — `3e9ff3b`
+   - **DB**: `visitations` 테이블 (visitation_status/visitation_reason enum, RLS 4개 정책)
+   - **달력 뷰**: 월간 달력에서 날짜별 심방 일정 확인, 색상으로 상태 구분
+   - **목록 뷰**: 전체/날짜별 필터, 부서 필터, 상태 변경(완료/취소), 수정/삭제
+   - **등록 모달**: 교인 검색(부서별), 날짜/시간, 심방자, 사유(병원/신입/정기/격려/기타), 메모
+   - **네비게이션**: Sidebar + Header + 모바일 하단바에 "심방" 메뉴 추가
+   - **권한**: 모든 로그인 사용자 조회/등록 가능, 본인 등록 일정만 수정/삭제
+   - **신규 파일**: page.tsx, VisitationClient.tsx, VisitationForm.tsx, visitations.ts (쿼리 훅), create_visitations.sql
+   - **수정 파일**: database.ts, constants.ts, Sidebar.tsx, Header.tsx, approvals.ts (기존 빌드 에러 수정)
+   - **테스트**: 프로덕션에서 일정 등록 확인 완료
+
+2. [Vercel 배포 설정 수정] — `855aef7`
+   - **문제**: Vercel 프로젝트 설정 `framework: null` → Next.js 라우트 404
+   - **수정**: Vercel API로 `framework: "nextjs"`, `buildCommand: "next build"` 설정
+   - `--prebuilt` 배포는 Next.js 16 RSC segments 호환 문제로 사용 불가
+   - CLAUDE.md에 배포 규칙 명시: `npm run build` → `git push` → `npx vercel --prod`
+
+3. [교인 명단/출결 이중 카운트 수정] — `4586b8a`
+   - **문제**: CU워십 멤버가 원소속 부서와 CU워십 양쪽에서 이중 카운트
+   - **수정**: `HIDDEN_DEPARTMENT_CODES` 상수 추가 (`leader`, `cu_worship`)
+   - MembersClient, AttendanceClient에서 해당 부서 탭/교인 제외
+   - 표시 부서: CK부, 청소년부, CU1부, CU2부만 남음
+
+4. [교인 명단 셀별 정렬 수정] — `f482d19`
+   - **문제**: CU1부에서 셀별 정렬이 안 됨
+   - **근본 원인**: `MEMBER_SELECT`에 `cell_id` 누락
+   - **수정**: `cell_id` 조회 추가 + 부서 선택 시 셀 `display_order` 순 정렬 (셀 없는 교인은 마지막)
+
+### 커밋 이력
+- `3e9ff3b` - feat: 심방 일정표 기능 추가 (달력 + 목록 뷰) (11파일)
+- `855aef7` - docs: Vercel 배포 규칙 수정 (1파일)
+- `575eeeb` - docs: GitHub remote URL 업데이트 (1파일)
+- `4586b8a` - fix: 교인 명단/출결 리더부·CU워십 제외 (3파일)
+- `f482d19` - fix: 교인 명단 셀별 정렬 추가 (2파일)
+
+### 심방 일정 필드 매핑
+| UI 라벨 | DB 필드 | 타입 |
+|---------|---------|------|
+| 심방 대상자 | `member_name` (+ `member_id`) | varchar / UUID |
+| 부서 | `department_id` | UUID |
+| 날짜 | `visit_date` | DATE |
+| 시간 | `visit_time` | TIME |
+| 심방자 | `visitor` | varchar |
+| 사유 | `reason` | enum (hospital/newcomer/regular/encouragement/other) |
+| 상태 | `status` | enum (scheduled/completed/cancelled) |
+| 메모 | `notes` | TEXT |
+
+---
+
+## 작업 내역 (2026-02-20, 세션 10)
+
+### 완료된 작업
+1. [주차 보고서 중복 생성 오류 수정] — `ReportForm.tsx`
+   - **버그**: 같은 부서+연도+주차에 두 번째 주차 보고서 생성 시 "저장 중 오류가 발생했습니다" 모호한 메시지
+   - **근본 원인**: DB `UNIQUE(department_id, year, week_number)` 제약조건
+   - **수정 내용**:
+     1. INSERT 전 중복 체크 쿼리 추가 (주차 보고서 신규 생성 시)
+     2. 중복 감지 시 "이미 N주차 보고서가 존재합니다" + 기존 보고서 링크 UI
+        - draft/rejected → "기존 보고서 수정하기" 버튼
+        - submitted 이후 → "기존 보고서 보기" 버튼
+     3. catch 블록에서 23505(unique violation) 에러코드 감지 → 사용자 친화적 메시지
+   - **테스트**: Supabase Management API로 4개 시나리오 직접 검증 (모두 PASS)
+   - **빌드**: `npm run build` 성공
+
+---
+
+## 작업 내역 (2026-02-20, 세션 9)
+
+### 완료된 작업
+1. [푸시 알림 E2E 테스트] — 2개 테스트 파일 신규 생성, 26개 테스트 추가
+   - `src/lib/push.test.ts` (11개): sendPushToUser / sendPushToUsers 단위 테스트
+     - 활성 구독 전송, 구독 없음 skip, DB 에러 조용히 종료
+     - 410/404 → 구독 비활성화, 기타 에러 → 비활성화 안 함
+     - payload 기본값(icon, link) 확인
+     - 복수 사용자 전송, 빈 배열, 일부 성공+실패 혼합
+   - `src/app/api/push/push-api.test.ts` (15개): 4개 API 라우트 테스트
+     - subscribe: 인증 없음 401, 신규 등록 200, 기존 업데이트 200, 잘못된 데이터 400
+     - unsubscribe: 인증 없음 401, 해제 200, endpoint 누락 400
+     - send: 인증 없음 401, member 403, admin 200, 파라미터 누락 400
+     - notifications GET: 인증 없음 401, 알림 목록+unreadCount 반환
+     - notifications PATCH: 특정 알림 읽음, 전체 읽음(mark_all_read)
+   - **결과**: 전체 93개 테스트 통과 (67 → 93)
+
+### Mock 전략
+- `web-push`: `vi.mock('web-push')` → sendNotification mock
+- Supabase: `createMockChain` 패턴 재사용 (notifications.test.ts와 동일)
+- `createClient()`: `vi.mock('@/lib/supabase/server')` → 순차적 from() 결과
+- `rate-limit`: `vi.mock('@/lib/rate-limit')` → always allowed
+- `NextRequest`: `new NextRequest(new URL(...), { method, body })` 직접 생성
+
+---
+
+## 작업 내역 (2026-02-20, 세션 8)
+
+### 완료된 작업
+1. [RLS 정책 자동 테스트 스크립트] — `supabase/test-rls.mjs`
+   - Supabase Management API로 10개 시나리오 25개 테스트 케이스 실행
+   - PL/pgSQL 헬퍼 함수(`_test_rls_write`)로 데이터 변경 없이 쓰기 정책 검증
+   - `SET LOCAL ROLE authenticated` + `request.jwt.claims`로 사용자 시뮬레이션
+   - **결과: 25/25 전체 PASS**
+   - 실행: `SUPABASE_ACCESS_TOKEN=xxx node supabase/test-rls.mjs`
+
+### 테스트 커버리지
+- T1~T3: members (SELECT 부서 필터링, INSERT/DELETE 역할 제한)
+- T4~T5: weekly_reports (INSERT 작성자 제한, UPDATE 작성자+결재자)
+- T6: member_departments (관리자/팀장 제한)
+- T7: attendance_records (부서 제한)
+- T8: push_subscriptions (관리자 조회)
+- T9: notifications (본인 전용 — 데이터 없어 스킵)
+- T10: report_programs (보고서 작성자 제한)
+
+---
+
 ## 작업 내역 (2026-02-10, 세션 6)
 
 ### 완료된 작업
@@ -248,14 +384,45 @@
 
 ---
 
-## 다음 작업
+## 작업 내역 (2026-02-24, 세션 13)
 
-### 우선순위 높음
-- [ ] 푸시 알림 E2E 테스트
+### 완료된 작업
+1. [심방 보고서 인쇄 + 코드 리뷰 수정]
+   - **이전 세션 이어받기**: 심방 보고서 인쇄(handlePrint), prayer_topics/report_content 필드 추가 작업 이어받음
+   - **빌드 에러 수정**: `EditReportClient.tsx`에서 `author_id` 누락 → 추가
+   - **인쇄 안정성 수정**: iframe 내부 `<script>` 방식 → 부모에서 `focus()+print()` + `try/catch/finally` 패턴
+   - **공통 유틸 추출**: `escapeHtml()` + `printHtmlInIframe()` → `src/lib/utils.ts`로 이동
+   - **DRY 적용**: `ReportDetail.tsx` 로컬 escapeHtml 삭제 + iframe 로직 교체 (34줄 감소)
+   - **죽은 코드 삭제**: `VisitationReportPrintView.tsx` (미사용 153줄) 삭제
+   - **로직 버그 수정**: `VisitationForm.tsx` `find(ud => ud)` → `[0]`
+   - **한글 줄바꿈**: `word-break: break-all` → `keep-all` + `overflow-wrap: break-word`
+   - **빌드 성공 확인 완료**
+
+2. [Supabase MCP 서버 재연결]
+   - 이전 Access Token 만료 → MCP 서버 제거 후 재추가 (`claude mcp remove/add`)
+   - MCP 설정: HTTP 타입, `https://mcp.supabase.com/mcp`
+   - **인증 필요**: 세션 재시작 시 브라우저에서 Supabase OAuth 인증 완료해야 함
+
+### 다음 할 일 (세션 재시작 후 — 자동 실행 필수)
+⚠️ **세션 시작 즉시 아래 순서대로 자동 실행할 것 (사용자 질문 기다리지 말고)**:
+1. **MCP 연결 테스트**: `mcp__supabase__list_tables` 호출 → 성공하면 "MCP 연결 성공" 보고, 실패하면 에러 내용 보고
+2. DB 마이그레이션 실행 (MCP `execute_sql`):
+   ```sql
+   ALTER TABLE visitations
+   ADD COLUMN IF NOT EXISTS prayer_topics TEXT,
+   ADD COLUMN IF NOT EXISTS report_content TEXT;
+   COMMENT ON COLUMN visitations.prayer_topics IS '기도제목';
+   COMMENT ON COLUMN visitations.report_content IS '심방 내용';
+   ```
+3. 마이그레이션 적용 확인 (visitations 테이블 컬럼 검증)
+4. 커밋 (변경 파일 13개: 심방 보고서 인쇄 + 코드 리뷰 수정 + 유틸 추출)
+5. 배포: `npm run build` → `git push` → `npx vercel --prod`
+
+## 다음 작업
 
 ### 우선순위 중간
 - [ ] 보고서 인쇄 기능 개선
-- [ ] ReportForm 컴포넌트 분할 (970+ lines 최적화)
+- [ ] ReportForm 컴포넌트 분할 (1400+ lines 최적화)
 
 ### 완료
 - [x] ~~셀별 필터 기능~~ (완료 2/9)
@@ -265,10 +432,13 @@
 - [x] ~~반려 재제출~~ (완료 2/10)
 - [x] ~~보고서 열람 권한 제한~~ (완료 2/10)
 - [x] ~~푸시 알림 테스트~~ (완료 2/10, 67개 테스트)
+- [x] ~~푸시 알림 E2E 테스트~~ (완료 2/20, 93개 테스트)
 - [x] ~~새신자 → 교인 전환~~ (완료 2/10)
 - [x] ~~edit/new 페이지 Client 전환~~ (완료 2/10)
 - [x] ~~셀장 보고서 추가~~ (완료 2/10)
 - [x] ~~TanStack Query 성능 최적화~~ (완료 2/10, 전체 수동 fetch 0개 달성)
+- [x] ~~심방 일정표~~ (완료 2/23, 달력+목록 뷰)
+- [x] ~~비밀번호 재설정 빈 화면~~ (완료 2/23, PKCE confirm 라우트 + Site URL 수정)
 
 ---
 
@@ -283,3 +453,13 @@
 - **cu1 팀장**: 김효정, 김선웅 (is_team_leader=true), 나머지는 셀장 (is_team_leader=false)
 - **새신자 전환**: 보고서 상세 → "교인 전환" 버튼 → `/members/new?newcomerId=xxx` → 등록 후 `converted_to_member_id` 업데이트
 - **셀장 보고서**: report_type=`cell_leader`, 필드: meeting_title(셀 모임명), attendees(참석자), main_content(나눔 내용), application_notes(기도제목), report_photos(사진)
+- **심방 일정**: `/visitations` 페이지, 달력+목록 뷰 전환, 모든 사용자 등록/조회 가능, 본인 일정만 수정/삭제
+  - DB: `visitations` 테이블, `visitation_status` enum (scheduled/completed/cancelled), `visitation_reason` enum (hospital/newcomer/regular/encouragement/other)
+  - RLS: 인증 사용자 전체 조회, 본인 등록건만 INSERT/UPDATE/DELETE
+  - 교인 선택: `member_id` (선택사항) + `member_name` (필수, 직접 입력도 가능)
+  - 쿼리 훅: `useVisitations(year, month, deptId)`, `useCreateVisitation`, `useUpdateVisitation`, `useDeleteVisitation`
+  - 상수: `VISITATION_REASON_LABELS`, `VISITATION_STATUS_LABELS` in constants.ts
+- **Vercel 배포 규칙**: `npm run build` → `git push` → `npx vercel --prod` (로컬 빌드 필수, framework: nextjs)
+- **비밀번호 재설정 흐름**: `resetPasswordForEmail(redirectTo: origin/auth/callback?next=/reset-password)` → Supabase 이메일 → `/auth/callback`에서 code 교환 → `/reset-password`로 리다이렉트 → `updateUser({ password })`
+- **Supabase 인증 라우트**: `/auth/callback` (code 교환), `/auth/confirm` (PKCE token_hash 검증) — 둘 다 존재해야 함
+- **Supabase Site URL**: `https://church-eight-delta.vercel.app` (대시보드에서 설정, localhost 아님)

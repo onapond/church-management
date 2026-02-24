@@ -88,6 +88,7 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
   const existingReport = {
     id: report.id,
     department_id: report.department_id,
+    author_id: report.author_id,
     report_date: report.report_date,
     week_number: report.week_number,
     notes: report.notes,

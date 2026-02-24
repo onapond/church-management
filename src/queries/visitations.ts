@@ -54,6 +54,8 @@ export function useCreateVisitation() {
       visitor: string
       reason: VisitationReason
       notes?: string | null
+      prayer_topics?: string | null
+      report_content?: string | null
       created_by: string
     }) => {
       const { data, error } = await supabase
@@ -85,6 +87,8 @@ export function useUpdateVisitation() {
       reason?: VisitationReason
       status?: VisitationStatus
       notes?: string | null
+      prayer_topics?: string | null
+      report_content?: string | null
     }) => {
       const { id, ...updates } = params
       const { error } = await supabase

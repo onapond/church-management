@@ -11,19 +11,9 @@ import DOMPurify from 'dompurify'
 import { canAccessAllDepartments, canViewReport, canDeleteReport, canEditReport } from '@/lib/permissions'
 import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useTeamLeaderIds, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems, useChangeReportType } from '@/queries/reports'
 import { useCellMembers, useCellAttendanceRecords } from '@/queries/attendance'
+import { escapeHtml, printHtmlInIframe } from '@/lib/utils'
 
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
-
-/** 인쇄 HTML 템플릿용 HTML 이스케이프 */
-function escapeHtml(str: string): string {
-  if (!str) return ''
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
 
 interface ReportDetailProps {
   reportId: string
@@ -202,27 +192,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
       html = generateMeetingPrintHTML(reportType, report.meeting_title || getDeptDisplayName(), report, reportDate, programRows, parsedNotes, cellMembers, cellAttendanceRecords)
     }
 
-    const printFrame = document.createElement('iframe')
-    printFrame.style.position = 'fixed'; printFrame.style.width = '0'; printFrame.style.height = '0';
-    document.body.appendChild(printFrame)
-    const frameDoc = printFrame.contentWindow?.document
-    if (frameDoc) {
-      frameDoc.open(); frameDoc.write(html); frameDoc.close()
-      printFrame.onload = () => {
-        try {
-          printFrame.contentWindow?.focus(); 
-          printFrame.contentWindow?.print()
-        } catch (e) {
-          console.error('Print error:', e)
-        } finally {
-          setTimeout(() => { 
-            if (printFrame.parentNode === document.body) {
-              document.body.removeChild(printFrame) 
-            }
-          }, 1000)
-        }
-      }
-    }
+    printHtmlInIframe(html)
     setShowPrintOptions(false)
   }, [report, programs, newcomers, getDeptDisplayName, reportType, projectContentItems, projectScheduleItems, projectBudgetItems, cellMembers, cellAttendanceRecords, parsedNotes])
 
@@ -302,7 +272,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
       // 1. Storage 사진 삭제
       const { data: files } = await supabase.storage.from('report-photos').list(tid)
       if (files && files.length > 0) {
-        await supabase.storage.from('report-photos').remove(files.map(f => `${tid}/${f.name}`))
+        await supabase.storage.from('report-photos').remove(files.map((f: any) => `${tid}/${f.name}`))
       }
 
       // 2. DB 데이터 삭제 (CASCADE 설정에 의해 상단 하위 데이터는 자동 삭제되나, 수동 삭제를 통해 확실히 함)

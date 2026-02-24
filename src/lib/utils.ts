@@ -48,6 +48,46 @@ export function toLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
+/** 인쇄 HTML 템플릿용 HTML 이스케이프 */
+export function escapeHtml(str: string | null | undefined): string {
+  if (!str) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/** iframe을 사용한 HTML 인쇄 */
+export function printHtmlInIframe(html: string): void {
+  const printFrame = document.createElement('iframe')
+  printFrame.style.position = 'fixed'
+  printFrame.style.width = '0'
+  printFrame.style.height = '0'
+  document.body.appendChild(printFrame)
+  const frameDoc = printFrame.contentWindow?.document
+  if (frameDoc) {
+    frameDoc.open()
+    frameDoc.write(html)
+    frameDoc.close()
+    printFrame.onload = () => {
+      try {
+        printFrame.contentWindow?.focus()
+        printFrame.contentWindow?.print()
+      } catch (e) {
+        console.error('Print error:', e)
+      } finally {
+        setTimeout(() => {
+          if (printFrame.parentNode === document.body) {
+            document.body.removeChild(printFrame)
+          }
+        }, 1000)
+      }
+    }
+  }
+}
+
 /** 생년월일에서 나이 계산 */
 export function calculateAge(birthDate: string | null): number | null {
   if (!birthDate) return null
