@@ -250,7 +250,8 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
     
     setLoading(true); setShowCancelModal(false)
     try {
-      await supabase.from('weekly_reports').update({ status: 'draft', submitted_at: null }).eq('id', report.id)
+      const { error: updateError } = await supabase.from('weekly_reports').update({ status: 'draft', submitted_at: null }).eq('id', report.id)
+      if (updateError) throw updateError
       await supabase.from('approval_history').insert({ report_id: report.id, approver_id: currentUser.id, from_status: 'submitted', to_status: 'draft', comment: '제출 취소' })
       await queryClient.invalidateQueries({ queryKey: ['approvals'] })
       await queryClient.invalidateQueries({ queryKey: ['reports'] })
@@ -273,16 +274,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         await supabase.storage.from('report-photos').remove(files.map((f: any) => `${tid}/${f.name}`))
       }
 
-      // 2. DB 데이터 삭제 (CASCADE 설정에 의해 상단 하위 데이터는 자동 삭제되나, 수동 삭제를 통해 확실히 함)
-      await supabase.from('report_programs').delete().eq('report_id', tid)
-      await supabase.from('newcomers').delete().eq('report_id', tid)
-      await supabase.from('approval_history').delete().eq('report_id', tid)
-      await supabase.from('attendance_records').delete().eq('report_id', tid)
-      await supabase.from('notifications').delete().eq('report_id', tid)
-      await supabase.from('report_photos').delete().eq('report_id', tid)
-      await supabase.from('project_content_items').delete().eq('report_id', tid)
-      await supabase.from('project_schedule_items').delete().eq('report_id', tid)
-      await supabase.from('project_budget_items').delete().eq('report_id', tid)
+      // 2. 보고서 삭제 (하위 테이블은 ON DELETE CASCADE로 자동 정리)
       const { error } = await supabase.from('weekly_reports').delete().eq('id', tid)
       if (error) throw error
 

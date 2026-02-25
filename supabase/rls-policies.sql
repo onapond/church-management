@@ -282,11 +282,20 @@ CREATE POLICY "reports_update_approver" ON public.weekly_reports
     public.get_my_role() IN ('super_admin', 'president', 'accountant')
   );
 
--- DELETE: 관리자만
+-- DELETE: 관리자는 모든 보고서
 DROP POLICY IF EXISTS "reports_delete_admin" ON public.weekly_reports;
 CREATE POLICY "reports_delete_admin" ON public.weekly_reports
   FOR DELETE TO authenticated
   USING (public.is_admin_role());
+
+-- DELETE: 작성자는 draft/rejected 상태만
+DROP POLICY IF EXISTS "reports_delete_author" ON public.weekly_reports;
+CREATE POLICY "reports_delete_author" ON public.weekly_reports
+  FOR DELETE TO authenticated
+  USING (
+    author_id = auth.uid()
+    AND status IN ('draft', 'rejected')
+  );
 
 -- ────────────────────────────────────────────────────────────
 -- 8. approval_history (결재 이력)
