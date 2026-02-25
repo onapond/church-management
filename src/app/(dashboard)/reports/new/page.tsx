@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { toLocalDateString } from '@/lib/utils'
+import { toLocalDateString, getWeekNumber } from '@/lib/utils'
 import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { isAdmin as checkAdmin } from '@/lib/permissions'
@@ -30,11 +30,8 @@ export default function NewReportPage() {
   sunday.setDate(now.getDate() - now.getDay())
   const sundayStr = toLocalDateString(sunday)
 
-  // 주차 계산
-  const startOfYear = new Date(now.getFullYear(), 0, 1)
-  const weekNumber = Math.ceil(
-    ((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
-  )
+  // 주차 계산 (일요일 기준)
+  const weekNumber = getWeekNumber(sundayStr)
 
   // 작성 가능 부서 (관리자: 전체, 팀장: is_team_leader=true인 부서만)
   const { canWrite, departments } = useMemo(() => {

@@ -44,9 +44,51 @@ describe('formatCurrency', () => {
 })
 
 describe('getWeekNumber', () => {
-  it('주차 번호 반환', () => {
-    const weekNum = getWeekNumber('2026-01-07')
-    expect(weekNum).toBeGreaterThan(0)
+  // 2026년: 1/1=목, 첫 일요일=1/4
+  it('2026-01-04 (첫 일요일) = 1주차', () => {
+    expect(getWeekNumber('2026-01-04')).toBe(1)
+  })
+
+  it('2026-01-11 (둘째 일요일) = 2주차', () => {
+    expect(getWeekNumber('2026-01-11')).toBe(2)
+  })
+
+  it('2026-02-01 (5번째 일요일) = 5주차', () => {
+    expect(getWeekNumber('2026-02-01')).toBe(5)
+  })
+
+  it('2026-02-08 = 6주차', () => {
+    expect(getWeekNumber('2026-02-08')).toBe(6)
+  })
+
+  it('2026-02-15 (7번째 일요일) = 7주차', () => {
+    expect(getWeekNumber('2026-02-15')).toBe(7)
+  })
+
+  it('2026-02-22 (8번째 일요일) = 8주차', () => {
+    expect(getWeekNumber('2026-02-22')).toBe(8)
+  })
+
+  it('평일은 해당 주 일요일 기준 (2026-02-25 수요일 → 8주차)', () => {
+    expect(getWeekNumber('2026-02-25')).toBe(8)
+  })
+
+  it('토요일 경계: 2026-02-21 (토) = 7주차 (일요일 2/15 기준)', () => {
+    expect(getWeekNumber('2026-02-21')).toBe(7)
+  })
+
+  it('토요일 경계: 2026-02-28 (토) = 8주차 (일요일 2/22 기준)', () => {
+    expect(getWeekNumber('2026-02-28')).toBe(8)
+  })
+
+  // 다른 연도: 2025년 1/1=수, 첫 일요일=1/5
+  it('2025-01-05 (첫 일요일) = 1주차', () => {
+    expect(getWeekNumber('2025-01-05')).toBe(1)
+  })
+
+  // 2023년: 1/1=일 → 첫 일요일=1/1
+  it('2023-01-01 (일요일 시작 연도) = 1주차', () => {
+    expect(getWeekNumber('2023-01-01')).toBe(1)
   })
 })
 

@@ -32,12 +32,22 @@ export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('ko-KR').format(amount) + '원'
 }
 
-/** ISO 날짜 문자열에서 주차 번호 계산 */
+/** 교회 기준 주차 번호 계산 (첫 번째 일요일 = 1주차, 일요일 서수 방식) */
 export function getWeekNumber(dateStr: string): number {
-  const date = new Date(dateStr)
-  const firstDayOfYear = new Date(date.getFullYear(), 0, 1)
-  const pastDays = (date.getTime() - firstDayOfYear.getTime()) / 86400000
-  return Math.ceil((pastDays + firstDayOfYear.getDay() + 1) / 7)
+  const parts = dateStr.split('-')
+  const year = parseInt(parts[0], 10)
+  const month = parseInt(parts[1], 10) - 1
+  const day = parseInt(parts[2], 10)
+  const date = new Date(year, month, day)
+  // 해당 주의 일요일
+  const sundayDate = new Date(year, month, day - date.getDay())
+  // 연초 첫 번째 일요일
+  const jan1 = new Date(year, 0, 1)
+  const jan1Day = jan1.getDay()
+  const firstSunday = jan1Day === 0 ? jan1 : new Date(year, 0, 1 + (7 - jan1Day))
+  // 주차 계산
+  const diffDays = Math.round((sundayDate.getTime() - firstSunday.getTime()) / 86400000)
+  return Math.floor(diffDays / 7) + 1
 }
 
 /** 로컬 날짜를 YYYY-MM-DD 형식으로 포맷 (타임존 안전) */

@@ -6,6 +6,7 @@ import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { useReportDetail, useReportPrograms, useReportNewcomers, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems } from '@/queries/reports'
 import { isAdmin as checkAdmin, canEditReport } from '@/lib/permissions'
+import { getWeekNumber } from '@/lib/utils'
 import ReportForm from '@/components/reports/ReportForm'
 
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
@@ -78,12 +79,8 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
   const reportType = (report as any).report_type as ReportType || 'weekly'
   const config = REPORT_TYPE_CONFIG[reportType]
 
-  // 주차 계산
-  const reportDate = new Date(report.report_date)
-  const startOfYear = new Date(reportDate.getFullYear(), 0, 1)
-  const weekNumber = report.week_number || Math.ceil(
-    ((reportDate.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
-  )
+  // 주차 계산 (일요일 기준)
+  const weekNumber = report.week_number || getWeekNumber(report.report_date)
 
   const existingReport = {
     id: report.id,
@@ -114,7 +111,7 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
         </div>
         {reportType === 'weekly' && (
           <p className="text-sm text-gray-500 mt-0.5">
-            {reportDate.getFullYear()}년 {weekNumber}주차 보고서
+            {report.report_date.split('-')[0]}년 {weekNumber}주차 보고서
           </p>
         )}
       </div>

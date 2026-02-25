@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/providers/AuthProvider'
 import { canApprove } from '@/lib/permissions'
+import { getWeekNumber } from '@/lib/utils'
 import { usePendingReports, useCompletedReports, type ApprovalReport } from '@/queries/approvals'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -78,11 +79,6 @@ export default function ApprovalsClient() {
     return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`
   }
 
-  const getWeekNumber = (dateStr: string) => {
-    const date = new Date(dateStr)
-    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1)
-    return Math.ceil((date.getDate() + firstDay.getDay()) / 7)
-  }
 
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
@@ -222,7 +218,7 @@ export default function ApprovalsClient() {
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-medium text-gray-900 text-sm md:text-base truncate">
-                            {report.meeting_title || `${new Date(report.report_date).getMonth() + 1}월 ${weekNum}주차 보고서`}
+                            {report.meeting_title || `${weekNum}주차 보고서`}
                           </h3>
                           <span className={`md:hidden px-2 py-0.5 rounded-full text-xs font-medium border ${status.bgColor} ${status.color}`}>
                             {status.label}
