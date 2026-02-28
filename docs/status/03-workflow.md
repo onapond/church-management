@@ -38,10 +38,23 @@
 
 | 역할 | 권한 | 액션 |
 |------|------|------|
-| team_leader | 보고서 작성 | 작성, 제출, 수정 |
+| team_leader | 보고서 작성 + 셀장보고서 최종결재 | 작성, 제출, 수정, (셀장보고서) 최종결재 |
 | president | 협조 | 협조, 반려, 수정요청 |
 | accountant | 결재 | 결재, 반려, 수정요청 |
 | super_admin | 최종 확인 | 확인, 반려 |
+
+### 셀장보고서(cell_leader) 특수 결재 흐름
+
+```
+┌────────┐     ┌───────────┐     ┌────────────────┐
+│ draft  │ ──▶ │ submitted │ ──▶ │ final_approved │
+│ (초안) │     │ (제출됨)  │     │ (cu1 팀장 결재)│
+└────────┘     └───────────┘     └────────────────┘
+```
+
+- `submitted` 상태에서 cu1 부서 팀장(`is_team_leader=true`)만 `final_approved` 결재 가능
+- 회장(president), 부장(accountant), 목사(super_admin) 결재 라인 제외
+- 관련 파일: `src/components/reports/ReportDetail.tsx` - `checkApprovalPermission()`
 
 ### 결재 이력 저장
 
@@ -165,6 +178,8 @@ export async function middleware(request: NextRequest) {
 
 ### 알림 트리거 매핑
 
+**일반 보고서 (weekly/meeting/education/project/visitation)**
+
 | 상태 변경 | 수신자 역할 | 메시지 |
 |----------|------------|--------|
 | draft → submitted | president | 새 보고서가 제출되었습니다 |
@@ -173,6 +188,14 @@ export async function middleware(request: NextRequest) {
 | manager_approved → final_approved | 작성자 | 보고서가 최종 승인되었습니다 |
 | any → rejected | 작성자 | 보고서가 반려되었습니다 |
 | any → revision_requested | 작성자 | 보고서 수정이 요청되었습니다 |
+
+**셀장보고서 (cell_leader) 전용 알림**
+
+| 상태 변경 | 수신자 | 메시지 |
+|----------|--------|--------|
+| draft → submitted | 해당 부서 팀장 (user_departments 조회) | 새 셀장 보고서가 제출되었습니다 |
+| submitted → final_approved | 작성자 | 보고서가 최종 승인되었습니다 |
+| any → rejected | 작성자 | 보고서가 반려되었습니다 |
 
 ### 알림 관련 파일
 

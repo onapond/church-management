@@ -1,5 +1,40 @@
 # 세션 노트
 
+## 작업 내역 (2026-02-28, 세션 17)
+
+### 완료된 작업
+
+1. [셀장보고서 결재 라인 단순화] — `4351140`
+   - cu1 팀장이 submitted → final_approved 직결재 (회장/부장/목사 제외)
+   - `checkApprovalPermission()` cell_leader 분기, `canApprove()`에 team_leader 추가
+   - 결재함: 팀장은 자기 부서 셀장보고서만 표시
+   - 수정 파일: ReportDetail.tsx, permissions.ts, approvals.ts, ApprovalsClient.tsx
+
+2. [셀장보고서 팀장 알림 누락 버그 수정] — `fa8e403`
+   - 원인: ReportForm.tsx에서 createApprovalNotification() 호출 시 reportDepartmentId 누락
+   - 수정: reportDepartmentId: form.department_id 추가
+   - 알림 흐름: 제출→팀장, 결재/반려→작성자
+
+3. [심방보고서(visitation) 타입 추가] — `ce14477`
+   - DB enum + 7개 파일 (ReportForm, ReportDetail, ReportListClient, types, new, EditReportClient, notifications)
+   - 폼 필드: 심방 대상자, 날짜, 심방 내용(main_content), 기도제목(application_notes)
+   - 결재: 일반 보고서와 동일 (회장→부장→목사)
+
+4. [Supabase 로그 오류 확인] — 이상 없음
+   - API 로그 전체 200 OK, Postgres 로그 ERROR/WARNING 없음
+
+### 커밋 이력
+- `4351140` - feat: 셀장보고서 결재 라인을 1청년 팀장으로 단순화
+- `fa8e403` - fix: 셀장보고서 제출 시 팀장 알림 누락 수정
+- `ce14477` - feat: 심방보고서 타입 추가
+
+### 다음 작업
+- [ ] 프로덕션에서 셀장보고서 결재 E2E 확인 (사용자 테스트)
+- [ ] 프로덕션에서 심방보고서 작성/제출 테스트
+- [ ] ReportForm 컴포넌트 분할 (1400+ lines, 우선순위 중간)
+
+---
+
 ## 작업 내역 (2026-02-23, 세션 12)
 
 ### 완료된 작업
@@ -384,6 +419,36 @@
 
 ---
 
+## 작업 내역 (2026-02-24, 세션 14)
+
+### 완료된 작업
+1. [Supabase MCP 설정 완료]
+   - OAuth 자동 리다이렉트 미작동 (5회 세션 재시작 실패)
+   - **해결**: PAT 헤더 방식으로 전환 (`--header "Authorization: Bearer {token}"`)
+   - 새 토큰: `sbp_f646d4a2bece52ab4d8cb4046196aa87fc2a3421`
+
+2. [DB 마이그레이션 완료]
+   - `visitations` 테이블에 `prayer_topics TEXT`, `report_content TEXT` 컬럼 추가
+
+3. [심방 보고서 인쇄 + 코드 품질 개선] — 커밋 `3404ed8`
+   - 인쇄 테스트 통과 (테스트 데이터 삽입 → 확인 → 삭제)
+
+4. [보고서 열람 권한 역할별 제한] — 커밋 `1dde6e8`
+   - `canViewAllReports()` 추가: 관리자 + 팀장(is_team_leader=true) → 모든 보고서
+   - `canViewReport()` 역할별 분기: 셀장 → 소속 부서만, 멤버 → 본인만
+   - 죽은 코드 제거: useTeamLeaderMap, useTeamLeaderIds, authorIsTeamLeader
+   - 테스트 업데이트 (93개 전체 통과)
+
+5. [DB 사용자 권한 정리]
+   - 권성경: 2청년 `is_team_leader=true` 설정 (2청년 팀장)
+   - 강민아: 1청년 셀장으로 `user_departments` 추가
+
+### 커밋 이력
+- `3404ed8` - feat: 심방 보고서 인쇄 + 코드 품질 개선 (11파일)
+- `1dde6e8` - feat: 보고서 열람 권한 역할별 제한 (4파일)
+
+---
+
 ## 작업 내역 (2026-02-24, 세션 13)
 
 ### 완료된 작업
@@ -398,30 +463,56 @@
    - **한글 줄바꿈**: `word-break: break-all` → `keep-all` + `overflow-wrap: break-word`
    - **빌드 성공 확인 완료**
 
-2. [Supabase MCP 서버 재연결]
-   - 이전 Access Token 만료 → MCP 서버 제거 후 재추가 (`claude mcp remove/add`)
-   - MCP 설정: HTTP 타입, `https://mcp.supabase.com/mcp`
-   - **인증 필요**: 세션 재시작 시 브라우저에서 Supabase OAuth 인증 완료해야 함
+## 작업 내역 (2026-02-25, 세션 16)
 
-### 다음 할 일 (세션 재시작 후 — 자동 실행 필수)
-⚠️ **세션 시작 즉시 아래 순서대로 자동 실행할 것 (사용자 질문 기다리지 말고)**:
-1. **MCP 연결 테스트**: `mcp__supabase__list_tables` 호출 → 성공하면 "MCP 연결 성공" 보고, 실패하면 에러 내용 보고
-2. DB 마이그레이션 실행 (MCP `execute_sql`):
-   ```sql
-   ALTER TABLE visitations
-   ADD COLUMN IF NOT EXISTS prayer_topics TEXT,
-   ADD COLUMN IF NOT EXISTS report_content TEXT;
-   COMMENT ON COLUMN visitations.prayer_topics IS '기도제목';
-   COMMENT ON COLUMN visitations.report_content IS '심방 내용';
-   ```
-3. 마이그레이션 적용 확인 (visitations 테이블 컬럼 검증)
-4. 커밋 (변경 파일 13개: 심방 보고서 인쇄 + 코드 리뷰 수정 + 유틸 추출)
-5. 배포: `npm run build` → `git push` → `npx vercel --prod`
+### 완료된 작업
+1. [보고서 삭제/제출 취소 버그 수정] — 커밋 `a8d554d`
+   - **버그**: 작성자가 본인 보고서 삭제 및 제출 취소 불가
+   - **근본 원인**: `weekly_reports` DELETE RLS 정책이 관리자(`is_admin_role()`)만 허용. 앱 로직(`canDeleteReport`)은 작성자의 draft/rejected 삭제를 허용하지만, DB가 차단
+   - **수정 내용**:
+     1. `reports_delete_author` RLS 정책 추가 (작성자 + draft/rejected 상태)
+     2. 제출 취소 시 UPDATE 에러 체크 추가
+     3. 하위 테이블 수동 삭제 9개 제거 → ON DELETE CASCADE 활용으로 단순화
+   - **수정 파일**: ReportDetail.tsx, rls-policies.sql
+   - **배포**: Vercel 프로덕션 배포 완료
+
+### 커밋 이력
+- `a8d554d` - fix: 보고서 삭제 RLS 정책 수정 (작성자 draft/rejected 허용)
+
+---
+
+## 작업 내역 (2026-02-25, 세션 15)
+
+### 완료된 작업
+1. [주차 계산 타임존 버그 수정] — 커밋 `c0c293f`
+   - **버그**: 8주차 보고서가 9주차로 인식, 이번 주 보고서 작성 불가 (중복 에러)
+   - **근본 원인 3가지**:
+     1. `getWeekNumber()`에서 UTC/로컬 시간 혼합 → 소수점 + Math.ceil로 경계에서 +1
+     2. `reports/new`에서 `now`로 주차 계산 (보고서 날짜는 일요일 기준)
+     3. ISO 주차(1/1 기준) vs 교회 주차(첫 일요일 = 1주차) 불일치
+   - **수정 내용**:
+     1. `getWeekNumber()` 재작성: 문자열 파싱 기반, 첫 일요일 = 1주차 (일요일 서수 방식)
+     2. 3개 파일 인라인 주차 계산 → 중앙 함수로 통합
+     3. 결재함 주차 표시: 월 기준 → 연 기준으로 변경
+     4. 테스트 1개 → 11개로 보강 (경계값, 다연도)
+     5. DB 마이그레이션: 타임존 버그 레코드 수정 + 전체 -1
+   - **수정 파일**: utils.ts, utils.test.ts, reports/new/page.tsx, EditReportClient.tsx, ApprovalsClient.tsx
+   - **DB 변경**: weekly_reports week_number 전체 보정 (11행)
+   - **테스트**: 103개 전체 통과 (93 → 103)
+   - **배포**: Vercel 프로덕션 배포 완료
+   - **미확인**: 프로덕션에서 실제 보고서 작성 테스트 (사용자 확인 필요)
+
+### 커밋 이력
+- `c0c293f` - fix: 주차 계산 타임존 버그 수정 (교회 일요일 서수 방식) (5파일)
+
+---
 
 ## 다음 작업
 
+### 우선순위 높음
+- [ ] 프로덕션에서 8주차 보고서 작성 가능 여부 확인 (사용자 테스트 대기)
+
 ### 우선순위 중간
-- [ ] 보고서 인쇄 기능 개선
 - [ ] ReportForm 컴포넌트 분할 (1400+ lines 최적화)
 
 ### 완료
