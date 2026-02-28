@@ -30,7 +30,7 @@ const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
   ),
 })
 
-type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 
 interface Department {
   id: string
@@ -113,6 +113,7 @@ const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   education: '교육 보고서',
   cell_leader: '셀장 보고서',
   project: '프로젝트 계획',
+  visitation: '심방 보고서',
 }
 
 // 섹션 정의
@@ -627,10 +628,10 @@ export default function ReportForm({
         cell_id: reportType === 'cell_leader' ? (selectedCellId || null) : null,
         // 모임/교육/셀장/프로젝트 전용 필드
         meeting_title: reportType !== 'weekly' ? form.meeting_title : null,
-        meeting_location: reportType !== 'weekly' && reportType !== 'cell_leader' && reportType !== 'project' ? form.meeting_location : null,
-        attendees: reportType !== 'weekly' && reportType !== 'project' ? cellLeaderAttendees : null,
+        meeting_location: reportType !== 'weekly' && reportType !== 'cell_leader' && reportType !== 'project' && reportType !== 'visitation' ? form.meeting_location : null,
+        attendees: reportType !== 'weekly' && reportType !== 'project' && reportType !== 'visitation' ? cellLeaderAttendees : null,
         main_content: reportType !== 'weekly' ? form.main_content : null,
-        application_notes: ['education', 'cell_leader', 'project'].includes(reportType) ? form.application_notes : null,
+        application_notes: ['education', 'cell_leader', 'project', 'visitation'].includes(reportType) ? form.application_notes : null,
         notes: JSON.stringify({
           sermon_title: form.sermon_title,
           sermon_scripture: form.sermon_scripture,
@@ -1009,20 +1010,20 @@ export default function ReportForm({
         className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 space-y-4 scroll-mt-24"
       >
         <h2 className="font-semibold text-gray-900 text-base md:text-lg border-b pb-2">
-          {reportType === 'weekly' ? '기본 정보' : reportType === 'cell_leader' ? '셀 모임 개요' : reportType === 'project' ? '프로젝트 기본 정보' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}
+          {reportType === 'weekly' ? '기본 정보' : reportType === 'cell_leader' ? '셀 모임 개요' : reportType === 'project' ? '프로젝트 기본 정보' : reportType === 'meeting' ? '모임 개요' : reportType === 'visitation' ? '심방 개요' : '교육 개요'}
         </h2>
 
         {/* 모임/교육 제목 */}
         {reportType !== 'weekly' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {reportType === 'cell_leader' ? '셀 모임명' : reportType === 'project' ? '프로젝트명' : reportType === 'meeting' ? '모임명' : '교육명'}
+              {reportType === 'cell_leader' ? '셀 모임명' : reportType === 'project' ? '프로젝트명' : reportType === 'meeting' ? '모임명' : reportType === 'visitation' ? '심방 대상자' : '교육명'}
             </label>
             <input
               type="text"
               value={form.meeting_title}
               onChange={(e) => setForm({ ...form, meeting_title: e.target.value })}
-              placeholder={reportType === 'cell_leader' ? '예: 현진셀 모임 보고서' : reportType === 'project' ? '예: 2024 교육부 프로젝트' : reportType === 'meeting' ? '예: 청년1 셀장모임' : '예: 리더 교육'}
+              placeholder={reportType === 'cell_leader' ? '예: 현진셀 모임 보고서' : reportType === 'project' ? '예: 2024 교육부 프로젝트' : reportType === 'meeting' ? '예: 청년1 셀장모임' : reportType === 'visitation' ? '예: 홍길동 (또는 홍길동·이순신)' : '예: 리더 교육'}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
             />
           </div>
@@ -1197,16 +1198,16 @@ export default function ReportForm({
         />
       )}
 
-      {/* 주요내용 (모임/교육/셀장 보고서 - 프로젝트 제외) */}
+      {/* 주요내용 (모임/교육/셀장/심방 보고서 - 프로젝트 제외) */}
       {reportType !== 'weekly' && reportType !== 'project' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
           <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">
-            {reportType === 'cell_leader' ? '나눔 내용' : reportType === 'meeting' ? '주요내용' : '교육내용'}
+            {reportType === 'cell_leader' ? '나눔 내용' : reportType === 'visitation' ? '심방 내용' : reportType === 'meeting' ? '주요내용' : '교육내용'}
           </label>
           <RichTextEditor
             value={form.main_content}
             onChange={(value) => setForm({ ...form, main_content: value })}
-            placeholder={reportType === 'cell_leader' ? '셀 모임에서 나눈 내용을 입력하세요' : reportType === 'meeting' ? '주요 내용을 입력하세요' : '교육 내용을 입력하세요'}
+            placeholder={reportType === 'cell_leader' ? '셀 모임에서 나눈 내용을 입력하세요' : reportType === 'visitation' ? '심방 중 나눈 내용을 입력하세요' : reportType === 'meeting' ? '주요 내용을 입력하세요' : '교육 내용을 입력하세요'}
             minHeight="150px"
           />
         </div>
@@ -1454,15 +1455,15 @@ export default function ReportForm({
             {(reportType !== 'project' || isSectionEnabled('discussion')) && (
               <div>
                 <label className="block font-semibold text-gray-900 mb-2 text-sm md:text-base">
-                  {reportType === 'cell_leader' ? '기도제목' : reportType === 'education' ? '적용점' : '논의(특이)사항'}
+                  {reportType === 'cell_leader' || reportType === 'visitation' ? '기도제목' : reportType === 'education' ? '적용점' : '논의(특이)사항'}
                 </label>
                 <RichTextEditor
-                  value={reportType === 'cell_leader' || reportType === 'education' ? form.application_notes : form.discussion_notes}
+                  value={reportType === 'cell_leader' || reportType === 'education' || reportType === 'visitation' ? form.application_notes : form.discussion_notes}
                   onChange={(value) => setForm({
                     ...form,
-                    [reportType === 'cell_leader' || reportType === 'education' ? 'application_notes' : 'discussion_notes']: value
+                    [reportType === 'cell_leader' || reportType === 'education' || reportType === 'visitation' ? 'application_notes' : 'discussion_notes']: value
                   })}
-                  placeholder={reportType === 'cell_leader' ? '기도제목을 입력하세요' : reportType === 'education' ? '적용점을 입력하세요' : '논의사항을 입력하세요'}
+                  placeholder={reportType === 'cell_leader' || reportType === 'visitation' ? '기도제목을 입력하세요' : reportType === 'education' ? '적용점을 입력하세요' : '논의사항을 입력하세요'}
                   minHeight="120px"
                 />
               </div>

@@ -8,7 +8,7 @@ import { useDepartments } from '@/queries/departments'
 import { useReports } from '@/queries/reports'
 import { canAccessAllDepartments, canWriteReport as checkCanWriteReport, getAccessibleDepartmentIds, canViewReport, canViewAllReports } from '@/lib/permissions'
 
-type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 
 const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string; color: string }> = {
   weekly: { label: '주차 보고서', icon: '📋', color: 'blue' },
@@ -16,6 +16,7 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string; colo
   education: { label: '교육 보고서', icon: '📚', color: 'purple' },
   cell_leader: { label: '셀장 보고서', icon: '🏠', color: 'teal' },
   project: { label: '프로젝트 계획', icon: '📑', color: 'orange' },
+  visitation: { label: '심방 보고서', icon: '🙏', color: 'rose' },
 }
 
 export default function ReportListClient() {
@@ -173,7 +174,8 @@ export default function ReportListClient() {
                   selectedType === 'weekly' ? 'bg-blue-100' :
                   selectedType === 'meeting' ? 'bg-green-100' :
                   selectedType === 'cell_leader' ? 'bg-teal-100' :
-                  selectedType === 'project' ? 'bg-orange-100' : 'bg-purple-100'
+                  selectedType === 'project' ? 'bg-orange-100' :
+                  selectedType === 'visitation' ? 'bg-rose-100' : 'bg-purple-100'
                 }`}>
                   <span className="text-lg">{REPORT_TYPE_CONFIG[selectedType].icon}</span>
                 </div>

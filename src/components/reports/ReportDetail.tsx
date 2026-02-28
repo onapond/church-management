@@ -14,7 +14,7 @@ import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHist
 import { useCellMembers, useCellAttendanceRecords } from '@/queries/attendance'
 import { escapeHtml, printHtmlInIframe } from '@/lib/utils'
 
-type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 
 interface ReportDetailProps {
   reportId: string
@@ -26,6 +26,7 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = 
   education: { label: '교육 보고서', icon: '📚' },
   cell_leader: { label: '셀장 보고서', icon: '🏠' },
   project: { label: '프로젝트 계획', icon: '📑' },
+  visitation: { label: '심방 보고서', icon: '🙏' },
 }
 
 /** 결재 단계별 권한 확인 */
@@ -379,11 +380,11 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
       {/* 모임/교육/셀장 개요 */}
       {reportType !== 'weekly' && reportType !== 'project' && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-          <h2 className="font-semibold text-gray-900 mb-4 text-sm lg:text-base">{reportType === 'cell_leader' ? '셀 모임 개요' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}</h2>
+          <h2 className="font-semibold text-gray-900 mb-4 text-sm lg:text-base">{reportType === 'cell_leader' ? '셀 모임 개요' : reportType === 'visitation' ? '심방 개요' : reportType === 'meeting' ? '모임 개요' : '교육 개요'}</h2>
           <div className="grid grid-cols-2 gap-4">
-            <div className={`p-3 bg-gray-50 rounded-xl ${reportType === 'cell_leader' ? 'col-span-2' : ''}`}><p className="text-xs text-gray-500 mb-1">일시</p><p className="text-sm font-medium text-gray-900">{formatDate(report.report_date)}</p></div>
-            {reportType !== 'cell_leader' && <div className="p-3 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500 mb-1">장소</p><p className="text-sm font-medium text-gray-900">{report.meeting_location || '-'}</p></div>}
-            {!(reportType === 'cell_leader' && cellId && cellMembers.length > 0) && <div className="col-span-2 p-3 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500 mb-1">참석자</p><p className="text-sm font-medium text-gray-900">{report.attendees || '-'}</p></div>}
+            <div className={`p-3 bg-gray-50 rounded-xl ${reportType === 'cell_leader' || reportType === 'visitation' ? 'col-span-2' : ''}`}><p className="text-xs text-gray-500 mb-1">일시</p><p className="text-sm font-medium text-gray-900">{formatDate(report.report_date)}</p></div>
+            {reportType !== 'cell_leader' && reportType !== 'visitation' && <div className="p-3 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500 mb-1">장소</p><p className="text-sm font-medium text-gray-900">{report.meeting_location || '-'}</p></div>}
+            {!(reportType === 'cell_leader' && cellId && cellMembers.length > 0) && reportType !== 'visitation' && <div className="col-span-2 p-3 bg-gray-50 rounded-xl"><p className="text-xs text-gray-500 mb-1">참석자</p><p className="text-sm font-medium text-gray-900">{report.attendees || '-'}</p></div>}
           </div>
         </div>
       )}
@@ -444,7 +445,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
 
       {/* 주요 내용 */}
       {reportType !== 'weekly' && reportType !== 'project' && report.main_content && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6"><h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">{reportType === 'cell_leader' ? '나눔 내용' : reportType === 'meeting' ? '주요내용' : '교육내용'}</h2><div className="bg-gray-50 p-4 rounded-xl"><div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.main_content) }} /></div></div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6"><h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">{reportType === 'cell_leader' ? '나눔 내용' : reportType === 'visitation' ? '심방 내용' : reportType === 'meeting' ? '주요내용' : '교육내용'}</h2><div className="bg-gray-50 p-4 rounded-xl"><div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.main_content) }} /></div></div>
       )}
 
       {/* 출결 (주차 보고서) */}
@@ -460,9 +461,9 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
       {/* 논의/기도제목 */}
       {(parsedNotes.discussion_notes || parsedNotes.other_notes || report.application_notes) && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">{reportType === 'cell_leader' ? '기도제목 및 기타사항' : reportType === 'education' ? '적용점 및 기타사항' : '논의 및 기타사항'}</h2>
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">{reportType === 'cell_leader' || reportType === 'visitation' ? '기도제목 및 기타사항' : reportType === 'education' ? '적용점 및 기타사항' : '논의 및 기타사항'}</h2>
           <div className="space-y-4">
-            {(reportType === 'education' || reportType === 'cell_leader') && report.application_notes && (<div><p className="text-xs font-medium text-gray-500 mb-1">{reportType === 'cell_leader' ? '기도제목' : '적용점'}</p><div className="bg-gray-50 p-3 rounded-xl"><div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.application_notes) }} /></div></div>)}
+            {(reportType === 'education' || reportType === 'cell_leader' || reportType === 'visitation') && report.application_notes && (<div><p className="text-xs font-medium text-gray-500 mb-1">{reportType === 'cell_leader' || reportType === 'visitation' ? '기도제목' : '적용점'}</p><div className="bg-gray-50 p-3 rounded-xl"><div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.application_notes) }} /></div></div>)}
             {hasProjSection('discussion') && parsedNotes.discussion_notes && (<div><p className="text-xs font-medium text-gray-500 mb-1">논의사항</p><div className="bg-gray-50 p-3 rounded-xl"><div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parsedNotes.discussion_notes) }} /></div></div>)}
             {hasProjSection('other') && parsedNotes.other_notes && (<div><p className="text-xs font-medium text-gray-500 mb-1">기타사항</p><div className="bg-gray-50 p-3 rounded-xl"><div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parsedNotes.other_notes) }} /></div></div>)}
           </div>

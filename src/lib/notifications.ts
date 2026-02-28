@@ -32,6 +32,7 @@ const REPORT_TYPE_LABELS: Record<string, string> = {
   education: '교육',
   cell_leader: '셀장',
   project: '프로젝트',
+  visitation: '심방',
 }
 
 // 상태 변경에 따른 수신자 역할 매핑

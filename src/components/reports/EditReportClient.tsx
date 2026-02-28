@@ -9,7 +9,7 @@ import { isAdmin as checkAdmin, canEditReport } from '@/lib/permissions'
 import { getWeekNumber } from '@/lib/utils'
 import ReportForm from '@/components/reports/ReportForm'
 
-type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project'
+type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 
 const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = {
   weekly: { label: '주차 보고서', icon: '📋' },
@@ -17,6 +17,7 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = 
   education: { label: '교육 보고서', icon: '📚' },
   cell_leader: { label: '셀장 보고서', icon: '🏠' },
   project: { label: '프로젝트 계획', icon: '📑' },
+  visitation: { label: '심방 보고서', icon: '🙏' },
 }
 
 interface EditReportClientProps {
