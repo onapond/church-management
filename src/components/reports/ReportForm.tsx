@@ -918,6 +918,7 @@ export default function ReportForm({
           departmentName: selectedDept?.name || '',
           reportType: reportType,
           authorId: authorId,
+          reportDepartmentId: form.department_id,
         }).catch(err => console.error('알림 생성 실패:', err))
       }
 
