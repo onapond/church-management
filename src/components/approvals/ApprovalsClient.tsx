@@ -34,14 +34,15 @@ const ROLE_LABELS: Record<string, string> = {
   super_admin: '확인',
   president: '협조',
   accountant: '결재',
+  team_leader: '결재',
 }
 
 export default function ApprovalsClient() {
   const { user } = useAuth()
   const userRole = user?.role || ''
 
-  const { data: pendingReports = [], isLoading: pendingLoading } = usePendingReports(userRole)
-  const { data: completedReports = [], isLoading: completedLoading } = useCompletedReports(userRole)
+  const { data: pendingReports = [], isLoading: pendingLoading } = usePendingReports(userRole, user?.user_departments)
+  const { data: completedReports = [], isLoading: completedLoading } = useCompletedReports(userRole, user?.user_departments)
 
   const [filter, setFilter] = useState<'pending' | 'completed'>('pending')
 
@@ -165,7 +166,7 @@ export default function ApprovalsClient() {
             <div>
               <p className="text-xs md:text-sm text-gray-500">내 역할</p>
               <p className="text-lg md:text-xl font-bold text-gray-900">
-                {userRole === 'president' ? '회장' : userRole === 'accountant' ? '부장' : '목사'}
+                {userRole === 'president' ? '회장' : userRole === 'accountant' ? '부장' : userRole === 'team_leader' ? '팀장' : '목사'}
               </p>
             </div>
           </div>
@@ -259,8 +260,13 @@ export default function ApprovalsClient() {
           <div className="text-xs md:text-sm text-blue-800">
             <p className="font-medium mb-0.5 md:mb-1">결재 흐름 안내</p>
             <p className="text-blue-600">
-              팀장(제출) → 회장(협조) → 부장(결재) → 목사(확인)
+              {userRole === 'team_leader'
+                ? '셀장(제출) → 팀장(최종결재)'
+                : '팀장(제출) → 회장(협조) → 부장(결재) → 목사(확인)'}
             </p>
+            {userRole !== 'team_leader' && (
+              <p className="text-blue-500 text-xs mt-0.5">※ 셀장보고서는 팀장이 직접 최종결재</p>
+            )}
           </div>
         </div>
       </div>

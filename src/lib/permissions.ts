@@ -69,9 +69,9 @@ export function canEditReport(
   return user.id === report.author_id && ['draft', 'rejected'].includes(report.status)
 }
 
-/** 결재 권한 (회장/부장/최고관리자) */
+/** 결재 권한 (회장/부장/최고관리자 또는 팀장 — 팀장은 셀장보고서만) */
 export function canApprove(role: string): boolean {
-  return ['super_admin', 'president', 'accountant'].includes(role)
+  return ['super_admin', 'president', 'accountant', 'team_leader'].includes(role)
 }
 
 /** 팀장 여부 확인 */

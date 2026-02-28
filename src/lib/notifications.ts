@@ -58,6 +58,7 @@ interface ApprovalNotificationParams {
   departmentName: string
   reportType: string
   authorId: string
+  reportDepartmentId?: string
 }
 
 /**
@@ -144,7 +145,7 @@ export async function createApprovalNotification(
   supabase: SupabaseClient,
   params: ApprovalNotificationParams
 ): Promise<boolean> {
-  const { reportId, toStatus, departmentName, reportType, authorId } = params
+  const { reportId, toStatus, departmentName, reportType, authorId, reportDepartmentId } = params
 
   // 알림 메시지 템플릿 가져오기
   const template = NOTIFICATION_MESSAGES[toStatus]
@@ -163,25 +164,38 @@ export async function createApprovalNotification(
   // 링크 생성
   const link = `/reports/${reportId}`
 
-  // 수신자 결정
-  const recipientRole = STATUS_TO_RECIPIENT_ROLE[toStatus]
-  if (!recipientRole) {
-    console.log('No recipient role for status:', toStatus)
-    return true
-  }
-
   let recipientIds: string[] = []
 
-  if (recipientRole === 'author') {
-    // 작성자에게 알림
+  // 셀장보고서: submitted → 해당 부서 팀장에게 알림 (회장 대신)
+  if (reportType === 'cell_leader' && toStatus === 'submitted' && reportDepartmentId) {
+    const { data: teamLeaders } = await supabase
+      .from('user_departments')
+      .select('user_id')
+      .eq('department_id', reportDepartmentId)
+      .eq('is_team_leader', true)
+    recipientIds = teamLeaders?.map((ud: { user_id: string }) => ud.user_id) || []
+  } else if (reportType === 'cell_leader' && toStatus === 'final_approved') {
+    // 셀장보고서 최종승인 → 작성자에게 알림
+    recipientIds = [authorId]
+  } else if (reportType === 'cell_leader' && toStatus === 'rejected') {
     recipientIds = [authorId]
   } else {
-    // 역할별 사용자에게 알림
-    recipientIds = await getRecipientsByRole(supabase, recipientRole)
+    // 기존 결재 흐름 알림
+    const recipientRole = STATUS_TO_RECIPIENT_ROLE[toStatus]
+    if (!recipientRole) {
+      console.log('No recipient role for status:', toStatus)
+      return true
+    }
+
+    if (recipientRole === 'author') {
+      recipientIds = [authorId]
+    } else {
+      recipientIds = await getRecipientsByRole(supabase, recipientRole)
+    }
   }
 
   if (recipientIds.length === 0) {
-    console.log('No recipients found for role:', recipientRole)
+    console.log('No recipients found for status:', toStatus)
     return true
   }
 

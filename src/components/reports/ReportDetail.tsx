@@ -9,6 +9,7 @@ import { useToastContext } from '@/providers/ToastProvider'
 import { useAuth } from '@/providers/AuthProvider'
 import DOMPurify from 'dompurify'
 import { canAccessAllDepartments, canViewReport, canDeleteReport, canEditReport } from '@/lib/permissions'
+import type { UserDepartment } from '@/types/shared'
 import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems, useChangeReportType } from '@/queries/reports'
 import { useCellMembers, useCellAttendanceRecords } from '@/queries/attendance'
 import { escapeHtml, printHtmlInIframe } from '@/lib/utils'
@@ -28,7 +29,24 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = 
 }
 
 /** 결재 단계별 권한 확인 */
-function checkApprovalPermission(userRole: string, reportStatus: string): string | null {
+function checkApprovalPermission(
+  userRole: string,
+  reportStatus: string,
+  reportType?: string,
+  userDepts?: UserDepartment[]
+): string | null {
+  // 셀장보고서: cu1 팀장이 submitted → final_approved 바로 결재
+  if (reportType === 'cell_leader') {
+    if (reportStatus === 'submitted') {
+      const isCu1TeamLeader = userDepts?.some(
+        ud => ud.is_team_leader && ud.departments?.code === 'cu1'
+      )
+      if (isCu1TeamLeader) return 'final'
+    }
+    return null
+  }
+
+  // 기존 결재 흐름 (셀장보고서 제외)
   if (reportStatus === 'submitted') {
     if (userRole === 'president' || userRole === 'super_admin') return 'coordinator'
   }
@@ -198,8 +216,8 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   // 권한 계산
   const userRole = currentUser?.role || ''
   const canApprove = useMemo(
-    () => report ? checkApprovalPermission(userRole, report.status) : null,
-    [userRole, report?.status]
+    () => report ? checkApprovalPermission(userRole, report.status, reportType, currentUser?.user_departments) : null,
+    [userRole, report?.status, reportType, currentUser?.user_departments]
   )
   const canDelete = canAccessAllDepartments(userRole)
 
@@ -313,7 +331,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
       if (updateError) throw updateError
       await Promise.all([
         supabase.from('approval_history').insert({ report_id: report.id, approver_id: currentUser.id, from_status: report.status, to_status: newStatus, comment }),
-        createApprovalNotification(supabase, { reportId: report.id, fromStatus: report.status, toStatus: newStatus, departmentName: report.departments?.name || '', reportType: reportType, authorId: report.author_id }),
+        createApprovalNotification(supabase, { reportId: report.id, fromStatus: report.status, toStatus: newStatus, departmentName: report.departments?.name || '', reportType: reportType, authorId: report.author_id, reportDepartmentId: report.department_id }),
       ])
       await queryClient.invalidateQueries({ queryKey: ['approvals'] })
       await queryClient.invalidateQueries({ queryKey: ['reports'] })
