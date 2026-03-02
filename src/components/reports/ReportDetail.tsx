@@ -34,15 +34,16 @@ function checkApprovalPermission(
   userRole: string,
   reportStatus: string,
   reportType?: string,
-  userDepts?: UserDepartment[]
+  userDepts?: UserDepartment[],
+  reportDeptId?: string
 ): string | null {
-  // 셀장보고서: cu1 팀장이 submitted → final_approved 바로 결재
+  // 1. 셀장보고서 전용: 소속 부서의 부서장(is_team_leader)이 즉시 최종 승인
   if (reportType === 'cell_leader') {
     if (reportStatus === 'submitted') {
-      const isCu1TeamLeader = userDepts?.some(
-        ud => ud.is_team_leader && ud.departments?.code === 'cu1'
+      const isDeptHeadOfThisDept = userDepts?.some(
+        ud => ud.is_team_leader && ud.department_id === reportDeptId
       )
-      if (isCu1TeamLeader) return 'final'
+      if (isDeptHeadOfThisDept) return 'final'
     }
     return null
   }
@@ -217,8 +218,8 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   // 권한 계산
   const userRole = currentUser?.role || ''
   const canApprove = useMemo(
-    () => report ? checkApprovalPermission(userRole, report.status, reportType, currentUser?.user_departments) : null,
-    [userRole, report?.status, reportType, currentUser?.user_departments]
+    () => report ? checkApprovalPermission(userRole, report.status, reportType, currentUser?.user_departments, report.department_id) : null,
+    [userRole, report?.status, reportType, currentUser?.user_departments, report?.department_id]
   )
   const canDelete = canAccessAllDepartments(userRole)
 
@@ -473,12 +474,24 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
       {/* 결재 현황 */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
         <h2 className="font-semibold text-gray-900 mb-4 text-sm lg:text-base">결재 진행 현황</h2>
-        <div className="lg:hidden">
-          <div className="relative"><div className="absolute left-4 top-4 bottom-4 w-0.5 bg-gray-200" /><div className="space-y-4"><ApprovalStepVertical label="팀장 제출" status={report.status !== 'draft' ? 'completed' : 'pending'} name={report.users?.name} date={report.submitted_at} /><ApprovalStepVertical label="회장 협조" status={['coordinator_reviewed', 'manager_approved', 'final_approved'].includes(report.status) ? 'completed' : report.status === 'submitted' ? 'current' : 'pending'} name={report.coordinator?.name} date={report.coordinator_reviewed_at} /><ApprovalStepVertical label="부장 결재" status={['manager_approved', 'final_approved'].includes(report.status) ? 'completed' : report.status === 'coordinator_reviewed' ? 'current' : 'pending'} name={report.manager?.name} date={report.manager_approved_at} /><ApprovalStepVertical label="목사 확인" status={report.status === 'final_approved' ? 'completed' : report.status === 'manager_approved' ? 'current' : 'pending'} name={report.final_approver?.name} date={report.final_approved_at} /></div></div>
-        </div>
-        <div className="hidden lg:flex items-center justify-between">
-          <ApprovalStep label="팀장 제출" status={report.status !== 'draft' ? 'completed' : 'pending'} name={report.users?.name} date={report.submitted_at} /><div className="flex-1 h-1 bg-gray-200 mx-3"><div className={`h-full bg-blue-500 transition-all ${['coordinator_reviewed', 'manager_approved', 'final_approved'].includes(report.status) ? 'w-full' : report.status === 'submitted' ? 'w-1/2' : 'w-0'}`} /></div><ApprovalStep label="회장 협조" status={['coordinator_reviewed', 'manager_approved', 'final_approved'].includes(report.status) ? 'completed' : report.status === 'submitted' ? 'current' : 'pending'} name={report.coordinator?.name} date={report.coordinator_reviewed_at} /><div className="flex-1 h-1 bg-gray-200 mx-3"><div className={`h-full bg-blue-500 transition-all ${['manager_approved', 'final_approved'].includes(report.status) ? 'w-full' : report.status === 'coordinator_reviewed' ? 'w-1/2' : 'w-0'}`} /></div><ApprovalStep label="부장 결재" status={['manager_approved', 'final_approved'].includes(report.status) ? 'completed' : report.status === 'coordinator_reviewed' ? 'current' : 'pending'} name={report.manager?.name} date={report.manager_approved_at} /><div className="flex-1 h-1 bg-gray-200 mx-3"><div className={`h-full bg-blue-500 transition-all ${report.status === 'final_approved' ? 'w-full' : report.status === 'manager_approved' ? 'w-1/2' : 'w-0'}`} /></div><ApprovalStep label="목사 확인" status={report.status === 'final_approved' ? 'completed' : report.status === 'manager_approved' ? 'current' : 'pending'} name={report.final_approver?.name} date={report.final_approved_at} />
-        </div>
+        {reportType === 'cell_leader' ? (
+          /* 셀장보고서 전용 간단한 결재선 */
+          <div className="flex items-center justify-between max-w-sm mx-auto">
+            <ApprovalStep label="셀장 제출" status={report.status !== 'draft' ? 'completed' : 'pending'} name={report.users?.name} date={report.submitted_at} />
+            <div className="flex-1 h-1 bg-gray-200 mx-3"><div className={`h-full bg-blue-500 transition-all ${report.status === 'final_approved' ? 'w-full' : report.status === 'submitted' ? 'w-1/2' : 'w-0'}`} /></div>
+            <ApprovalStep label="팀장 확인" status={report.status === 'final_approved' ? 'completed' : report.status === 'submitted' ? 'current' : 'pending'} name={report.final_approver?.name} date={report.final_approved_at} />
+          </div>
+        ) : (
+          /* 기존 4단계 결재선 */
+          <>
+            <div className="lg:hidden">
+              <div className="relative"><div className="absolute left-4 top-4 bottom-4 w-0.5 bg-gray-200" /><div className="space-y-4"><ApprovalStepVertical label="팀장 제출" status={report.status !== 'draft' ? 'completed' : 'pending'} name={report.users?.name} date={report.submitted_at} /><ApprovalStepVertical label="회장 협조" status={['coordinator_reviewed', 'manager_approved', 'final_approved'].includes(report.status) ? 'completed' : report.status === 'submitted' ? 'current' : 'pending'} name={report.coordinator?.name} date={report.coordinator_reviewed_at} /><ApprovalStepVertical label="부장 결재" status={['manager_approved', 'final_approved'].includes(report.status) ? 'completed' : report.status === 'coordinator_reviewed' ? 'current' : 'pending'} name={report.manager?.name} date={report.manager_approved_at} /><ApprovalStepVertical label="목사 확인" status={report.status === 'final_approved' ? 'completed' : report.status === 'manager_approved' ? 'current' : 'pending'} name={report.final_approver?.name} date={report.final_approved_at} /></div></div>
+            </div>
+            <div className="hidden lg:flex items-center justify-between">
+              <ApprovalStep label="팀장 제출" status={report.status !== 'draft' ? 'completed' : 'pending'} name={report.users?.name} date={report.submitted_at} /><div className="flex-1 h-1 bg-gray-200 mx-3"><div className={`h-full bg-blue-500 transition-all ${['coordinator_reviewed', 'manager_approved', 'final_approved'].includes(report.status) ? 'w-full' : report.status === 'submitted' ? 'w-1/2' : 'w-0'}`} /></div><ApprovalStep label="회장 협조" status={['coordinator_reviewed', 'manager_approved', 'final_approved'].includes(report.status) ? 'completed' : report.status === 'submitted' ? 'current' : 'pending'} name={report.coordinator?.name} date={report.coordinator_reviewed_at} /><div className="flex-1 h-1 bg-gray-200 mx-3"><div className={`h-full bg-blue-500 transition-all ${['manager_approved', 'final_approved'].includes(report.status) ? 'w-full' : report.status === 'coordinator_reviewed' ? 'w-1/2' : 'w-0'}`} /></div><ApprovalStep label="부장 결재" status={['manager_approved', 'final_approved'].includes(report.status) ? 'completed' : report.status === 'coordinator_reviewed' ? 'current' : 'pending'} name={report.manager?.name} date={report.manager_approved_at} /><div className="flex-1 h-1 bg-gray-200 mx-3"><div className={`h-full bg-blue-500 transition-all ${report.status === 'final_approved' ? 'w-full' : report.status === 'manager_approved' ? 'w-1/2' : 'w-0'}`} /></div><ApprovalStep label="목사 확인" status={report.status === 'final_approved' ? 'completed' : report.status === 'manager_approved' ? 'current' : 'pending'} name={report.final_approver?.name} date={report.final_approved_at} />
+            </div>
+          </>
+        )}
         {canApprove && (
           <div className="flex gap-3 mt-5 pt-5 border-t border-gray-100"><button disabled={loading} onClick={() => { setApprovalAction('reject'); setShowApprovalModal(true) }} className="flex-1 py-3 border border-red-200 text-red-600 rounded-xl font-medium hover:bg-red-50 transition-colors text-sm lg:text-base">반려</button><button disabled={loading} onClick={() => { setApprovalAction('approve'); setShowApprovalModal(true) }} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors text-sm lg:text-base">{canApprove === 'coordinator' ? '협조' : canApprove === 'manager' ? '결재' : '확인'}</button></div>
         )}
@@ -496,7 +509,87 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         </div>
       )}
 
-      {/* 모달들 (Cancel, Delete, TypeChange, Print) 생략... */}
+      {/* 제출 취소 모달 */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full lg:max-w-md p-5 lg:p-6 animate-slide-up text-center">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">제출 취소</h3>
+            <p className="text-sm text-gray-500 mb-6">제출된 보고서를 다시 작성중 상태로 돌리시겠습니까?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowCancelModal(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">아니오</button>
+              <button onClick={handleCancelSubmission} disabled={loading} className="flex-1 py-3 bg-orange-600 text-white rounded-xl font-medium hover:bg-orange-700 transition-colors disabled:opacity-50">예, 취소합니다</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 삭제 확인 모달 */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full lg:max-w-md p-5 lg:p-6 animate-slide-up text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">보고서 삭제</h3>
+            <p className="text-sm text-gray-500 mb-6">정말로 이 보고서를 삭제하시겠습니까? 삭제된 보고서는 복구할 수 없습니다.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">취소</button>
+              <button onClick={handleDelete} disabled={loading} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors disabled:opacity-50">삭제</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 타입 변경 모달 */}
+      {showTypeChangeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full lg:max-w-md p-5 lg:p-6 animate-slide-up">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">보고서 타입 변경</h3>
+            <div className="space-y-2 mb-6">
+              {(Object.entries(REPORT_TYPE_CONFIG) as [ReportType, any][]).map(([type, config]) => (
+                <button
+                  key={type}
+                  onClick={() => setNewReportType(type)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${newReportType === type ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:bg-gray-50'}`}
+                >
+                  <span className="text-xl">{config.icon}</span>
+                  <span className={`font-medium ${newReportType === type ? 'text-blue-700' : 'text-gray-700'}`}>{config.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowTypeChangeModal(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">취소</button>
+              <button onClick={handleChangeType} disabled={loading || changeReportType.isPending} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50">변경하기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 인쇄 옵션 모달 */}
+      {showPrintOptions && (
+        <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full lg:max-w-md p-5 lg:p-6 animate-slide-up">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">인쇄 설정</h3>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">프린터 IP (필요시)</label>
+              <input
+                type="text"
+                value={printerIP}
+                onChange={(e) => {
+                  setPrinterIP(e.target.value)
+                  localStorage.setItem('printerIP', e.target.value)
+                }}
+                placeholder="예: 192.168.0.10"
+                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-base"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowPrintOptions(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">취소</button>
+              <button onClick={() => handlePrint()} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors">인쇄 실행</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

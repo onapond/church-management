@@ -21,9 +21,39 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = 
 
 export default function NewReportPage() {
   const searchParams = useSearchParams()
-  const reportType = (searchParams.get('type') as ReportType) || 'weekly'
   const { user } = useAuth()
   const { data: allDepartments = [], isLoading: deptsLoading } = useDepartments()
+
+  // 작성 가능 부서 (관리자: 전체, 팀장: is_team_leader=true인 부서만)
+  const { canWrite, departments, isDeptHead } = useMemo(() => {
+    if (!user) return { canWrite: false, departments: [], isDeptHead: false }
+
+    const adminRoles = ['super_admin', 'president', 'accountant']
+    const isAdmin = checkAdmin(user.role) || adminRoles.includes(user.role)
+    const isDeptHead = user.user_departments?.some((ud: { is_team_leader: boolean }) => ud.is_team_leader)
+
+    if (!isAdmin && !isDeptHead && user.role !== 'team_leader') {
+      return { canWrite: false, departments: [], isDeptHead: false }
+    }
+
+    if (isAdmin) {
+      return { canWrite: true, departments: allDepartments.map(d => ({ id: d.id, name: d.name, code: d.code })), isDeptHead: true }
+    }
+
+    // 부서장: is_team_leader=true인 부서만
+    if (isDeptHead) {
+      const depts = user.user_departments
+        ?.filter((ud: { is_team_leader: boolean }) => ud.is_team_leader)
+        .map((ud: { departments: { id: string; name: string; code: string } }) => ud.departments) || []
+      return { canWrite: true, departments: depts, isDeptHead: true }
+    }
+
+    // 일반 셀장 (role=team_leader, but isDeptHead=false): 소속 부서만
+    const cellDepts = user.user_departments?.map((ud: any) => ud.departments) || []
+    return { canWrite: true, departments: cellDepts, isDeptHead: false }
+  }, [user, allDepartments])
+
+  const reportType = (searchParams.get('type') as ReportType) || (isDeptHead ? 'weekly' : 'cell_leader')
 
   // 이번 주 일요일
   const now = new Date()
@@ -33,29 +63,6 @@ export default function NewReportPage() {
 
   // 주차 계산 (일요일 기준)
   const weekNumber = getWeekNumber(sundayStr)
-
-  // 작성 가능 부서 (관리자: 전체, 팀장: is_team_leader=true인 부서만)
-  const { canWrite, departments } = useMemo(() => {
-    if (!user) return { canWrite: false, departments: [] }
-
-    const adminRoles = ['super_admin', 'president', 'accountant', 'team_leader']
-    const admin = checkAdmin(user.role) || adminRoles.includes(user.role)
-    const isTeamLeader = user.user_departments?.some((ud: { is_team_leader: boolean }) => ud.is_team_leader)
-
-    if (!admin && !isTeamLeader) {
-      return { canWrite: false, departments: [] }
-    }
-
-    if (admin) {
-      return { canWrite: true, departments: allDepartments.map(d => ({ id: d.id, name: d.name, code: d.code })) }
-    }
-
-    // 팀장: is_team_leader=true인 부서만
-    const depts = user.user_departments
-      ?.filter((ud: { is_team_leader: boolean }) => ud.is_team_leader)
-      .map((ud: { departments: { id: string; name: string; code: string } }) => ud.departments) || []
-    return { canWrite: true, departments: depts }
-  }, [user, allDepartments])
 
   // 로딩 상태
   if (!user || deptsLoading) {

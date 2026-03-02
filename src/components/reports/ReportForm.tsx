@@ -709,23 +709,38 @@ export default function ReportForm({
             return
           }
         } else {
-          // 주차 보고서 외의 유형에 대해서도 동일 날짜/부서/유형 중복 체크
-          const { data: existing, error: checkError } = await supabase
+          // 주차 보고서 외의 유형에 대해서도 중복 체크
+          // 셀장 보고서: 부서/날짜/셀ID 기준
+          // 심방/모임/교육/프로젝트: 부서/날짜/작성자/제목 기준 (여러 건 가능하도록)
+          let query = supabase
             .from('weekly_reports')
             .select('id, status, meeting_title')
             .eq('department_id', form.department_id)
             .eq('report_date', form.report_date)
             .eq('report_type', reportType)
-            .maybeSingle()
+
+          if (reportType === 'cell_leader') {
+            if (selectedCellId) {
+              query = query.eq('cell_id', selectedCellId)
+            } else {
+              // 셀 선택이 안 된 경우 작성자 기준으로라도 체크
+              query = query.eq('author_id', authorId)
+            }
+          } else {
+            // 다른 유형들은 동일 제목/작성자의 중복 제출만 방지
+            query = query.eq('author_id', authorId).eq('meeting_title', form.meeting_title)
+          }
+
+          const { data: existing, error: checkError } = await query.maybeSingle()
             
           if (checkError) console.error('중복 체크 오류:', checkError)
 
           if (existing) {
             const typeLabel = REPORT_TYPE_LABELS[reportType]
-            setError(`이미 해당 날짜에 동일한 ${typeLabel}가 존재합니다.`)
+            setError(`이미 동일한 내용의 ${typeLabel}가 존재합니다.`)
             setExistingReportId(existing.id)
             setExistingReportStatus(existing.status)
-            toast.warning(`이미 해당 날짜에 동일한 ${typeLabel}가 존재합니다.`)
+            toast.warning(`이미 동일한 내용의 ${typeLabel}가 존재합니다.`)
             setLoading(false)
             return
           }

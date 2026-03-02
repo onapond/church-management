@@ -18,12 +18,19 @@ export default function DashboardContent() {
   const { user } = useAuth()
   const userRole = user?.role || ''
   const userDeptIds = useMemo(() => getAccessibleDepartmentIds(user), [user])
-  const isTeamLeader = user?.user_departments?.some((ud) => ud.is_team_leader)
   const userDeptName = user?.user_departments?.[0]?.departments?.name || ''
+  const canWrite = useMemo(() => {
+    if (!user) return false
+    const adminRoles = ['super_admin', 'president', 'accountant']
+    if (adminRoles.includes(user.role)) return true
+    return user.role === 'team_leader' || user.user_departments?.some((ud: any) => ud.is_team_leader)
+  }, [user])
+  const isDeptHead = user?.user_departments?.some((ud) => ud.is_team_leader)
+  const defaultReportType = isDeptHead ? 'weekly' : 'cell_leader'
 
   const { data: recentReports = [] } = useRecentReports()
   const { data: thisWeekReport } = useThisWeekReport(user?.id)
-  const { data: pendingReports = [] } = useDashboardPending(userRole)
+  const { data: pendingReports = [] } = useDashboardPending(userRole, user?.user_departments)
   const { data: thisWeekStats = { total: 0, worship: 0, meeting: 0 } } = useThisWeekStats(userDeptIds)
 
   const today = new Date()
@@ -168,9 +175,9 @@ export default function DashboardContent() {
           <p className="text-xs lg:text-sm text-gray-500 mt-0.5">출석 체크</p>
         </Link>
 
-        {isTeamLeader && (
+        {canWrite && (
           <Link
-            href="/reports/new"
+            href={`/reports/new?type=${defaultReportType}`}
             className="bg-white rounded-xl p-4 lg:p-5 shadow-sm hover:shadow-md active:bg-gray-50 transition-all border border-gray-100 relative"
           >
             {!thisWeekReport && (

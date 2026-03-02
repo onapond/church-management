@@ -108,12 +108,12 @@ export function canViewAllReports(user: UserData | null): boolean {
  * - 작성자: 항상 가능 (임시저장 포함)
  * - 관리자/결재자 (super_admin, president, accountant): 모든 보고서
  * - 팀장 (is_team_leader=true): 모든 보고서
- * - 셀장 (role=team_leader, is_team_leader=false): 소속 부서 보고서만
+ * - 셀장 (role=team_leader, is_team_leader=false): 소속 부서의 '셀장 보고서' 및 '주차 보고서'만
  * - 일반 멤버: 본인 보고서만
  */
 export function canViewReport(
   user: UserData | null,
-  report: { author_id: string; department_id: string; status?: string },
+  report: { author_id: string; department_id: string; status?: string; report_type?: string },
   _authorIsTeamLeader?: boolean // 하위 호환성을 위해 유지
 ): boolean {
   if (!user) return false
@@ -124,18 +124,23 @@ export function canViewReport(
   // 2. 임시저장(draft)은 작성자만
   if (report.status === 'draft') return false
 
-  // 3. 관리자/결재자 → 모든 보고서
+  // 3. 관리자/결재자 (회장, 부장, 관리자) → 모든 보고서
   if (canAccessAllDepartments(user.role)) return true
 
-  // 4. 팀장 → 모든 보고서
+  // 4. 부서장 (is_team_leader=true) → 모든 보고서
   if (user.user_departments?.some(ud => ud.is_team_leader)) return true
 
-  // 5. 셀장 (role=team_leader) → 소속 부서 보고서만
+  // 5. 셀장 (role=team_leader, is_team_leader=false)
   if (user.role === 'team_leader') {
     const deptIds = user.user_departments?.map(ud => ud.department_id) || []
-    return deptIds.includes(report.department_id)
+    const isSameDept = deptIds.includes(report.department_id)
+    
+    if (isSameDept) {
+      // 주차(weekly) 보고서와 모든 셀장(cell_leader) 보고서는 부서 내에서 공유
+      return report.report_type === 'weekly' || report.report_type === 'cell_leader'
+    }
   }
 
-  // 6. 일반 멤버 → 본인 보고서만 (위에서 author_id 체크로 이미 처리됨)
+  // 6. 일반 멤버 → 본인 보고서만 (이미 1번에서 처리됨)
   return false
 }

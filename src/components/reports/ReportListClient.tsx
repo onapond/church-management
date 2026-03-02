@@ -53,6 +53,7 @@ export default function ReportListClient() {
         author_id: report.author_id,
         department_id: report.department_id,
         status: report.status,
+        report_type: report.report_type,
       })
     )
   }, [reports, user])

@@ -52,9 +52,9 @@ export function useThisWeekReport(userId: string | undefined) {
 }
 
 /** 역할별 결재 대기 보고서 */
-export function useDashboardPending(userRole: string | undefined) {
+export function useDashboardPending(userRole: string | undefined, userDepts?: any[]) {
   return useQuery({
-    queryKey: ['dashboard', 'pending', userRole, 'v2'], // 키 변경으로 캐시 무효화
+    queryKey: ['dashboard', 'pending', userRole, 'v3'], // 키 변경으로 캐시 무효화
     queryFn: async (): Promise<ReportSummary[]> => {
       if (!userRole) return []
 
@@ -63,11 +63,28 @@ export function useDashboardPending(userRole: string | undefined) {
         .select('*, departments(name), users!weekly_reports_author_id_fkey(name)')
 
       if (userRole === 'super_admin') {
-        query = query.in('status', ['submitted', 'coordinator_reviewed', 'manager_approved'])
+        // 관리자: 모든 유형의 결재 대기 (단, 셀장보고서는 팀장 승인 후 넘지 않도록 이미 usePendingReports에서 걸렀으므로 여기도 동일하게 적용)
+        query = query
+          .in('status', ['submitted', 'coordinator_reviewed', 'manager_approved'])
+          .neq('report_type', 'cell_leader')
       } else if (userRole === 'president') {
-        query = query.eq('status', 'submitted')
+        query = query
+          .eq('status', 'submitted')
+          .neq('report_type', 'cell_leader')
       } else if (userRole === 'accountant') {
-        query = query.eq('status', 'coordinator_reviewed')
+        query = query
+          .eq('status', 'coordinator_reviewed')
+          .neq('report_type', 'cell_leader')
+      } else if (userRole === 'team_leader') {
+        // 부서장(팀장): 자기 부서의 셀장보고서(submitted)만
+        const teamLeaderDeptIds = userDepts
+          ?.filter(ud => ud.is_team_leader)
+          .map(ud => ud.department_id) || []
+        if (teamLeaderDeptIds.length === 0) return []
+        query = query
+          .eq('report_type', 'cell_leader')
+          .eq('status', 'submitted')
+          .in('department_id', teamLeaderDeptIds)
       } else {
         return []
       }
