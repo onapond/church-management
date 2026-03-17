@@ -166,6 +166,34 @@ export interface Database {
           }
         Update: Partial<Database['public']['Tables']['weekly_reports']['Insert']>
       }
+      meetings: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          department_id: string
+          meeting_date: string
+          location: string | null
+          created_by: string
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['meetings']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['meetings']['Insert']>
+      }
+      meeting_minutes: {
+        Row: {
+          id: string
+          meeting_id: string
+          discussion_notes: string | null
+          decisions: string | null
+          handoff_notes: string | null
+          updated_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['meeting_minutes']['Row'], 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Database['public']['Tables']['meeting_minutes']['Insert']>
+      }
       approval_history: {
         Row: {
           id: string
@@ -375,6 +403,8 @@ export type User = Database['public']['Tables']['users']['Row']
 export type Member = Database['public']['Tables']['members']['Row']
 export type MemberDepartment = Database['public']['Tables']['member_departments']['Row']
 export type WeeklyReport = Database['public']['Tables']['weekly_reports']['Row']
+export type Meeting = Database['public']['Tables']['meetings']['Row']
+export type MeetingMinutes = Database['public']['Tables']['meeting_minutes']['Row']
 export type AttendanceRecord = Database['public']['Tables']['attendance_records']['Row']
 export type Newcomer = Database['public']['Tables']['newcomers']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
@@ -403,6 +433,15 @@ export type Visitation = Database['public']['Tables']['visitations']['Row']
 export type ExpenseRequest = Database['public']['Tables']['expense_requests']['Row']
 export type ExpenseItem = Database['public']['Tables']['expense_items']['Row']
 export type AccountingRecord = Database['public']['Tables']['accounting_records']['Row']
+
+export interface MeetingWithDetails extends Meeting {
+  departments?: { id: string; name: string } | null
+  users?: { name: string } | null
+}
+
+export interface MeetingMinutesWithDetails extends MeetingMinutes {
+  users?: { name: string } | null
+}
 
 // 지출결의서 + 항목 조인 타입
 export interface ExpenseRequestWithItems extends ExpenseRequest {

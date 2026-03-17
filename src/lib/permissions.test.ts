@@ -5,6 +5,9 @@ import {
   canAccessAllDepartments,
   canAccessAccounting,
   canWriteReport,
+  canCreateMeeting,
+  canEditMeetingContent,
+  canViewMeeting,
   canEditMembers,
   canApprove,
   isTeamLeader,
@@ -94,6 +97,58 @@ describe('canWriteReport', () => {
 
   it('일반 회원은 작성 불가', () => {
     expect(canWriteReport(createUser())).toBe(false)
+  })
+})
+
+describe('canCreateMeeting', () => {
+  it('super_admin은 회의 생성 가능', () => {
+    expect(canCreateMeeting(createUser({ role: 'super_admin' }))).toBe(true)
+  })
+
+  it('president는 회의 생성 가능', () => {
+    expect(canCreateMeeting(createUser({ role: 'president' }))).toBe(true)
+  })
+
+  it('team_leader는 회의 생성 가능', () => {
+    expect(canCreateMeeting(createUser({ role: 'team_leader' }))).toBe(true)
+  })
+
+  it('member는 회의 생성 불가', () => {
+    expect(canCreateMeeting(createUser({ role: 'member' }))).toBe(false)
+  })
+})
+
+describe('canViewMeeting', () => {
+  it('활성 사용자면 회의 열람 가능', () => {
+    expect(canViewMeeting(createUser({ is_active: true }))).toBe(true)
+  })
+
+  it('비활성 사용자는 회의 열람 불가', () => {
+    expect(canViewMeeting(createUser({ is_active: false }))).toBe(false)
+  })
+})
+
+describe('canEditMeetingContent', () => {
+  it('president can edit meeting content', () => {
+    expect(canEditMeetingContent(createUser({ role: 'president' }))).toBe(true)
+  })
+
+  it('member cannot edit meeting content', () => {
+    expect(canEditMeetingContent(createUser({ role: 'member' }))).toBe(false)
+  })
+
+  it('team leader can edit meeting content only for led departments', () => {
+    const user = createUser({
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-1',
+        is_team_leader: true,
+        departments: { id: 'dept-1', name: 'CU1부', code: 'cu1' },
+      }],
+    })
+
+    expect(canEditMeetingContent(user, 'dept-1')).toBe(true)
+    expect(canEditMeetingContent(user, 'dept-2')).toBe(false)
   })
 })
 

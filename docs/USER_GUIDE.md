@@ -172,6 +172,48 @@
 
 ---
 
+## 5-4. 회의
+
+회의 메뉴는 부서별 회의 기록을 남기는 기본 기능입니다.
+
+### 회의 목록 보기
+
+1. 메뉴에서 **"회의"**를 누릅니다.
+2. 최근 회의가 최신순으로 표시됩니다.
+3. 각 항목에서 제목, 부서, 회의일, 작성자를 확인할 수 있습니다.
+4. 항목을 누르면 상세 페이지로 이동합니다.
+
+### 회의 등록
+
+- **등록 가능 역할**: 최고관리자, 회장, 팀장
+
+1. 회의 목록에서 **"새 회의"** 버튼을 누릅니다.
+2. 아래 항목을 입력합니다.
+   - 회의 제목
+   - 부서
+   - 회의 일시
+   - 장소
+   - 회의 노트
+3. **"저장"** 버튼을 누르면 회의가 등록됩니다.
+
+### 회의 상세
+
+회의 상세 페이지에서는 아래 정보를 확인할 수 있습니다.
+
+- 회의 제목
+- 부서
+- 회의 일시
+- 장소
+- 회의 노트
+
+추후 아래 항목이 추가될 예정입니다.
+
+- 결정사항
+- Task 연결
+- AI 요약
+
+---
+
 ## 6. 교인 명단
 
 ### 교인 목록 보기
@@ -403,3 +445,10 @@
 
 ### Q: 여러 부서에 소속될 수 있나요?
 **A:** 네, 교인은 여러 부서에 동시에 소속될 수 있습니다. 등록 시 여러 부서를 체크하고, **주 소속 부서**를 하나 지정하면 됩니다. 주 소속 부서는 파란색 태그로 표시됩니다.
+
+## Meeting Minutes (2026-03-15)
+- Open a meeting detail page to view structured sections for Discussion Notes, Decisions, and Handoff Notes.
+- Leaders who can create meetings can also edit these sections and save them with an explicit Save Minutes button.
+- General members can view the saved structured content in read-only mode.
+- Team leaders can edit only meetings for departments they lead; other departments remain view-only.
+

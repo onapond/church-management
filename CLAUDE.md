@@ -27,7 +27,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - [05-components.md](docs/status/05-components.md) - 컴포넌트 구조
 - [06-api.md](docs/status/06-api.md) - API, 유틸리티
 
-## 컨텍스트 관리 규칙
+## 컨텍스트 관리 및 문서화 규칙 (필수)
+
+**모든 주요 작업(기능 구현, 버그 수정, 아키텍처 변경 등) 완료 후에는 아래 4개의 핵심 문서를 반드시 최신화해야 합니다:**
+1.  **`PROJECT_CONTEXT.md`**: 최근 작업 내역, 현재 시스템 상태 및 중단 지점 요약
+2.  **`CLAUDE.md`**: 변경된 개발 규칙, 배포 프로세스 및 새로운 기술적 결정사항 반영
+3.  **`docs/TECHNICAL_SPEC.md`**: 수정된 DB 스키마(ERD), API 엔드포인트, 권한 로직 등 기술 명세 업데이트
+4.  **`docs/USER_GUIDE.md`**: 추가되거나 변경된 기능에 대한 사용자 메뉴얼 업데이트
 
 **컨텍스트가 90% 이상 사용되기 전에** `.claude/session-notes.md`에 작업 내역 요약:
 - 완료된 작업, 진행 중인 작업 (중단 지점 명시)
@@ -112,6 +118,7 @@ npx vercel --prod
 ## 주요 테이블
 - `users`: 사용자 (역할: super_admin, president, accountant, team_leader, member)
 - `departments`: 부서 (ck, cu_worship, youth, cu1, cu2, leader)
+- `meetings`: 회의 기본 정보 (title, description, department_id, meeting_date, location)
 - `members`: 교인 명단
 - `weekly_reports`: 보고서 (weekly, meeting, education)
 - `attendance_records`: 출결 기록
@@ -147,3 +154,10 @@ npx vercel --prod    # Vercel 프로덕션 배포
 - Supabase 클라이언트 싱글톤, Optimistic Updates
 - Recharts 동적 임포트, URL searchParams 파생 상태
 - 리스트 `useMemo`, 이벤트 `useCallback`, 모달 `memo` 분리
+
+## 2026-03-15 Notes
+- Meeting detail now supports structured minutes editing through a separate \\meeting_minutes\\ table.
+- Keep meeting metadata in \\meetings\\ and operational content in \\meeting_minutes\\ for additive expansion toward tasks and AI plugins.
+- Supabase MCP verification confirmed tables and RLS policies, but remote migration history was not updated by the direct MCP SQL execution path.
+- Frontend meeting minutes edit permission now mirrors RLS scope: admins can edit any meeting, and team leaders can edit only meetings in departments they lead.
+

@@ -13,6 +13,7 @@
 현재 제공 기능:
 - 출결 관리
 - 주차/모임/교육/셀장 보고서
+- 회의 관리
 - 보고서 결재
 - 교인 관리
 - 회계 관리
@@ -65,6 +66,7 @@
 기존 핵심 도메인:
 - users
 - departments
+- meetings
 - members
 - member_departments
 - cells
@@ -152,6 +154,7 @@ AI 기능은 독립적으로 추가/제거 가능한 컴포넌트다.
 - RLS 유지
 - 모바일 우선
 - 성능/권한/문서 업데이트 함께 처리
+- 회의 기능은 기존 행정 코어와 분리된 additive module로 확장
 
 ## 14. 문서 운영 규칙
 주요 작업 완료 후 반드시 갱신:
@@ -174,3 +177,10 @@ AI 기능은 독립적으로 추가/제거 가능한 컴포넌트다.
 - 배포는 수동 vercel 배포
 - 이메일 인증 대신 관리자 승인 구조 유지
 - 제품명 확장과 현재 운영명 혼동 주의
+
+## 2026-03-15 Update
+- Meeting Management Phase 2 adds a separate \\meeting_minutes\\ table for structured minutes, decisions, and handoff notes.
+- This remains an additive extension to the existing meetings module and does not change attendance, report, or accounting flows.
+- Remote Supabase now has both \\meetings\\ and \\meeting_minutes\\ tables with RLS enabled, verified through MCP.
+- Meeting minutes edit permission is aligned with RLS: `super_admin` and `president` can edit across departments, and `team_leader` can edit only for departments they lead.
+
