@@ -32,29 +32,29 @@ const MINUTES_SECTIONS: Array<{
 }> = [
   {
     key: 'discussion_notes',
-    title: 'Discussion Notes',
-    placeholder: 'Record agenda flow, context, and notable discussion points.',
+    title: '논의 내용',
+    placeholder: '안건 흐름, 배경, 주요 논의 내용을 기록해 주세요.',
   },
   {
     key: 'decisions',
-    title: 'Decisions',
-    placeholder: 'Capture agreed decisions, owners, or next-step agreements.',
+    title: '결정 사항',
+    placeholder: '합의된 결정, 담당자, 다음 단계 약속을 정리해 주세요.',
   },
   {
     key: 'handoff_notes',
-    title: 'Handoff Notes',
-    placeholder: 'Write what should be handed off to the next leader or meeting.',
+    title: '인수인계 메모',
+    placeholder: '다음 리더나 다음 회의로 넘겨야 할 내용을 적어 주세요.',
   },
 ]
 
 const FUTURE_SECTIONS = [
   {
-    title: 'Tasks',
-    description: 'Task linkage stays additive and will be connected in a later phase.',
+    title: '테스크',
+    description: '아직 연결되지 않았습니다. 추후 회의 결정사항과 연동될 예정입니다.',
   },
   {
-    title: 'AI Summary',
-    description: 'AI meeting assistant remains a separate plugin or add-on layer.',
+    title: 'AI 요약',
+    description: '아직 동작하지 않습니다. 추후 별도 플러그인 형태로 추가될 예정입니다.',
   },
 ]
 
@@ -77,7 +77,7 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
 
   async function handleSave() {
     if (!user || !canEdit) {
-      toast.error('You do not have permission to edit meeting minutes.')
+      toast.error('회의록을 수정할 권한이 없습니다.')
       return
     }
 
@@ -89,17 +89,17 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
         handoff_notes: normalizeTextareaValue(form.handoff_notes),
         updated_by: user.id,
       })
-      toast.success('Meeting minutes saved.')
+      toast.success('회의록이 저장되었습니다.')
     } catch (error) {
       console.error('Failed to save meeting minutes:', error)
-      toast.error('Failed to save meeting minutes.')
+      toast.error('회의록 저장 중 오류가 발생했습니다.')
     }
   }
 
   if (!canViewMeeting(user)) {
     return (
       <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6 text-sm text-yellow-700">
-        You do not have permission to view this meeting.
+        이 회의를 조회할 권한이 없습니다.
       </div>
     )
   }
@@ -115,9 +115,9 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
   if (!meeting) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-        <h2 className="text-lg font-semibold text-gray-900">Meeting not found.</h2>
+        <h2 className="text-lg font-semibold text-gray-900">회의를 찾을 수 없습니다.</h2>
         <Link href="/meetings" className="mt-3 inline-block text-sm font-medium text-blue-600 hover:text-blue-700">
-          Back to meetings
+          회의 목록으로
         </Link>
       </div>
     )
@@ -131,35 +131,35 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
             <p className="text-sm font-medium text-blue-600">{meeting.departments?.name || '-'}</p>
             <h1 className="mt-1 text-xl font-bold text-gray-900">{meeting.title}</h1>
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-500">
-              <span>Date: {formatMeetingDate(meeting.meeting_date)}</span>
-              <span>Location: {meeting.location || '-'}</span>
-              <span>Created by: {meeting.users?.name || '-'}</span>
+              <span>일시: {formatMeetingDate(meeting.meeting_date)}</span>
+              <span>장소: {meeting.location || '-'}</span>
+              <span>작성자: {meeting.users?.name || '-'}</span>
             </div>
           </div>
           <Link href="/meetings" className="shrink-0 text-sm font-medium text-blue-600 hover:text-blue-700">
-            List
+            목록
           </Link>
         </div>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-gray-900">Meeting Description</h2>
+        <h2 className="mb-3 text-sm font-semibold text-gray-900">회의 설명</h2>
         <div className="whitespace-pre-wrap rounded-xl bg-gray-50 p-4 text-sm leading-6 text-gray-700">
-          {meeting.description?.trim() || 'No base meeting description was recorded.'}
+          {meeting.description?.trim() || '기본 회의 설명이 아직 없습니다.'}
         </div>
       </div>
 
       <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Structured Minutes</h2>
+            <h2 className="text-base font-semibold text-gray-900">구조화된 회의록</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Operational notes are stored separately so the Phase 1 meeting record stays stable.
+              운영 메모는 별도 테이블에 저장되어 기존 회의 기본 정보 흐름을 유지합니다.
             </p>
           </div>
           <div className="text-xs text-gray-500">
-            {minutes?.updated_at ? `Last saved ${formatUpdatedAt(minutes.updated_at)}` : 'Not saved yet'}
-            {minutes?.users?.name ? ` by ${minutes.users.name}` : ''}
+            {minutes?.updated_at ? `마지막 저장 ${formatUpdatedAt(minutes.updated_at)}` : '아직 저장되지 않음'}
+            {minutes?.users?.name ? ` · ${minutes.users.name}` : ''}
           </div>
         </div>
 
@@ -173,7 +173,7 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
           <div className="mt-6 space-y-5">
             {MINUTES_SECTIONS.map((section) => {
               const value = form[section.key]
-              const readOnlyValue = value.trim() || 'No content yet.'
+              const readOnlyValue = value.trim() || '아직 내용이 없습니다.'
 
               return (
                 <div key={section.key} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
@@ -210,7 +210,7 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
               disabled={upsertMinutes.isPending}
               className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {upsertMinutes.isPending ? 'Saving...' : 'Save Minutes'}
+              {upsertMinutes.isPending ? '저장 중...' : '회의록 저장'}
             </button>
           </div>
         ) : null}
