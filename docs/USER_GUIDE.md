@@ -448,6 +448,7 @@
 
 ## Meeting Minutes (2026-03-15)
 - Open a meeting detail page to view structured sections for Discussion Notes, Decisions, and Handoff Notes.
+- The new meeting form can save the base meeting information and structured minutes in a single submit.
 - Leaders who can create meetings can also edit these sections and save them with an explicit Save Minutes button.
 - General members can view the saved structured content in read-only mode.
 - Team leaders can edit only meetings for departments they lead; other departments remain view-only.
