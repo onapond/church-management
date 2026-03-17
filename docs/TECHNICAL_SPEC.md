@@ -134,4 +134,5 @@ WHERE year = 2026 AND report_type = 'weekly';
 - RLS: authenticated active users can select; leaders/admins with meeting create permission can insert and update minutes for meetings in their scope.
 - UI: meeting detail now reads and upserts structured minutes via TanStack Query without changing Phase 1 meeting routes.
 - Permission alignment: `canEditMeetingContent` is scoped by `department_id` so the client edit state matches remote RLS behavior.
+- Meeting create flow now optionally upserts \\meeting_minutes\\ immediately after the base \\meetings\\ insert, allowing one-submit creation without merging the two tables.
 

@@ -160,4 +160,5 @@ npx vercel --prod    # Vercel 프로덕션 배포
 - Keep meeting metadata in \\meetings\\ and operational content in \\meeting_minutes\\ for additive expansion toward tasks and AI plugins.
 - Supabase MCP verification confirmed tables and RLS policies, but remote migration history was not updated by the direct MCP SQL execution path.
 - Frontend meeting minutes edit permission now mirrors RLS scope: admins can edit any meeting, and team leaders can edit only meetings in departments they lead.
+- New meeting creation was streamlined so users can save the meeting record and structured minutes together from the create form.
 

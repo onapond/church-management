@@ -183,4 +183,5 @@ AI 기능은 독립적으로 추가/제거 가능한 컴포넌트다.
 - This remains an additive extension to the existing meetings module and does not change attendance, report, or accounting flows.
 - Remote Supabase now has both \\meetings\\ and \\meeting_minutes\\ tables with RLS enabled, verified through MCP.
 - Meeting minutes edit permission is aligned with RLS: `super_admin` and `president` can edit across departments, and `team_leader` can edit only for departments they lead.
+- New meeting creation now supports entering base meeting fields and structured minutes in a single submit, while still storing minutes in the separate additive table.
 

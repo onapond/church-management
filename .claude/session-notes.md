@@ -57,4 +57,5 @@
 - Important: remote \\list_migrations\\ still does not show these changes because direct MCP SQL execution was required after \\pply_migration\\ stalled over HTTP.
 - Restored \\canViewReport\\ to the previous department-based behavior and aligned meeting edit permission with department-scoped RLS.
 - Verification now passes locally: \\npm test\\, \\npm run build\\, and \\tsc --noEmit\\ (after build generates \\ .next/types \\).
+- Streamlined the meeting create UX so the initial save can include structured minutes, removing the extra save step after entering the detail page.
 
