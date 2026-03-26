@@ -3,21 +3,19 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { createApprovalNotification } from '@/lib/notifications'
-import { canEditReport } from '@/lib/permissions'
 import { useToastContext } from '@/providers/ToastProvider'
 import dynamic from 'next/dynamic'
 import type { Program, Newcomer, CellAttendance, ProjectContentItem, ProjectScheduleItem, ProjectBudgetItem } from './types'
-import { genKey } from './types'
 import ProgramTable from './ProgramTable'
 import AttendanceInput from './AttendanceInput'
 import NewcomerSection from './NewcomerSection'
 import PhotoUploadSection from './PhotoUploadSection'
 import CellMemberAttendance from './CellMemberAttendance'
-import type { MemberAttendanceItem } from './CellMemberAttendance'
-import { useCells } from '@/queries/departments'
-import { useCellMembers, useCellAttendanceRecords } from '@/queries/attendance'
 import { useQueryClient } from '@tanstack/react-query'
+import { useReportSubmit } from './hooks/useReportSubmit'
+import { useReportForm } from './hooks/useReportForm'
+import type { ReportFormFields } from './utils/reportDataBuilder'
+import type { MemberAttendanceItem } from './CellMemberAttendance'
 
 // 클라이언트 전용 컴포넌트로 동적 import
 const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
@@ -42,6 +40,7 @@ interface ExistingReport {
   id: string
   department_id: string
   author_id: string
+  status: string
   report_date: string
   week_number: number | null
   notes: string | null
@@ -107,6 +106,24 @@ interface ReportFormProps {
   existingReport?: ExistingReport
 }
 
+interface ReportDraftBackup {
+  version: 1
+  updatedAt: number
+  draftReportId: string | null
+  data: {
+    form: ReportFormFields
+    programs: Program[]
+    cellAttendance: CellAttendance[]
+    newcomers: Newcomer[]
+    contentItems: ProjectContentItem[]
+    scheduleItems: ProjectScheduleItem[]
+    budgetItems: ProjectBudgetItem[]
+    enabledSections: ProjectSectionId[]
+    selectedCellId: string
+    memberAttendance: MemberAttendanceItem[]
+  }
+}
+
 const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   weekly: '주차 보고서',
   meeting: '모임 보고서',
@@ -148,6 +165,9 @@ type ProjectSectionId = typeof PROJECT_OPTIONAL_SECTIONS[number]['id']
 // 기본값: 모두 활성
 const ALL_PROJECT_SECTIONS: ProjectSectionId[] = PROJECT_OPTIONAL_SECTIONS.map(s => s.id)
 
+// 프로젝트 섹션 표시 순서 (컴포넌트 외부에서 상수로 정의)
+const PROJECT_SECTION_ORDER: ProjectSectionId[] = ['overview', 'purpose', 'organization', 'content', 'schedule', 'budget']
+
 export default function ReportForm({
   reportType,
   departments,
@@ -162,18 +182,66 @@ export default function ReportForm({
   const toast = useToastContext()
   const queryClient = useQueryClient()
 
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [existingReportId, setExistingReportId] = useState<string | null>(null)
-  const [existingReportStatus, setExistingReportStatus] = useState<string | null>(null)
-
-  // 셀장보고서: 셀 선택 및 셀원 출결 상태
-  const [selectedCellId, setSelectedCellId] = useState<string>(existingReport?.cell_id || '')
-  const [memberAttendance, setMemberAttendance] = useState<MemberAttendanceItem[]>([])
+  const {
+    existingReportId, setExistingReportId,
+    existingReportStatus, setExistingReportStatus,
+    form, setForm,
+    programs, setPrograms, addProgram, removeProgram, updateProgram,
+    cellAttendance, setCellAttendance, addCellAttendance, removeCellAttendance, updateCellAttendance,
+    newcomers, setNewcomers, addNewcomer, removeNewcomer, updateNewcomer,
+    contentItems, setContentItems, addContentItem, removeContentItem, updateContentItem,
+    scheduleItems, setScheduleItems, addScheduleItem, removeScheduleItem, updateScheduleItem,
+    budgetItems, setBudgetItems, addBudgetItem, removeBudgetItem, updateBudgetItem,
+    photoFiles, photoPreviews, handlePhotoAdd, removePhoto,
+    enabledSections, setEnabledSections, isSectionEnabled, toggleSection, toggleAllSections, projNum,
+    selectedCellId, setSelectedCellId, memberAttendance, setMemberAttendance, handleToggleMemberAttendance, handleBulkAttendance, handleCellChange, handleDepartmentChange, cells,
+    attendanceSummary,
+  } = useReportForm({ reportType, departments, defaultDate, editMode, existingReport, supabase, toast })
 
   // 섹션 네비게이션 상태
   const [activeSection, setActiveSection] = useState('basic')
+  const [draftReportId, setDraftReportId] = useState<string | null>(existingReport?.id || null)
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'local' | 'saving' | 'saved' | 'error'>('idle')
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
+  const hasRestoredBackupRef = useRef(false)
+  const lastAutosavedSnapshotRef = useRef('')
+
+  const backupKey = useMemo(() => {
+    const scope = existingReport?.id || `${authorId}:${reportType}:${defaultDate}`
+    return `report-draft:${scope}`
+  }, [authorId, defaultDate, existingReport?.id, reportType])
+
+  const serializableSnapshot = useMemo<ReportDraftBackup>(() => ({
+    version: 1,
+    updatedAt: Date.now(),
+    draftReportId,
+    data: {
+      form,
+      programs,
+      cellAttendance,
+      newcomers,
+      contentItems,
+      scheduleItems,
+      budgetItems,
+      enabledSections,
+      selectedCellId,
+      memberAttendance,
+    },
+  }), [
+    budgetItems,
+    cellAttendance,
+    contentItems,
+    draftReportId,
+    enabledSections,
+    form,
+    memberAttendance,
+    newcomers,
+    programs,
+    scheduleItems,
+    selectedCellId,
+  ])
+
+  const snapshotString = useMemo(() => JSON.stringify(serializableSnapshot.data), [serializableSnapshot.data])
 
   // Intersection Observer로 현재 섹션 감지
   useEffect(() => {
@@ -211,760 +279,128 @@ export default function ReportForm({
     }
   }, [])
 
-  // 사진 업로드 상태
-  const [photoFiles, setPhotoFiles] = useState<File[]>([])
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
-
-  // 기존 데이터에서 notes 파싱
-  const parsedNotes = existingReport?.notes ? JSON.parse(existingReport.notes) : {}
-
-  // 프로젝트 기획서: 선택된 섹션 토글
-  const [enabledSections, setEnabledSections] = useState<ProjectSectionId[]>(
-    parsedNotes.project_sections || ALL_PROJECT_SECTIONS
-  )
-  const isSectionEnabled = useCallback((id: ProjectSectionId) => enabledSections.includes(id), [enabledSections])
-  const toggleSection = useCallback((id: ProjectSectionId) => {
-    setEnabledSections(prev =>
-      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-    )
-  }, [])
-
-  // 프로젝트 섹션 동적 번호 (활성화된 것만 순서대로)
-  const sectionOrder: ProjectSectionId[] = ['overview', 'purpose', 'organization', 'content', 'schedule', 'budget']
-  const projNum = useMemo(() => {
-    const map: Partial<Record<ProjectSectionId, number>> = {}
-    // content/schedule는 하나의 번호를 공유
-    let n = 1
-    for (const id of sectionOrder) {
-      if (!enabledSections.includes(id)) continue
-      if (id === 'schedule' && map['content']) continue // content와 같은 번호
-      map[id] = n
-      if (id === 'content') map['schedule'] = n // schedule도 같은 번호
-      n++
-    }
-    return map
-  }, [enabledSections])
-
-  // 공통 필드
-  const [form, setForm] = useState({
-    department_id: existingReport?.department_id || departments[0]?.id || '',
-    report_date: existingReport?.report_date || defaultDate,
-    // 주차 보고서 전용
-    sermon_title: parsedNotes.sermon_title || '',
-    sermon_scripture: parsedNotes.sermon_scripture || '',
-    // 공통 (논의/기타)
-    discussion_notes: parsedNotes.discussion_notes || '',
-    other_notes: parsedNotes.other_notes || '',
-    // 모임/교육 보고서 전용
-    meeting_title: existingReport?.meeting_title || '',
-    meeting_location: existingReport?.meeting_location || '',
-    attendees: existingReport?.attendees || '',
-    main_content: existingReport?.main_content || '',
-    application_notes: existingReport?.application_notes || '',
-    // 프로젝트 보고서 전용
-    organization: parsedNotes.organization || '',
+  // 제출 (useReportSubmit 훅에 로직 위임)
+  const { submit, saveDraftSnapshot, isLoading: loading, error, clearError: _clearError } = useReportSubmit({
+    supabase,
+    authorId,
+    reportType,
+    departments,
+    weekNumber,
+    editMode,
+    existingReport,
+    form,
+    programs,
+    newcomers,
+    contentItems,
+    scheduleItems,
+    budgetItems,
+    cellAttendance,
+    memberAttendance,
+    selectedCellId,
+    photoFiles,
+    enabledSections,
+    attendanceSummary,
+    toast,
+    queryClient,
+    router,
+    draftReportId,
+    onDuplicateFound: (id, status) => {
+      setExistingReportId(id)
+      setExistingReportStatus(status)
+    },
   })
 
-  // 셀 목록 조회 (셀장보고서일 때만)
-  const { data: cells = [] } = useCells(reportType === 'cell_leader' ? form.department_id : undefined)
-  const { data: cellMembers = [] } = useCellMembers(reportType === 'cell_leader' && selectedCellId ? selectedCellId : undefined)
-  const cellMemberIds = useMemo(() => cellMembers.map(m => m.id), [cellMembers])
-  const { data: cellRecordsData } = useCellAttendanceRecords(
-    editMode && reportType === 'cell_leader' ? cellMemberIds : [],
-    editMode ? form.report_date : ''
-  )
-  const existingCellRecords = useMemo(() => cellRecordsData ?? [], [cellRecordsData])
-
-  // 셀원 목록이 변경되면 출결 상태 초기화
   useEffect(() => {
-    if (reportType !== 'cell_leader' || cellMembers.length === 0) return
+    if (hasRestoredBackupRef.current) return
+    hasRestoredBackupRef.current = true
 
-    const attendanceMap = new Map(existingCellRecords.map(r => [r.member_id, r.is_present]))
-
-    setMemberAttendance(prev => {
-      // 이미 같은 셀원 목록이면 기존 상태 유지 (토글 리셋 방지)
-      if (prev.length === cellMembers.length &&
-          prev.every((m, i) => m.memberId === cellMembers[i]?.id)) {
-        return prev
-      }
-      return cellMembers.map(m => ({
-        memberId: m.id,
-        name: m.name,
-        photoUrl: m.photo_url,
-        isPresent: editMode ? (attendanceMap.get(m.id) ?? false) : false,
-      }))
-    })
-  }, [cellMembers, existingCellRecords, editMode, reportType])
-
-  // 셀원 출석 토글
-  const handleToggleMemberAttendance = useCallback((memberId: string) => {
-    setMemberAttendance(prev =>
-      prev.map(m => m.memberId === memberId ? { ...m, isPresent: !m.isPresent } : m)
-    )
-  }, [])
-
-  // 전체 출석/초기화
-  const handleBulkAttendance = useCallback((allPresent: boolean) => {
-    setMemberAttendance(prev => prev.map(m => ({ ...m, isPresent: allPresent })))
-  }, [])
-
-  // 셀 변경 시 처리
-  const handleCellChange = useCallback((cellId: string) => {
-    setSelectedCellId(cellId)
-    setMemberAttendance([])
-    const cell = cells.find(c => c.id === cellId)
-    if (cell) {
-      setForm(prev => ({ ...prev, meeting_title: `${cell.name} 모임 보고서` }))
-    }
-  }, [cells])
-
-  // 프로그램 초기화 (기존 데이터가 있으면 사용)
-  const initialPrograms: Program[] = existingReport?.programs?.length
-    ? existingReport.programs.map(p => ({
-        _key: genKey(),
-        id: p.id,
-        start_time: p.start_time?.slice(0, 5) || '',
-        end_time: '',
-        content: p.content || '',
-        person_in_charge: p.person_in_charge || '',
-        note: '',
-        order_index: p.order_index,
-      }))
-    : [
-        { _key: genKey(), start_time: '13:30', end_time: '13:40', content: '찬양 및 기도', person_in_charge: '', note: '', order_index: 0 },
-        { _key: genKey(), start_time: '13:40', end_time: '14:00', content: '말씀', person_in_charge: '', note: '', order_index: 1 },
-        { _key: genKey(), start_time: '14:00', end_time: '14:10', content: '광고', person_in_charge: '', note: '', order_index: 2 },
-      ]
-
-  const [programs, setPrograms] = useState<Program[]>(initialPrograms)
-
-  // 셀 출결 초기화
-  const initialCellAttendance: CellAttendance[] = parsedNotes.cell_attendance?.length
-    ? parsedNotes.cell_attendance.map((c: CellAttendance) => ({ ...c, _key: c._key || genKey() }))
-    : [{ _key: genKey(), cell_name: '', registered: 0, worship: 0, meeting: 0, note: '' }]
-
-  const [cellAttendance, setCellAttendance] = useState<CellAttendance[]>(initialCellAttendance)
-
-  // 새신자 초기화
-  const initialNewcomers: Newcomer[] = existingReport?.newcomers?.length
-    ? existingReport.newcomers.map(n => ({
-        _key: genKey(),
-        name: n.name,
-        phone: n.phone || '',
-        birth_date: n.birth_date || '',
-        introducer: n.introducer || '',
-        address: n.address || '',
-        affiliation: n.affiliation || '',
-      }))
-    : []
-
-  const [newcomers, setNewcomers] = useState<Newcomer[]>(initialNewcomers)
-
-  // 프로젝트 보고서: 세부계획 내용 (4열 테이블)
-  const initialContentItems: ProjectContentItem[] = existingReport?.projectContentItems?.length
-    ? existingReport.projectContentItems.map(c => ({
-        _key: genKey(), col1: c.col1 || '', col2: c.col2 || '', col3: c.col3 || '', col4: c.col4 || '', order_index: c.order_index,
-      }))
-    : [{ _key: genKey(), col1: '', col2: '', col3: '', col4: '', order_index: 0 }]
-  const [contentItems, setContentItems] = useState<ProjectContentItem[]>(initialContentItems)
-
-  // 프로젝트 보고서: 세부 일정표
-  const initialScheduleItems: ProjectScheduleItem[] = existingReport?.projectScheduleItems?.length
-    ? existingReport.projectScheduleItems.map(s => ({
-        _key: genKey(), schedule: s.schedule || '', detail: s.detail || '', note: s.note || '', order_index: s.order_index,
-      }))
-    : [{ _key: genKey(), schedule: '', detail: '', note: '', order_index: 0 }]
-  const [scheduleItems, setScheduleItems] = useState<ProjectScheduleItem[]>(initialScheduleItems)
-
-  // 프로젝트 보고서: 예산 (관은 항상 '교육위원회'로 자동 저장)
-  const DEFAULT_BUDGET: ProjectBudgetItem[] = [
-    { _key: genKey(), category: '교육위원회', subcategory: '', item_name: '', basis: '', unit_price: 0, quantity: 1, amount: 0, note: '', order_index: 0 },
-  ]
-  const initialBudgetItems: ProjectBudgetItem[] = existingReport?.projectBudgetItems?.length
-    ? existingReport.projectBudgetItems.map(b => ({
-        _key: genKey(), category: b.category || '', subcategory: b.subcategory || '', item_name: b.item_name || '',
-        basis: b.basis || '', unit_price: b.unit_price ?? b.amount ?? 0, quantity: b.quantity ?? 1,
-        amount: b.amount || 0, note: b.note || '', order_index: b.order_index,
-      }))
-    : DEFAULT_BUDGET
-  const [budgetItems, setBudgetItems] = useState<ProjectBudgetItem[]>(initialBudgetItems)
-
-  const [attendanceSummary, setAttendanceSummary] = useState({
-    total: 0,
-    worship: 0,
-    meeting: 0,
-  })
-
-  // 부서 변경 시 출결 데이터 로드 (주차 보고서만)
-  useEffect(() => {
-    if (reportType !== 'weekly') return
-
-    const loadData = async () => {
-      if (!form.department_id) return
-
-      // member_departments를 통해 해당 부서에 속한 교인 ID 조회
-      const { data: memberDeptData } = await supabase
-        .from('member_departments')
-        .select('member_id')
-        .eq('department_id', form.department_id)
-
-      const memberIds = [...new Set((memberDeptData || []).map((md: { member_id: string }) => md.member_id))]
-
-      if (memberIds.length > 0) {
-        // 활성 교인만 필터링
-        const { data: activeMembers, count } = await supabase
-          .from('members')
-          .select('id', { count: 'exact' })
-          .in('id', memberIds)
-          .eq('is_active', true)
-
-        const activeMemberIds = (activeMembers || []).map((m: { id: string }) => m.id)
-
-        if (activeMemberIds.length > 0) {
-          const { data: attendance } = await supabase
-            .from('attendance_records')
-            .select('*')
-            .eq('attendance_date', form.report_date)
-            .in('member_id', activeMemberIds)
-
-          const worshipCount = attendance?.filter((a: { attendance_type: string; is_present: boolean }) => a.attendance_type === 'worship' && a.is_present).length || 0
-          const meetingCount = attendance?.filter((a: { attendance_type: string; is_present: boolean }) => a.attendance_type === 'meeting' && a.is_present).length || 0
-
-          setAttendanceSummary({
-            total: count || 0,
-            worship: worshipCount,
-            meeting: meetingCount,
-          })
-        } else {
-          setAttendanceSummary({ total: 0, worship: 0, meeting: 0 })
-        }
-      } else {
-        setAttendanceSummary({ total: 0, worship: 0, meeting: 0 })
-      }
-    }
-
-    loadData()
-  }, [form.department_id, form.report_date, supabase, reportType])
-
-  // 프로그램 관리
-  const addProgram = useCallback(() => {
-    setPrograms(prev => [...prev, { _key: genKey(), start_time: '', end_time: '', content: '', person_in_charge: '', note: '', order_index: prev.length }])
-  }, [])
-
-  const removeProgram = useCallback((index: number) => {
-    setPrograms(prev => prev.filter((_, i) => i !== index))
-  }, [])
-
-  const updateProgram = useCallback((index: number, field: keyof Program, value: string | number) => {
-    setPrograms(prev => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)))
-  }, [])
-
-  // 셀 출결 관리
-  const addCellAttendance = useCallback(() => {
-    setCellAttendance(prev => [...prev, { _key: genKey(), cell_name: '', registered: 0, worship: 0, meeting: 0, note: '' }])
-  }, [])
-
-  const removeCellAttendance = useCallback((index: number) => {
-    setCellAttendance(prev => prev.filter((_, i) => i !== index))
-  }, [])
-
-  const updateCellAttendance = useCallback((index: number, field: keyof CellAttendance, value: string | number) => {
-    setCellAttendance(prev => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)))
-  }, [])
-
-  // 새신자 관리
-  const addNewcomer = useCallback(() => {
-    setNewcomers(prev => [...prev, { _key: genKey(), name: '', phone: '', birth_date: '', introducer: '', address: '', affiliation: '' }])
-  }, [])
-
-  const removeNewcomer = useCallback((index: number) => {
-    setNewcomers(prev => prev.filter((_, i) => i !== index))
-  }, [])
-
-  const updateNewcomer = useCallback((index: number, field: keyof Newcomer, value: string) => {
-    setNewcomers(prev => prev.map((n, i) => (i === index ? { ...n, [field]: value } : n)))
-  }, [])
-
-  // 프로젝트: 세부계획 내용 관리
-  const addContentItem = useCallback(() => {
-    setContentItems(prev => [...prev, { _key: genKey(), col1: '', col2: '', col3: '', col4: '', order_index: prev.length }])
-  }, [])
-  const removeContentItem = useCallback((index: number) => {
-    setContentItems(prev => prev.filter((_, i) => i !== index))
-  }, [])
-  const updateContentItem = useCallback((index: number, field: keyof ProjectContentItem, value: string) => {
-    setContentItems(prev => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)))
-  }, [])
-
-  // 프로젝트: 일정표 관리
-  const addScheduleItem = useCallback(() => {
-    setScheduleItems(prev => [...prev, { _key: genKey(), schedule: '', detail: '', note: '', order_index: prev.length }])
-  }, [])
-  const removeScheduleItem = useCallback((index: number) => {
-    setScheduleItems(prev => prev.filter((_, i) => i !== index))
-  }, [])
-  const updateScheduleItem = useCallback((index: number, field: keyof ProjectScheduleItem, value: string) => {
-    setScheduleItems(prev => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)))
-  }, [])
-
-  // 프로젝트: 예산 관리
-  const addBudgetItem = useCallback(() => {
-    setBudgetItems(prev => [...prev, { _key: genKey(), category: '교육위원회', subcategory: '', item_name: '', basis: '', unit_price: 0, quantity: 1, amount: 0, note: '', order_index: prev.length }])
-  }, [])
-  const removeBudgetItem = useCallback((index: number) => {
-    setBudgetItems(prev => prev.filter((_, i) => i !== index))
-  }, [])
-  const updateBudgetItem = useCallback((index: number, field: keyof ProjectBudgetItem, value: string | number) => {
-    setBudgetItems(prev => prev.map((b, i) => (i === index ? { ...b, [field]: value } : b)))
-  }, [])
-
-  // 사진 추가
-  const handlePhotoAdd = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
-
-    // 파일 타입/크기 검증
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-    const MAX_SIZE = 10 * 1024 * 1024 // 10MB
-    for (const f of files) {
-      if (!ALLOWED_TYPES.includes(f.type)) {
-        toast.error('지원하지 않는 이미지 형식입니다. (JPG, PNG, GIF, WebP만 가능)')
-        return
-      }
-      if (f.size > MAX_SIZE) {
-        toast.error('파일 크기는 10MB 이하만 가능합니다.')
-        return
-      }
-    }
-
-    // 최대 10장 제한
-    const totalPhotos = photoFiles.length + files.length
-    if (totalPhotos > 10) {
-      toast.warning('사진은 최대 10장까지 첨부할 수 있습니다.')
-      return
-    }
-
-    setPhotoFiles(prev => [...prev, ...files])
-
-    // 미리보기 생성
-    files.forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setPhotoPreviews(prev => [...prev, e.target?.result as string])
-      }
-      reader.readAsDataURL(file)
-    })
-
-    // input 초기화
-    e.target.value = ''
-  }, [photoFiles.length])
-
-  // 사진 삭제
-  const removePhoto = useCallback((index: number) => {
-    setPhotoFiles(prev => prev.filter((_, i) => i !== index))
-    setPhotoPreviews(prev => prev.filter((_, i) => i !== index))
-  }, [])
-
-  // 제출
-  const handleSubmit = async (e: React.FormEvent, isDraft: boolean = true) => {
-    e.preventDefault()
-    
-    // 기본 유효성 검사
-    const reportYear = new Date(form.report_date).getFullYear()
-    if (isNaN(reportYear)) {
-      setError('올바른 날짜를 선택해주세요.')
-      toast.error('올바른 날짜를 선택해주세요.')
-      return
-    }
-
-    if (!form.department_id) {
-      setError('부서를 선택해주세요.')
-      toast.error('부서를 선택해주세요.')
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-    setExistingReportId(null)
-    setExistingReportStatus(null)
+    const raw = window.localStorage.getItem(backupKey)
+    if (!raw) return
 
     try {
-      // 0. 권한 체크 (편집 모드일 때)
-      if (editMode && existingReport) {
-        if (!canEditReport(authorId ? { id: authorId, role: (await supabase.from('users').select('role').eq('id', authorId).single()).data?.role } as any : null, { author_id: existingReport.author_id, status: existingReportStatus || 'draft' })) {
-          toast.error('이 보고서를 수정할 권한이 없습니다.')
-          return
-        }
-      }
+      const backup = JSON.parse(raw) as ReportDraftBackup
+      if (backup.version !== 1) return
 
-      // 셀별 합계 계산 (주차 보고서)
-      const totalRegistered = reportType === 'weekly'
-        ? (cellAttendance.reduce((sum, c) => sum + (Number(c.registered) || 0), 0) || attendanceSummary.total)
-        : 0
-      const totalWorship = reportType === 'weekly'
-        ? (cellAttendance.reduce((sum, c) => sum + (Number(c.worship) || 0), 0) || attendanceSummary.worship)
-        : 0
-      const totalMeeting = reportType === 'weekly'
-        ? (cellAttendance.reduce((sum, c) => sum + (Number(c.meeting) || 0), 0) || attendanceSummary.meeting)
-        : 0
-
-      // 셀장보고서에서 셀 선택 시 출석자 명단 자동 생성
-      const cellLeaderAttendees = (reportType === 'cell_leader' && selectedCellId && memberAttendance.length > 0)
-        ? (() => {
-            const presentNames = memberAttendance.filter(m => m.isPresent).map(m => m.name)
-            return presentNames.length > 0 ? `${presentNames.join(', ')} (총 ${presentNames.length}명)` : ''
-          })()
-        : form.attendees
-
-      const reportData = {
-        report_type: reportType,
-        department_id: form.department_id,
-        report_date: form.report_date,
-        week_number: reportType === 'weekly' ? weekNumber : null,
-        year: reportYear,
-        total_registered: totalRegistered,
-        worship_attendance: totalWorship,
-        meeting_attendance: totalMeeting,
-        cell_id: reportType === 'cell_leader' ? (selectedCellId || null) : null,
-        // 모임/교육/셀장/프로젝트 전용 필드
-        meeting_title: reportType !== 'weekly' ? form.meeting_title : null,
-        meeting_location: reportType !== 'weekly' && reportType !== 'cell_leader' && reportType !== 'project' && reportType !== 'visitation' ? form.meeting_location : null,
-        attendees: reportType !== 'weekly' && reportType !== 'project' && reportType !== 'visitation' ? cellLeaderAttendees : null,
-        main_content: reportType !== 'weekly' ? form.main_content : null,
-        application_notes: ['education', 'cell_leader', 'project', 'visitation'].includes(reportType) ? form.application_notes : null,
-        notes: JSON.stringify({
-          sermon_title: form.sermon_title,
-          sermon_scripture: form.sermon_scripture,
-          discussion_notes: form.discussion_notes,
-          other_notes: form.other_notes,
-          cell_attendance: reportType === 'weekly' ? cellAttendance.map(({ _key, ...rest }) => rest) : [],
-          organization: reportType === 'project' ? form.organization : undefined,
-          project_sections: reportType === 'project' ? enabledSections : undefined,
-        }),
-        status: isDraft ? 'draft' : 'submitted',
-        submitted_at: isDraft ? null : new Date().toISOString(),
-      }
-
-      let reportId: string
-
-      if (editMode && existingReport) {
-        // 수정 모드 (재제출 시 모든 결재 정보 및 반려 정보 초기화)
-        const updatePayload = {
-          ...reportData,
-          ...(!isDraft ? {
-            coordinator_id: null,
-            coordinator_reviewed_at: null,
-            coordinator_comment: null,
-            manager_id: null,
-            manager_approved_at: null,
-            manager_comment: null,
-            final_approver_id: null,
-            final_approved_at: null,
-            final_comment: null,
-            rejected_by: null,
-            rejected_at: null,
-            rejection_reason: null,
-          } : {}),
-        }
-        const { error: updateError } = await supabase
-          .from('weekly_reports')
-          .update(updatePayload)
-          .eq('id', existingReport.id)
-
-        if (updateError) {
-          console.error('보고서 수정 실패:', updateError)
-          throw updateError
-        }
-        reportId = existingReport.id
-
-        // 기존 하위 항목 삭제 (새신자, 프로그램, 프로젝트 항목 등)
-        await supabase.from('report_programs').delete().eq('report_id', reportId)
-        if (reportType === 'weekly') {
-          await supabase.from('newcomers').delete().eq('report_id', reportId)
-        }
-        if (reportType === 'project') {
-          await supabase.from('project_content_items').delete().eq('report_id', reportId)
-          await supabase.from('project_schedule_items').delete().eq('report_id', reportId)
-          await supabase.from('project_budget_items').delete().eq('report_id', reportId)
-        }
-      } else {
-        // 신규 생성 시 중복 체크
-        if (reportType === 'weekly') {
-          const { data: existing, error: checkError } = await supabase
-            .from('weekly_reports')
-            .select('id, status')
-            .eq('department_id', form.department_id)
-            .eq('year', reportYear)
-            .eq('week_number', weekNumber)
-            .maybeSingle()
-
-          if (checkError) console.error('중복 체크 오류:', checkError)
-
-          if (existing) {
-            setError(`이미 ${weekNumber}주차 보고서가 존재합니다.`)
-            setExistingReportId(existing.id)
-            setExistingReportStatus(existing.status)
-            toast.warning(`이미 ${weekNumber}주차 보고서가 존재합니다.`)
-            setLoading(false)
-            return
-          }
-        } else {
-          // 주차 보고서 외의 유형에 대해서도 중복 체크
-          // 셀장 보고서: 부서/날짜/셀ID 기준
-          // 심방/모임/교육/프로젝트: 부서/날짜/작성자/제목 기준 (여러 건 가능하도록)
-          let query = supabase
-            .from('weekly_reports')
-            .select('id, status, meeting_title')
-            .eq('department_id', form.department_id)
-            .eq('report_date', form.report_date)
-            .eq('report_type', reportType)
-
-          if (reportType === 'cell_leader') {
-            if (selectedCellId) {
-              query = query.eq('cell_id', selectedCellId)
-            } else {
-              // 셀 선택이 안 된 경우 작성자 기준으로라도 체크
-              query = query.eq('author_id', authorId)
-            }
-          } else {
-            // 다른 유형들은 동일 제목/작성자의 중복 제출만 방지
-            query = query.eq('author_id', authorId).eq('meeting_title', form.meeting_title)
-          }
-
-          const { data: existing, error: checkError } = await query.maybeSingle()
-            
-          if (checkError) console.error('중복 체크 오류:', checkError)
-
-          if (existing) {
-            const typeLabel = REPORT_TYPE_LABELS[reportType]
-            setError(`이미 동일한 내용의 ${typeLabel}가 존재합니다.`)
-            setExistingReportId(existing.id)
-            setExistingReportStatus(existing.status)
-            toast.warning(`이미 동일한 내용의 ${typeLabel}가 존재합니다.`)
-            setLoading(false)
-            return
-          }
-        }
-
-        const { data: report, error: reportError } = await supabase
-          .from('weekly_reports')
-          .insert({ ...reportData, author_id: authorId })
-          .select()
-          .single()
-
-        if (reportError) {
-          console.error('보고서 생성 실패:', reportError)
-          throw reportError
-        }
-        reportId = report.id
-      }
-
-      // 1. 프로그램 저장 (셀장/프로젝트 보고서 제외)
-      if (reportType !== 'cell_leader' && reportType !== 'project') {
-        const validPrograms = programs.filter(p => p.content || p.start_time)
-        if (validPrograms.length > 0) {
-          const { error: programError } = await supabase
-            .from('report_programs')
-            .insert(
-              validPrograms.map((p, i) => ({
-                report_id: reportId,
-                start_time: p.start_time || '00:00',
-                content: `${p.content}${p.note ? ` [${p.note}]` : ''}`,
-                person_in_charge: p.person_in_charge,
-                order_index: i,
-              }))
-            )
-          if (programError) {
-            console.error('프로그램 저장 실패:', programError)
-            toast.warning('프로그램 정보 저장 중 오류가 발생했습니다.')
-          }
-        }
-      }
-
-      // 2. 새신자 저장 (주차 보고서만)
-      if (reportType === 'weekly') {
-        const validNewcomers = newcomers.filter(n => n.name)
-        if (validNewcomers.length > 0) {
-          const { error: newcomerError } = await supabase
-            .from('newcomers')
-            .insert(
-              validNewcomers.map(n => ({
-                report_id: reportId,
-                name: n.name,
-                phone: n.phone || null,
-                birth_date: n.birth_date || null,
-                introducer: n.introducer || null,
-                address: n.address || null,
-                affiliation: n.affiliation || null,
-                department_id: form.department_id,
-              }))
-            )
-          if (newcomerError) {
-            console.error('새신자 저장 실패:', newcomerError)
-            toast.warning('새신자 명단 저장 중 오류가 발생했습니다.')
-          }
-        }
-      }
-
-      // 3. 프로젝트 보고서: 세부계획/일정표/예산 저장
-      if (reportType === 'project') {
-        // 세부계획 내용
-        const validContent = contentItems.filter(c => c.col1 || c.col2 || c.col3 || c.col4)
-        if (validContent.length > 0) {
-          const { error: err } = await supabase.from('project_content_items').insert(
-            validContent.map((c, i) => ({
-              report_id: reportId, col1: c.col1, col2: c.col2, col3: c.col3, col4: c.col4, order_index: i,
-            }))
-          )
-          if (err) console.error('프로젝트 내용 저장 실패:', err)
-        }
-        // 세부 일정표
-        const validSchedule = scheduleItems.filter(s => s.schedule || s.detail)
-        if (validSchedule.length > 0) {
-          const { error: err } = await supabase.from('project_schedule_items').insert(
-            validSchedule.map((s, i) => ({
-              report_id: reportId, schedule: s.schedule, detail: s.detail, note: s.note, order_index: i,
-            }))
-          )
-          if (err) console.error('프로젝트 일정 저장 실패:', err)
-        }
-        // 예산
-        const validBudget = budgetItems.filter(b => b.item_name || b.unit_price > 0)
-        if (validBudget.length > 0) {
-          const { error: err } = await supabase.from('project_budget_items').insert(
-            validBudget.map((b, i) => ({
-              report_id: reportId, category: b.category, subcategory: b.subcategory, item_name: b.item_name,
-              basis: b.basis, unit_price: b.unit_price || 0, quantity: b.quantity || 1,
-              amount: (b.unit_price || 0) * (b.quantity || 0), note: b.note, order_index: i,
-            }))
-          )
-          if (err) console.error('프로젝트 예산 저장 실패:', err)
-        }
-      }
-
-      // 4. 셀장보고서: 셀원 출결 → attendance_records 연동
-      if (reportType === 'cell_leader' && selectedCellId && memberAttendance.length > 0) {
-        // 편집 모드: 기존 출결 레코드 삭제 (이 보고서에서 생성한 것만)
-        if (editMode && existingReport) {
-          await supabase
-            .from('attendance_records')
-            .delete()
-            .eq('report_id', reportId)
-        }
-
-        // 출석자만 upsert
-        const presentMembers = memberAttendance.filter(m => m.isPresent)
-        if (presentMembers.length > 0) {
-          const { error: attendanceError } = await supabase
-            .from('attendance_records')
-            .upsert(
-              presentMembers.map(m => ({
-                member_id: m.memberId,
-                report_id: reportId,
-                attendance_date: form.report_date,
-                attendance_type: 'meeting' as const,
-                is_present: true,
-                checked_by: authorId,
-                checked_via: 'cell_report',
-              })),
-              { onConflict: 'member_id,attendance_date,attendance_type' }
-            )
-          if (attendanceError) {
-            console.error('출결 저장 오류:', attendanceError)
-            toast.error('출결 저장 중 오류가 발생했습니다.')
-          }
-        }
-
-        // 결석자: 기존에 있던 출석 기록이 있으면 삭제
-        const absentMembers = memberAttendance.filter(m => !m.isPresent)
-        if (absentMembers.length > 0) {
-          const { error: delErr } = await supabase
-            .from('attendance_records')
-            .delete()
-            .in('member_id', absentMembers.map(m => m.memberId))
-            .eq('attendance_date', form.report_date)
-            .eq('attendance_type', 'meeting')
-            .eq('checked_via', 'cell_report')
-          if (delErr) console.error('결석자 출결 삭제 오류:', delErr)
-        }
-
-        // 출결 캐시 무효화
-        queryClient.invalidateQueries({ queryKey: ['attendance'] })
-      }
-
-      // 5. 사진 업로드
-      if (photoFiles.length > 0) {
-        for (let i = 0; i < photoFiles.length; i++) {
-          const file = photoFiles[i]
-          const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
-          const fileExt = file.name.split('.').pop()?.toLowerCase() || ''
-          if (!ALLOWED_EXTENSIONS.includes(fileExt)) continue
-          const fileName = `${reportId}/${Date.now()}_${i}.${fileExt}`
-
-          const { error: uploadError } = await supabase.storage
-            .from('report-photos')
-            .upload(fileName, file)
-
-          if (uploadError) {
-            console.error('사진 업로드 실패:', uploadError)
-            continue
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('report-photos')
-            .getPublicUrl(fileName)
-
-          const { error: photoInsError } = await supabase.from('report_photos').insert({
-            report_id: reportId,
-            photo_url: publicUrl,
-            order_index: i,
-            uploaded_by: authorId,
-          })
-          if (photoInsError) console.error('사진 정보 저장 실패:', photoInsError)
-        }
-      }
-
-      // 제출 시 알림 생성
-      if (!isDraft) {
-        const selectedDept = departments.find(d => d.id === form.department_id)
-        await createApprovalNotification(supabase, {
-          reportId: reportId,
-          fromStatus: 'draft',
-          toStatus: 'submitted',
-          departmentName: selectedDept?.name || '',
-          reportType: reportType,
-          authorId: authorId,
-          reportDepartmentId: form.department_id,
-        }).catch(err => console.error('알림 생성 실패:', err))
-      }
-
-      toast.success(isDraft ? '임시저장되었습니다.' : '제출되었습니다.')
-      
-      await queryClient.invalidateQueries({ queryKey: ['reports'] })
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      
-      // 약간의 지연 후 이동 (캐시 무효화 반영 시간 확보)
-      setTimeout(() => {
-        if (!editMode && isDraft) {
-          // 새 보고서 임시저장 시 → 수정 페이지로 이동하여 중복 생성 방지
-          router.push(`/reports/${reportId}/edit`)
-        } else {
-          // 제출 완료 혹은 기존 보고서 수정 시 → 목록으로 이동
-          router.push(`/reports?type=${reportType}`)
-        }
-      }, 500)
-    } catch (err: any) {
-      console.error('handleSubmit error:', err)
-      const pgError = err as { code?: string; message?: string; details?: string }
-      if (pgError.code === '23505') {
-        setError(`이미 해당 날짜/주차의 보고서가 존재합니다. (중복 오류)`)
-      } else {
-        setError(`저장 중 오류가 발생했습니다: ${pgError.message || '알 수 없는 에러'}`)
-      }
-      toast.error('저장에 실패했습니다. 내용을 확인해주세요.')
-    } finally {
-      setLoading(false)
+      setForm(backup.data.form)
+      setPrograms(backup.data.programs)
+      setCellAttendance(backup.data.cellAttendance)
+      setNewcomers(backup.data.newcomers)
+      setContentItems(backup.data.contentItems)
+      setScheduleItems(backup.data.scheduleItems)
+      setBudgetItems(backup.data.budgetItems)
+      setEnabledSections(backup.data.enabledSections)
+      setSelectedCellId(backup.data.selectedCellId)
+      setMemberAttendance(backup.data.memberAttendance)
+      setDraftReportId(backup.draftReportId)
+      setAutosaveStatus('local')
+      toast.warning('로컬 임시 저장본을 복구했습니다.')
+    } catch (restoreError) {
+      console.error('Failed to restore report draft backup:', restoreError)
     }
+  }, [
+    backupKey,
+    setBudgetItems,
+    setCellAttendance,
+    setContentItems,
+    setEnabledSections,
+    setForm,
+    setMemberAttendance,
+    setNewcomers,
+    setPrograms,
+    setScheduleItems,
+    setSelectedCellId,
+    toast,
+  ])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      window.localStorage.setItem(backupKey, JSON.stringify(serializableSnapshot))
+      if (autosaveStatus === 'idle') {
+        setAutosaveStatus('local')
+      }
+    }, 400)
+
+    return () => window.clearTimeout(timer)
+  }, [autosaveStatus, backupKey, serializableSnapshot])
+
+  useEffect(() => {
+    if (!hasRestoredBackupRef.current) return
+    if (!form.department_id || !form.report_date || loading) return
+    if (snapshotString === lastAutosavedSnapshotRef.current) return
+
+    const timer = window.setTimeout(async () => {
+      setAutosaveStatus('saving')
+      const autosaveResult = await saveDraftSnapshot(draftReportId)
+      if (autosaveResult.status === 'saved') {
+        setDraftReportId(autosaveResult.reportId)
+        lastAutosavedSnapshotRef.current = snapshotString
+        setAutosaveStatus('saved')
+        window.localStorage.setItem(backupKey, JSON.stringify({
+          ...serializableSnapshot,
+          draftReportId: autosaveResult.reportId,
+        }))
+      } else if (autosaveResult.status === 'failed') {
+        setAutosaveStatus('error')
+      } else {
+        setAutosaveStatus('local')
+      }
+    }, 2500)
+
+    return () => window.clearTimeout(timer)
+  }, [
+    backupKey,
+    draftReportId,
+    form.department_id,
+    form.report_date,
+    loading,
+    saveDraftSnapshot,
+    serializableSnapshot,
+    snapshotString,
+  ])
+
+  const handleSubmit = (e: React.FormEvent, isDraft = false) => {
+    e.preventDefault()
+    submit(isDraft)
   }
 
   // 현재 보고서 유형에 맞는 섹션 필터링
@@ -1019,6 +455,17 @@ export default function ReportForm({
       </div>
 
       {/* 기본 정보 */}
+      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+        <span>자동 저장은 초안만 저장됩니다.</span>
+        <span className={autosaveStatus === 'error' ? 'text-red-600' : autosaveStatus === 'saved' ? 'text-green-600' : 'text-gray-500'}>
+          {autosaveStatus === 'saving' && '자동 저장 중...'}
+          {autosaveStatus === 'saved' && '자동 저장됨'}
+          {autosaveStatus === 'local' && '로컬 백업 저장됨'}
+          {autosaveStatus === 'error' && '자동 저장 실패'}
+          {autosaveStatus === 'idle' && '변경 대기 중'}
+        </span>
+      </div>
+
       <div
         ref={(el) => { sectionRefs.current['basic'] = el }}
         data-section="basic"
@@ -1051,11 +498,7 @@ export default function ReportForm({
             <select
               value={form.department_id}
               onChange={(e) => {
-                setForm({ ...form, department_id: e.target.value })
-                if (reportType === 'cell_leader') {
-                  setSelectedCellId('')
-                  setMemberAttendance([])
-                }
+                handleDepartmentChange(e.target.value)
               }}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
             >
@@ -1137,9 +580,7 @@ export default function ReportForm({
             <h2 className="font-semibold text-gray-900 text-sm md:text-base">포함할 항목</h2>
             <button
               type="button"
-              onClick={() => setEnabledSections(
-                enabledSections.length === ALL_PROJECT_SECTIONS.length ? [] : [...ALL_PROJECT_SECTIONS]
-              )}
+              onClick={toggleAllSections}
               className="text-xs text-blue-600 font-medium"
             >
               {enabledSections.length === ALL_PROJECT_SECTIONS.length ? '전체 해제' : '전체 선택'}
@@ -1553,3 +994,5 @@ export default function ReportForm({
     </form>
   )
 }
+
+

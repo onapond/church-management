@@ -2,158 +2,138 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **기능 구현 워크플로우**는 글로벌 규칙(`~/.claude/CLAUDE.md`)을 따른다.
+> **기능 구현 ?�크?�로??*??글로벌 규칙(`~/.claude/CLAUDE.md`)???�른??
 
-# 청파중앙교회 교육위원회 관리 시스템
-
-## 프로젝트 개요
-- **앱 이름**: 청파중앙교회 교육위원회 관리 시스템
-- **기술 스택**: Next.js 16.1.6, Supabase, TypeScript, Tailwind CSS v4
+# �?��중앙교회 교육?�원??관�??�스??
+## ?�로?�트 개요
+- **???�름**: �?��중앙교회 교육?�원??관�??�스??- **기술 ?�택**: Next.js 16.1.6, Supabase, TypeScript, Tailwind CSS v4
 - **배포**: Vercel (https://church-eight-delta.vercel.app)
 - **GitHub**: https://github.com/onapond/church-management (remote: onapond)
 
-## 시작 시 필수 확인 문서
-**새 세션 시작 시 반드시 아래 파일들을 먼저 읽어주세요:**
-1. `.claude/session-notes.md` - 최근 작업 내역 및 다음 작업
-2. `.claude/bugs.md` - 알려진 버그 및 해결 이력
-3. `docs/REACT_BEST_PRACTICES.md` - React/Next.js 성능 최적화 가이드 (57개 규칙)
+## ?�작 ???�수 ?�인 문서
+**???�션 ?�작 ??반드???�래 ?�일?�을 먼�? ?�어주세??**
+1. `.claude/session-notes.md` - 최근 ?�업 ?�역 �??�음 ?�업
+2. `.claude/bugs.md` - ?�려�?버그 �??�결 ?�력
+3. `docs/REACT_BEST_PRACTICES.md` - React/Next.js ?�능 최적??가?�드 (57�?규칙)
 
 ## 기능 분석 문서
-상세 문서는 `docs/status/` 폴더를 참조:
-- [01-system-overview.md](docs/status/01-system-overview.md) - 기술 스택, 아키텍처
-- [02-features.md](docs/status/02-features.md) - 페이지별 기능 목록
-- [03-workflow.md](docs/status/03-workflow.md) - 결재/인증/알림 워크플로우
-- [04-database.md](docs/status/04-database.md) - 테이블 구조, ERD
-- [05-components.md](docs/status/05-components.md) - 컴포넌트 구조
-- [06-api.md](docs/status/06-api.md) - API, 유틸리티
+?�세 문서??`docs/status/` ?�더�?참조:
+- [01-system-overview.md](docs/status/01-system-overview.md) - 기술 ?�택, ?�키?�처
+- [02-features.md](docs/status/02-features.md) - ?�이지�?기능 목록
+- [03-workflow.md](docs/status/03-workflow.md) - 결재/?�증/?�림 ?�크?�로??- [04-database.md](docs/status/04-database.md) - ?�이�?구조, ERD
+- [05-components.md](docs/status/05-components.md) - 컴포?�트 구조
+- [06-api.md](docs/status/06-api.md) - API, ?�틸리티
 
-## 컨텍스트 관리 및 문서화 규칙 (필수)
+## 컨텍?�트 관�?�?문서??규칙 (?�수)
 
-**모든 주요 작업(기능 구현, 버그 수정, 아키텍처 변경 등) 완료 후에는 아래 4개의 핵심 문서를 반드시 최신화해야 합니다:**
-1.  **`PROJECT_CONTEXT.md`**: 최근 작업 내역, 현재 시스템 상태 및 중단 지점 요약
-2.  **`CLAUDE.md`**: 변경된 개발 규칙, 배포 프로세스 및 새로운 기술적 결정사항 반영
-3.  **`docs/TECHNICAL_SPEC.md`**: 수정된 DB 스키마(ERD), API 엔드포인트, 권한 로직 등 기술 명세 업데이트
-4.  **`docs/USER_GUIDE.md`**: 추가되거나 변경된 기능에 대한 사용자 메뉴얼 업데이트
+**모든 주요 ?�업(기능 구현, 버그 ?�정, ?�키?�처 변�??? ?�료 ?�에???�래 4개의 ?�심 문서�?반드??최신?�해???�니??**
+1.  **`PROJECT_CONTEXT.md`**: 최근 ?�업 ?�역, ?�재 ?�스???�태 �?중단 지???�약
+2.  **`CLAUDE.md`**: 변경된 개발 규칙, 배포 ?�로?�스 �??�로??기술??결정?�항 반영
+3.  **`docs/TECHNICAL_SPEC.md`**: ?�정??DB ?�키�?ERD), API ?�드?�인?? 권한 로직 ??기술 명세 ?�데?�트
+4.  **`docs/USER_GUIDE.md`**: 추�??�거??변경된 기능???�???�용??메뉴???�데?�트
 
-**컨텍스트가 90% 이상 사용되기 전에** `.claude/session-notes.md`에 작업 내역 요약:
-- 완료된 작업, 진행 중인 작업 (중단 지점 명시)
-- 다음에 해야 할 작업, 관련 파일 경로
-- 주요 결정사항 및 이유
+**컨텍?�트가 90% ?�상 ?�용?�기 ?�에** `.claude/session-notes.md`???�업 ?�역 ?�약:
+- ?�료???�업, 진행 중인 ?�업 (중단 지??명시)
+- ?�음???�야 ???�업, 관???�일 경로
+- 주요 결정?�항 �??�유
 
-## 코드 작성 규칙
+## 코드 ?�성 규칙
 
-### 성능 최적화
-**코드 작성 시 `docs/REACT_BEST_PRACTICES.md`를 참조하세요.** 자주 적용할 규칙:
-- URL 상태는 `useEffect` 대신 파생 상태로 직접 계산
-- 모달/팝업은 별도 `memo` 컴포넌트로 분리
-- 이벤트 핸들러는 `useCallback`으로 메모이제이션
-- 무거운 컴포넌트는 `next/dynamic`으로 동적 임포트
+### ?�능 최적??**코드 ?�성 ??`docs/REACT_BEST_PRACTICES.md`�?참조?�세??** ?�주 ?�용??규칙:
+- URL ?�태??`useEffect` ?�???�생 ?�태�?직접 계산
+- 모달/?�업?� 별도 `memo` 컴포?�트�?분리
+- ?�벤???�들?�는 `useCallback`?�로 메모?�제?�션
+- 무거??컴포?�트??`next/dynamic`?�로 ?�적 ?�포??
+### ?�반
+- ?��? 주석/메시지 ?�용 (?�국 교회 ?�스??
+- TypeScript strict mode 준??- 컴포?�트??`'use client'` ?�는 ?�버 컴포?�트�?명확??구분
 
-### 일반
-- 한글 주석/메시지 사용 (한국 교회 시스템)
-- TypeScript strict mode 준수
-- 컴포넌트는 `'use client'` 또는 서버 컴포넌트로 명확히 구분
-
-### 파일 구조
+### ?�일 구조
 ```
 src/
-├── app/
-│   ├── (dashboard)/     # 인증 필요 페이지
-│   │   ├── dashboard/, attendance/, reports/, members/
-│   │   ├── accounting/, approvals/, photos/
-│   │   ├── error.tsx    # 대시보드 ErrorBoundary
-│   │   └── layout.tsx   # AuthProvider + ToastProvider 래핑
-│   ├── api/             # API 라우트
-│   └── error.tsx        # 글로벌 ErrorBoundary
-├── components/
-│   ├── layout/          # Header, Sidebar (useAuth() 사용)
-│   ├── reports/         # ReportForm + 서브컴포넌트 4개
-│   ├── members/         # MemberForm + 서브컴포넌트 6개
-│   ├── accounting/      # 회계장부, 지출결의서
-│   ├── dashboard/       # 대시보드 위젯
-│   ├── notifications/   # NotificationBell
-│   └── ui/              # Toast, ErrorBoundary 등
-├── providers/           # AuthProvider, QueryProvider, ToastProvider
-├── queries/             # TanStack Query 훅 (departments, members, reports 등)
-├── hooks/               # useDebounce, useToast
-├── lib/
-│   ├── supabase/        # 서버/클라이언트 Supabase 클라이언트
-│   ├── permissions.ts   # 중앙화된 권한 체크
-│   ├── constants.ts     # 공통 상수
-│   ├── utils.ts         # 유틸리티 함수
-│   ├── errors.ts        # 커스텀 에러 클래스
-│   └── rate-limit.ts    # API rate limiting
-└── types/
-    ├── database.ts      # DB 타입 정의
-    └── shared.ts        # 공유 인터페이스
-```
+?��??� app/
+??  ?��??� (dashboard)/     # ?�증 ?�요 ?�이지
+??  ??  ?��??� dashboard/, attendance/, reports/, members/
+??  ??  ?��??� accounting/, approvals/, photos/
+??  ??  ?��??� error.tsx    # ?�?�보??ErrorBoundary
+??  ??  ?��??� layout.tsx   # AuthProvider + ToastProvider ?�핑
+??  ?��??� api/             # API ?�우????  ?��??� error.tsx        # 글로벌 ErrorBoundary
+?��??� components/
+??  ?��??� layout/          # Header, Sidebar (useAuth() ?�용)
+??  ?��??� reports/         # ReportForm + ?�브컴포?�트 4�???  ?��??� members/         # MemberForm + ?�브컴포?�트 6�???  ?��??� accounting/      # ?�계?��?, 지출결?�서
+??  ?��??� dashboard/       # ?�?�보???�젯
+??  ?��??� notifications/   # NotificationBell
+??  ?��??� ui/              # Toast, ErrorBoundary ???��??� providers/           # AuthProvider, QueryProvider, ToastProvider
+?��??� queries/             # TanStack Query ??(departments, members, reports ??
+?��??� hooks/               # useDebounce, useToast
+?��??� lib/
+??  ?��??� supabase/        # ?�버/?�라?�언??Supabase ?�라?�언????  ?��??� permissions.ts   # 중앙?�된 권한 체크
+??  ?��??� constants.ts     # 공통 ?�수
+??  ?��??� utils.ts         # ?�틸리티 ?�수
+??  ?��??� errors.ts        # 커스?� ?�러 ?�래????  ?��??� rate-limit.ts    # API rate limiting
+?��??� types/
+    ?��??� database.ts      # DB ?�???�의
+    ?��??� shared.ts        # 공유 ?�터?�이??```
 
 ### Supabase
-- 서버: `import { createClient } from '@/lib/supabase/server'`
-- 클라이언트: `import { createClient } from '@/lib/supabase/client'`
-- 타입: `src/types/database.ts` 참조
+- ?�버: `import { createClient } from '@/lib/supabase/server'`
+- ?�라?�언?? `import { createClient } from '@/lib/supabase/client'`
+- ?�?? `src/types/database.ts` 참조
 
-### 스타일링
-- Tailwind CSS v4, 모바일 우선 설계
-- 반응형: `lg:` 프리픽스로 데스크톱 스타일 구분
+### ?��??�링
+- Tailwind CSS v4, 모바???�선 ?�계
+- 반응?? `lg:` ?�리?�스�??�스?�톱 ?��???구분
 
-## 배포 프로세스 (필수 규칙)
-**반드시 로컬에서 `npm run build` 성공을 확인한 후 배포**
+## 배포 ?�로?�스 (?�수 규칙)
+**반드??로컬?�서 `npm run build` ?�공???�인????배포**
 ```bash
-# 1. 로컬 빌드 확인 (필수 — 이 단계 없이 배포 금지)
+# 1. 로컬 빌드 ?�인 (?�수 ?????�계 ?�이 배포 금�?)
 npm run build
 
-# 2. Git 커밋/푸시
+# 2. Git 커밋/?�시
 git add <files> && git commit -m "커밋 메시지" && git push origin main
 
 # 3. Vercel 배포
 npx vercel --prod
 ```
-- Vercel 프로젝트 설정: `framework: nextjs`, `buildCommand: next build`
-- `--prebuilt`는 Next.js 16 RSC segments 호환 문제로 사용 불가
-- 로컬 `npm run build`로 빌드 에러를 반드시 사전 확인 후 배포할 것
-- **프로덕션 URL**: https://church-eight-delta.vercel.app
-- GitHub 자동 배포 미연결 (수동 배포 필요)
+- Vercel ?�로?�트 ?�정: `framework: nextjs`, `buildCommand: next build`
+- `--prebuilt`??Next.js 16 RSC segments ?�환 문제�??�용 불�?
+- 로컬 `npm run build`�?빌드 ?�러�?반드???�전 ?�인 ??배포??�?- **?�로?�션 URL**: https://church-eight-delta.vercel.app
+- GitHub ?�동 배포 미연�?(?�동 배포 ?�요)
 
-## 주요 테이블
-- `users`: 사용자 (역할: super_admin, president, accountant, team_leader, member)
-- `departments`: 부서 (ck, cu_worship, youth, cu1, cu2, leader)
-- `meetings`: 회의 기본 정보 (title, description, department_id, meeting_date, location)
+## 주요 ?�이�?- `users`: ?�용??(??��: super_admin, president, accountant, team_leader, member)
+- `departments`: 부??(ck, cu_worship, youth, cu1, cu2, leader)
+- `meetings`: ?�의 기본 ?�보 (title, description, department_id, meeting_date, location)
 - `members`: 교인 명단
-- `weekly_reports`: 보고서 (weekly, meeting, education)
+- `weekly_reports`: 보고??(weekly, meeting, education)
 - `attendance_records`: 출결 기록
-- `notifications`: 알림
-- `accounting_records`: 회계장부
-- `expense_requests`: 지출결의서
+- `notifications`: ?�림
+- `accounting_records`: ?�계?��?
+- `expense_requests`: 지출결?�서
 
-## 자주 사용하는 명령어
-```bash
-npm run dev          # 개발 서버 (http://localhost:3000)
+## ?�주 ?�용?�는 명령??```bash
+npm run dev          # 개발 ?�버 (http://localhost:3000)
 npm run build        # 빌드
-npm test             # vitest 테스트 (93개)
-npx tsc --noEmit     # 타입 체크
-npx vercel --prod    # Vercel 프로덕션 배포
+npm test             # vitest ?�스??(93�?
+npx tsc --noEmit     # ?�??체크
+npx vercel --prod    # Vercel ?�로?�션 배포
 ```
 
-## 아키텍처
+## ?�키?�처
 
-### 인증 흐름
-- `src/middleware.ts` → Supabase 세션 갱신
-- `src/providers/AuthProvider.tsx` → useAuth() Context 제공
-- `src/app/(dashboard)/layout.tsx` → 미인증 시 `/login` 리다이렉트
+### ?�증 ?�름
+- `src/middleware.ts` ??Supabase ?�션 갱신
+- `src/providers/AuthProvider.tsx` ??useAuth() Context ?�공
+- `src/app/(dashboard)/layout.tsx` ??미인�???`/login` 리다?�렉??
+### 결재 ?�크?�로??`draft` ??`submitted` ??`coordinator_reviewed` ??`manager_approved` ??`final_approved`
+- ?�태 변�???`approval_history` ?�력 ?�??+ ?�림 발송
 
-### 결재 워크플로우
-`draft` → `submitted` → `coordinator_reviewed` → `manager_approved` → `final_approved`
-- 상태 변경 시 `approval_history` 이력 저장 + 알림 발송
+### ?�중 부??지??- `member_departments` 조인 ?�이�? `is_primary` ?�래�?- 쿼리: `members` ??`member_departments` ??`departments` 조인
 
-### 다중 부서 지원
-- `member_departments` 조인 테이블, `is_primary` 플래그
-- 쿼리: `members` → `member_departments` → `departments` 조인
-
-### 성능 패턴
-- Supabase 클라이언트 싱글톤, Optimistic Updates
-- Recharts 동적 임포트, URL searchParams 파생 상태
-- 리스트 `useMemo`, 이벤트 `useCallback`, 모달 `memo` 분리
+### ?�능 ?�턴
+- Supabase ?�라?�언???��??? Optimistic Updates
+- Recharts ?�적 ?�포?? URL searchParams ?�생 ?�태
+- 리스??`useMemo`, ?�벤??`useCallback`, 모달 `memo` 분리
 
 ## 2026-03-15 Notes
 - Meeting detail now supports structured minutes editing through a separate \\meeting_minutes\\ table.
@@ -162,3 +142,33 @@ npx vercel --prod    # Vercel 프로덕션 배포
 - Frontend meeting minutes edit permission now mirrors RLS scope: admins can edit any meeting, and team leaders can edit only meetings in departments they lead.
 - New meeting creation was streamlined so users can save the meeting record and structured minutes together from the create form.
 
+## 2026-03-26 Notes
+- Report edit persistence now uses a non-destructive child-row replacement pattern for programs, newcomers, and project child tables.
+- Preserve existing child rows until replacement writes succeed; avoid delete-first behavior in edit mode.
+- Verification for this change passed with `npm test`, `npm run build`, and `npx tsc --noEmit`.
+- Report draft/save persistence now also routes through `POST /api/reports/save` for shared server-side orchestration.
+
+## 2026-03-26 Notes - Transactional Report Save RPC
+- `POST /api/reports/save` now uses a DB RPC-backed persistence path for the core report bundle instead of only JavaScript orchestration.
+- Added migration `supabase/migrations/006_save_report_bundle_rpc.sql` for `public.save_report_bundle(payload jsonb)`.
+- Keep server cookie auth and current permission checks in the route layer; keep notification creation in the server app layer after DB save success.
+- `attendance_records` remains warning-tolerant inside the RPC so report save can still succeed when attendance persistence fails independently.
+- Added focused tests for duplicate response handling, edit-save path, attendance warning propagation, and autosave target update routing.
+- Remote Supabase verification now confirms `public.save_report_bundle` exists in `public`.
+
+## 2026-03-26 Notes - Report Save Boundary Hardening
+- POST /api/reports/save permission preflight now validates targetReportId draft updates with the same author/admin/status rule used for editReportId.
+- src/components/reports/hooks/useReportSubmit.ts now treats the route as the main app-layer authority for edit permission instead of doing a separate blocking client role lookup first.
+- saveReportViaApi now downgrades malformed or text error responses into structured ok: false payloads for safer client handling.
+- Autosave and explicit submit now run through a small exclusive queue to reduce intra-form save races.
+## 2026-03-26 Notes - Final Report Save Boundary Consistency
+- POST /api/reports/save now rejects dual-id requests (editReportId + 	argetReportId) before persistence so route validation and DB write target stay aligned.
+- src/components/reports/hooks/useReportSubmit.ts now returns explicit autosave result states and src/components/reports/ReportForm.tsx no longer shows a false autosave error when submit intentionally suppresses autosave.
+- Verification passed with focused report-save tests, full 
+pm test, 
+px tsc --noEmit, and 
+pm run build.
+
+## 2026-03-26 Notes - Proxy Rename
+- Replaced the deprecated root Next.js entry src/middleware.ts with src/proxy.ts.
+- Keep using src/lib/supabase/middleware.ts for the actual Supabase session update logic; this was a file-convention change only.

@@ -453,3 +453,23 @@
 - General members can view the saved structured content in read-only mode.
 - Team leaders can edit only meetings for departments they lead; other departments remain view-only.
 
+## Report Save Stability (2026-03-26)
+- While editing a report draft, child sections are now preserved more safely if a later save step fails.
+- New local draft autosave and backup restore remain available, and edit saves now avoid clearing child data up front before replacement work succeeds.
+- Report draft/save requests now go through a server save endpoint for more consistent handling of the base report and child sections.
+
+## Report Save Stability Update (2026-03-26, RPC)
+- Report draft/save now uses a stronger server-backed save path that groups the main report and related child sections more safely.
+- In most failure cases, partial child-data loss risk is lower because the core report bundle is now persisted through one DB transaction path.
+- Cell leader report attendance save still shows a warning if attendance data fails separately, but the main report save can remain intact.
+- Photo upload is still a follow-up step after the main report save and may require retry if an upload problem occurs.
+
+
+## Report Save Reliability Update (2026-03-26, Boundary Hardening)
+- Draft autosave and explicit save now avoid more of the save timing collisions that could happen while editing the same report.
+- If the save route returns an unexpected error payload, the screen now treats it as a structured save failure instead of failing on response parsing.
+- Draft autosave updates now follow the same server-side edit permission check path as regular report edits.
+## Report Save Reliability Update (2026-03-26, Final Hardening)
+- While writing a draft, automatic draft save no longer shows a false failure message just because you pressed the main submit/save button at the same time.
+- Draft autosave, explicit save, and edit save now follow a clearer server validation path for the target report.
+- If you attach photos, the main report can still save first and photo upload may still need a retry separately.
