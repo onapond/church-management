@@ -355,13 +355,11 @@ export default function ReportForm({
   useEffect(() => {
     const timer = window.setTimeout(() => {
       window.localStorage.setItem(backupKey, JSON.stringify(serializableSnapshot))
-      if (autosaveStatus === 'idle') {
-        setAutosaveStatus('local')
-      }
+      setAutosaveStatus(prev => (prev === 'idle' ? 'local' : prev))
     }, 400)
 
     return () => window.clearTimeout(timer)
-  }, [autosaveStatus, backupKey, serializableSnapshot])
+  }, [backupKey, serializableSnapshot])
 
   useEffect(() => {
     if (!hasRestoredBackupRef.current) return
@@ -397,6 +395,7 @@ export default function ReportForm({
     serializableSnapshot,
     snapshotString,
   ])
+
 
   const handleSubmit = (e: React.FormEvent, isDraft = false) => {
     e.preventDefault()

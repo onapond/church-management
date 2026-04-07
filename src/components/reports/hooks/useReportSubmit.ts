@@ -242,6 +242,9 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
   ])
 
   const saveDraftSnapshot = useCallback(async (targetReportId?: string | null) => {
+    // editMode에서는 autosave skip — editReportId + targetReportId 동시 세팅으로 400 에러 발생
+    if (editMode) return { status: 'skipped' } as const
+
     const reportYear = parseInt(form.report_date.split('-')[0], 10)
     if (!Number.isFinite(reportYear) || !form.department_id || !form.report_date) {
       return { status: 'failed' } as const
@@ -262,7 +265,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
       console.error('saveDraftSnapshot error:', saveError)
       return { status: 'failed' } as const
     }
-  }, [buildSavePayload, form.department_id, form.report_date, queryClient, runExclusive])
+  }, [buildSavePayload, editMode, form.department_id, form.report_date, queryClient, runExclusive])
 
   const submit = useCallback(async (isDraft: boolean) => {
     const reportYear = parseInt(form.report_date.split('-')[0], 10)
