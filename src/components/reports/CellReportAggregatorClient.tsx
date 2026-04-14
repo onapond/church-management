@@ -24,6 +24,13 @@ function safeParseNotes(notes: string | null): Record<string, string> {
   try { return JSON.parse(notes || '{}') } catch { return {} }
 }
 
+/** 셀 이름만 추출 (cells.name 우선, 없으면 meeting_title에서 접미사 제거) */
+function extractCellName(report: { meeting_title: string | null; cells: { name: string } | null }): string {
+  if (report.cells?.name) return report.cells.name
+  if (!report.meeting_title) return '셀'
+  return report.meeting_title.replace(/\s*(모임\s*보고서|보고서|모임)\s*$/, '').trim() || report.meeting_title
+}
+
 export default function CellReportAggregatorClient() {
   const { user } = useAuth()
   const router = useRouter()
@@ -100,29 +107,25 @@ export default function CellReportAggregatorClient() {
     try {
       const cellAttendance: CellAttendance[] = selectedReports.map(r => ({
         _key: genKey(),
-        cell_name: r.meeting_title || r.cells?.name || '셀',
+        cell_name: extractCellName(r),
         registered: r.total_registered || 0,
         worship: r.worship_attendance || 0,
         meeting: r.meeting_attendance || 0,
-        note: safeParseNotes(r.notes).other_notes || '',
+        note: '',
       }))
 
       const firstNotes = safeParseNotes(selectedReports[0]?.notes)
 
+      // 논의/특이사항: 각 셀의 나눔내용 + 참고사항을 하나의 필드에 취합
       const compiledDiscussion = selectedReports
         .map(r => {
           const n = safeParseNotes(r.notes)
-          if (!n.discussion_notes) return null
-          return `[${r.meeting_title || r.cells?.name || '셀'}]\n${n.discussion_notes}`
-        })
-        .filter(Boolean)
-        .join('\n\n')
-
-      const compiledOther = selectedReports
-        .map(r => {
-          const n = safeParseNotes(r.notes)
-          if (!n.other_notes) return null
-          return `[${r.meeting_title || r.cells?.name || '셀'}]\n${n.other_notes}`
+          const cellName = extractCellName(r)
+          const parts: string[] = []
+          if (n.discussion_notes) parts.push(n.discussion_notes)
+          if (n.other_notes) parts.push(`참고: ${n.other_notes}`)
+          if (parts.length === 0) return null
+          return `[${cellName}]\n${parts.join('\n')}`
         })
         .filter(Boolean)
         .join('\n\n')
@@ -137,7 +140,7 @@ export default function CellReportAggregatorClient() {
           sermon_title: firstNotes.sermon_title || '',
           sermon_scripture: firstNotes.sermon_scripture || '',
           discussion_notes: compiledDiscussion,
-          other_notes: compiledOther,
+          other_notes: '',
           meeting_title: '',
           meeting_location: '',
           attendees: '',
@@ -295,7 +298,7 @@ export default function CellReportAggregatorClient() {
               const isChecked = selectedIds.has(report.id)
               const notes = safeParseNotes(report.notes)
               const statusLabel = APPROVAL_STATUS_LABELS[report.status] || report.status
-              const cellName = report.meeting_title || report.cells?.name || '셀'
+              const cellName = extractCellName(report)
 
               return (
                 <label
@@ -374,7 +377,7 @@ export default function CellReportAggregatorClient() {
           <div className="space-y-2">
             {selectedReports.map(r => {
               const n = safeParseNotes(r.notes)
-              const cellName = r.meeting_title || r.cells?.name || '셀'
+              const cellName = extractCellName(r)
               return (
                 <div key={r.id} className="bg-white rounded-xl p-3 text-xs">
                   <p className="font-semibold text-gray-700 mb-1">
@@ -384,7 +387,7 @@ export default function CellReportAggregatorClient() {
                     <p className="text-gray-500 line-clamp-2">나눔: {n.discussion_notes}</p>
                   )}
                   {n.other_notes && (
-                    <p className="text-gray-400 line-clamp-1 mt-0.5">기타: {n.other_notes}</p>
+                    <p className="text-gray-400 line-clamp-1 mt-0.5">참고: {n.other_notes}</p>
                   )}
                 </div>
               )
