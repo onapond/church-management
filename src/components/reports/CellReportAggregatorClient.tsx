@@ -116,15 +116,20 @@ export default function CellReportAggregatorClient() {
 
       const firstNotes = safeParseNotes(selectedReports[0]?.notes)
 
+      // 나눔내용(main_content) + 기도제목(application_notes) → 논의사항
       const compiledDiscussion = selectedReports
         .map(r => {
-          const n = safeParseNotes(r.notes)
-          if (!n.discussion_notes) return null
-          return `[${extractCellName(r)}]\n${n.discussion_notes}`
+          const cellName = extractCellName(r)
+          const parts: string[] = []
+          if (r.main_content) parts.push(r.main_content)
+          if (r.application_notes) parts.push(`기도제목: ${r.application_notes}`)
+          if (parts.length === 0) return null
+          return `[${cellName}]\n${parts.join('\n')}`
         })
         .filter(Boolean)
         .join('\n\n')
 
+      // 기타사항(other_notes) → 기타사항
       const compiledOther = selectedReports
         .map(r => {
           const n = safeParseNotes(r.notes)
@@ -380,18 +385,17 @@ export default function CellReportAggregatorClient() {
           {/* 셀별 요약 */}
           <div className="space-y-2">
             {selectedReports.map(r => {
-              const n = safeParseNotes(r.notes)
               const cellName = extractCellName(r)
               return (
                 <div key={r.id} className="bg-white rounded-xl p-3 text-xs">
                   <p className="font-semibold text-gray-700 mb-1">
                     {cellName} · {r.worship_attendance ?? 0}/{r.total_registered ?? 0}명
                   </p>
-                  {n.discussion_notes && (
-                    <p className="text-gray-500 line-clamp-2">나눔: {n.discussion_notes}</p>
+                  {r.main_content && (
+                    <p className="text-gray-500 line-clamp-2">나눔: {r.main_content}</p>
                   )}
-                  {n.other_notes && (
-                    <p className="text-gray-400 line-clamp-1 mt-0.5">참고: {n.other_notes}</p>
+                  {r.application_notes && (
+                    <p className="text-gray-400 line-clamp-1 mt-0.5">기도제목: {r.application_notes}</p>
                   )}
                 </div>
               )

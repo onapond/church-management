@@ -339,6 +339,8 @@ export interface CellLeaderReportForAggregator {
   total_registered: number
   meeting_attendance: number
   notes: string | null
+  main_content: string | null
+  application_notes: string | null
   status: string
   department_id: string
   users: { name: string } | null
@@ -353,7 +355,7 @@ export function useCellLeaderReportsByDate(deptIds: string[], reportDate: string
     queryFn: async (): Promise<CellLeaderReportForAggregator[]> => {
       const { data, error } = await supabase
         .from('weekly_reports')
-        .select('id, meeting_title, report_date, worship_attendance, total_registered, meeting_attendance, notes, status, department_id, users!weekly_reports_author_id_fkey(name), cells(name)')
+        .select('id, meeting_title, report_date, worship_attendance, total_registered, meeting_attendance, notes, main_content, application_notes, status, department_id, users!weekly_reports_author_id_fkey(name), cells(name)')
         .eq('report_type', 'cell_leader')
         .in('department_id', deptIds)
         .gte('report_date', weekStart)
