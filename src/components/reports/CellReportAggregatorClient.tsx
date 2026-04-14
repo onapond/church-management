@@ -116,16 +116,20 @@ export default function CellReportAggregatorClient() {
 
       const firstNotes = safeParseNotes(selectedReports[0]?.notes)
 
-      // 논의/특이사항: 각 셀의 나눔내용 + 참고사항을 하나의 필드에 취합
       const compiledDiscussion = selectedReports
         .map(r => {
           const n = safeParseNotes(r.notes)
-          const cellName = extractCellName(r)
-          const parts: string[] = []
-          if (n.discussion_notes) parts.push(n.discussion_notes)
-          if (n.other_notes) parts.push(`참고: ${n.other_notes}`)
-          if (parts.length === 0) return null
-          return `[${cellName}]\n${parts.join('\n')}`
+          if (!n.discussion_notes) return null
+          return `[${extractCellName(r)}]\n${n.discussion_notes}`
+        })
+        .filter(Boolean)
+        .join('\n\n')
+
+      const compiledOther = selectedReports
+        .map(r => {
+          const n = safeParseNotes(r.notes)
+          if (!n.other_notes) return null
+          return `[${extractCellName(r)}]\n${n.other_notes}`
         })
         .filter(Boolean)
         .join('\n\n')
@@ -140,7 +144,7 @@ export default function CellReportAggregatorClient() {
           sermon_title: firstNotes.sermon_title || '',
           sermon_scripture: firstNotes.sermon_scripture || '',
           discussion_notes: compiledDiscussion,
-          other_notes: '',
+          other_notes: compiledOther,
           meeting_title: '',
           meeting_location: '',
           attendees: '',
