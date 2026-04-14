@@ -1,20 +1,22 @@
-/** 날짜 문자열을 한국어 형식으로 포맷 (YYYY-MM-DD → YYYY년 MM월 DD일) */
 export function formatDate(dateStr: string, format: 'full' | 'short' | 'month-day' = 'short'): string {
-  const date = new Date(dateStr)
-  if (isNaN(date.getTime())) return dateStr
+  const parts = dateStr.split('-')
+  if (parts.length < 3) return dateStr
+  const year = parseInt(parts[0], 10)
+  const month = parseInt(parts[1], 10) - 1
+  const day = parseInt(parts[2], 10)
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return dateStr
 
   switch (format) {
     case 'full':
-      return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
+      return `${year}년 ${month + 1}월 ${day}일`
     case 'month-day':
-      return `${date.getMonth() + 1}월 ${date.getDate()}일`
+      return `${month + 1}월 ${day}일`
     case 'short':
     default:
-      return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`
+      return `${year}.${String(month + 1).padStart(2, '0')}.${String(day).padStart(2, '0')}`
   }
 }
 
-/** 전화번호 포맷 (01012345678 → 010-1234-5678) */
 export function formatPhone(phone: string | null): string {
   if (!phone) return ''
   const cleaned = phone.replace(/\D/g, '')
@@ -27,30 +29,28 @@ export function formatPhone(phone: string | null): string {
   return phone
 }
 
-/** 금액을 한국 원화 형식으로 포맷 */
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('ko-KR').format(amount) + '원'
+  return `${new Intl.NumberFormat('ko-KR').format(amount)}원`
 }
 
-/** 교회 기준 주차 번호 계산 (첫 번째 일요일 = 1주차, 일요일 서수 방식) */
 export function getWeekNumber(dateStr: string): number {
   const parts = dateStr.split('-')
   const year = parseInt(parts[0], 10)
   const month = parseInt(parts[1], 10) - 1
   const day = parseInt(parts[2], 10)
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return 1
+
   const date = new Date(year, month, day)
-  // 해당 주의 일요일
   const sundayDate = new Date(year, month, day - date.getDay())
-  // 연초 첫 번째 일요일
   const jan1 = new Date(year, 0, 1)
   const jan1Day = jan1.getDay()
   const firstSunday = jan1Day === 0 ? jan1 : new Date(year, 0, 1 + (7 - jan1Day))
-  // 주차 계산
+
   const diffDays = Math.round((sundayDate.getTime() - firstSunday.getTime()) / 86400000)
-  return Math.floor(diffDays / 7) + 1
+  return Math.max(1, Math.floor(diffDays / 7) + 1)
 }
 
-/** 로컬 날짜를 YYYY-MM-DD 형식으로 포맷 (타임존 안전) */
 export function toLocalDateString(date: Date): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
@@ -58,7 +58,26 @@ export function toLocalDateString(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
-/** 인쇄 HTML 템플릿용 HTML 이스케이프 */
+/** 날짜 문자열이 속한 주의 월요일~일요일 범위를 반환 (교회 주간: 월~일) */
+export function getWeekBounds(dateStr: string): { start: string; end: string } {
+  const parts = dateStr.split('-')
+  const year = parseInt(parts[0], 10)
+  const month = parseInt(parts[1], 10) - 1
+  const day = parseInt(parts[2], 10)
+  const d = new Date(year, month, day)
+  const dayOfWeek = d.getDay() // 0=일, 1=월, ..., 6=토
+
+  // 해당 주 일요일 (주의 끝)
+  const sunday = new Date(d)
+  sunday.setDate(d.getDate() + (dayOfWeek === 0 ? 0 : 7 - dayOfWeek))
+
+  // 해당 주 월요일 (주의 시작) = 일요일 - 6
+  const monday = new Date(sunday)
+  monday.setDate(sunday.getDate() - 6)
+
+  return { start: toLocalDateString(monday), end: toLocalDateString(sunday) }
+}
+
 export function escapeHtml(str: string | null | undefined): string {
   if (!str) return ''
   return String(str)
@@ -69,13 +88,13 @@ export function escapeHtml(str: string | null | undefined): string {
     .replace(/'/g, '&#39;')
 }
 
-/** iframe을 사용한 HTML 인쇄 */
 export function printHtmlInIframe(html: string): void {
   const printFrame = document.createElement('iframe')
   printFrame.style.position = 'fixed'
   printFrame.style.width = '0'
   printFrame.style.height = '0'
   document.body.appendChild(printFrame)
+
   const frameDoc = printFrame.contentWindow?.document
   if (frameDoc) {
     frameDoc.open()
@@ -98,14 +117,18 @@ export function printHtmlInIframe(html: string): void {
   }
 }
 
-/** 생년월일에서 나이 계산 */
 export function calculateAge(birthDate: string | null): number | null {
   if (!birthDate) return null
-  const birth = new Date(birthDate)
+  const parts = birthDate.split('-')
+  if (parts.length < 3) return null
+  const birthYear = parseInt(parts[0], 10)
+  const birthMonth = parseInt(parts[1], 10) - 1
+  const birthDay = parseInt(parts[2], 10)
+  if (!Number.isFinite(birthYear) || !Number.isFinite(birthMonth) || !Number.isFinite(birthDay)) return null
   const today = new Date()
-  let age = today.getFullYear() - birth.getFullYear()
-  const monthDiff = today.getMonth() - birth.getMonth()
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+  let age = today.getFullYear() - birthYear
+  const monthDiff = today.getMonth() - birthMonth
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDay)) {
     age--
   }
   return age

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { createClient } from '@/lib/supabase/client'
 import type { ReportSummary } from '@/types/shared'
 import type { WeeklyReport, ReportProgram, Newcomer, ApprovalHistory } from '@/types/database'
+import { toLocalDateString, getWeekBounds } from '@/lib/utils'
 
 const supabase = createClient()
 
@@ -325,6 +326,45 @@ export function useReportStats(selectedDept: string, startDate: string) {
     },
     staleTime: 2 * 60_000,
     placeholderData: keepPreviousData,
+  })
+}
+
+// ─── 셀장 보고서 취합용 타입 및 훅 ──────────────────
+
+export interface CellLeaderReportForAggregator {
+  id: string
+  meeting_title: string | null
+  report_date: string
+  worship_attendance: number
+  total_registered: number
+  meeting_attendance: number
+  notes: string | null
+  status: string
+  department_id: string
+  users: { name: string } | null
+  cells: { name: string } | null
+}
+
+/** 특정 주의 셀장 보고서 조회 (취합 기능용) */
+export function useCellLeaderReportsByDate(deptIds: string[], reportDate: string) {
+  const { start: weekStart, end: weekEnd } = getWeekBounds(reportDate)
+  return useQuery({
+    queryKey: ['reports', 'cell-leader-aggregate', deptIds, reportDate],
+    queryFn: async (): Promise<CellLeaderReportForAggregator[]> => {
+      const { data, error } = await supabase
+        .from('weekly_reports')
+        .select('id, meeting_title, report_date, worship_attendance, total_registered, meeting_attendance, notes, status, department_id, users!weekly_reports_author_id_fkey(name), cells(name)')
+        .eq('report_type', 'cell_leader')
+        .in('department_id', deptIds)
+        .gte('report_date', weekStart)
+        .lte('report_date', weekEnd)
+        .in('status', ['submitted', 'coordinator_reviewed', 'manager_approved', 'final_approved'])
+        .order('report_date', { ascending: false })
+      if (error) throw error
+      return (data || []) as CellLeaderReportForAggregator[]
+    },
+    enabled: deptIds.length > 0 && !!reportDate,
+    staleTime: 60_000,
   })
 }
 

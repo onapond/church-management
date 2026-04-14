@@ -7,6 +7,8 @@ import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { useReports } from '@/queries/reports'
 import { canAccessAllDepartments, canWriteReport as checkCanWriteReport, getAccessibleDepartmentIds, canViewReport, canViewAllReports } from '@/lib/permissions'
+import { formatDate } from '@/lib/utils'
+import type { UserDepartment } from '@/types/shared'
 
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 
@@ -29,6 +31,12 @@ export default function ReportListClient() {
   const canViewAll = canViewAllReports(user)
   const canWriteReport = checkCanWriteReport(user)
   const userDepartmentIds = useMemo(() => getAccessibleDepartmentIds(user), [user])
+
+  const canAggregate = useMemo(() => {
+    if (!user) return false
+    if (isAdmin) return true
+    return user.user_departments?.some((ud: UserDepartment) => ud.is_team_leader) ?? false
+  }, [user, isAdmin])
 
   const departments = useMemo(() => {
     if (canViewAll) return allDepartments
@@ -92,17 +100,28 @@ export default function ReportListClient() {
           <h1 className="text-lg lg:text-xl font-bold text-gray-900">보고서</h1>
           <p className="text-sm text-gray-500 mt-0.5">보고서 및 프로젝트 계획 관리</p>
         </div>
-        {canWriteReport && (
-          <Link
-            href={`/reports/new?type=${selectedType}`}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm shrink-0"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>작성</span>
-          </Link>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {canAggregate && (
+            <Link
+              href="/reports/aggregate"
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors text-sm"
+            >
+              <span>📊</span>
+              <span className="hidden sm:inline">셀 취합</span>
+            </Link>
+          )}
+          {canWriteReport && (
+            <Link
+              href={`/reports/new?type=${selectedType}`}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>작성</span>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* 유형 탭 */}
@@ -192,12 +211,7 @@ export default function ReportListClient() {
                     <StatusBadge status={report.status} />
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
-                    <span>
-                      {new Date(report.report_date).toLocaleDateString('ko-KR', {
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </span>
+                    <span>{formatDate(report.report_date, 'month-day')}</span>
                     <span>·</span>
                     <span className="truncate">{report.users?.name}</span>
                     {selectedType !== 'weekly' && report.departments?.name && (
