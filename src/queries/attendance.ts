@@ -72,7 +72,6 @@ export function useAttendanceRecordsBrief(date: string) {
         .from('attendance_records')
         .select('id, member_id, attendance_type, is_present')
         .eq('attendance_date', date)
-        .eq('is_present', true)
       if (error) throw error
       return (data || []) as AttendanceRecordBasic[]
     },
@@ -148,6 +147,9 @@ export function useToggleAttendance() {
             attendance_type: params.type,
             is_present: true,
             checked_by: params.checkedBy,
+            checked_via: 'manual',
+          }, {
+            onConflict: 'member_id,attendance_date,attendance_type',
           })
         if (error) throw error
       } else {

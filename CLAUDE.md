@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # �?��중앙교회 교육?�원??관�??�스??
 ## ?�로?�트 개요
 - **???�름**: �?��중앙교회 교육?�원??관�??�스??- **기술 ?�택**: Next.js 16.1.6, Supabase, TypeScript, Tailwind CSS v4
-- **배포**: Vercel (https://church-eight-delta.vercel.app)
+- **배포**: Vercel (https://church-opal.vercel.app)
 - **GitHub**: https://github.com/onapond/church-management (remote: onapond)
 
 ## ?�작 ???�수 ?�인 문서
@@ -98,7 +98,7 @@ npx vercel --prod
 ```
 - Vercel ?�로?�트 ?�정: `framework: nextjs`, `buildCommand: next build`
 - `--prebuilt`??Next.js 16 RSC segments ?�환 문제�??�용 불�?
-- 로컬 `npm run build`�?빌드 ?�러�?반드???�전 ?�인 ??배포??�?- **?�로?�션 URL**: https://church-eight-delta.vercel.app
+- 로컬 `npm run build`�?빌드 ?�러�?반드???�전 ?�인 ??배포??�?- **?�로?�션 URL**: https://church-opal.vercel.app
 - GitHub ?�동 배포 미연�?(?�동 배포 ?�요)
 
 ## 주요 ?�이�?- `users`: ?�용??(??��: super_admin, president, accountant, team_leader, member)
@@ -172,3 +172,30 @@ pm run build.
 ## 2026-03-26 Notes - Proxy Rename
 - Replaced the deprecated root Next.js entry src/middleware.ts with src/proxy.ts.
 - Keep using src/lib/supabase/middleware.ts for the actual Supabase session update logic; this was a file-convention change only.
+
+## 2026-04-18 Notes - MRO DX/AX Reference
+- Added `docs/reference/mro-dx-ax-reference.md` for portfolio/submission use.
+- The document summarizes architecture, core implementation areas, AX-ready extension points, and screenshot guidance without changing application behavior.
+
+## 2026-06-01 Notes - Meeting PDF Attachments
+- New meeting creation supports attaching a PDF minutes file to the meeting.
+- `meeting_minutes` now carries PDF metadata (`pdf_file_path`, `pdf_file_name`, `pdf_file_size`, `pdf_uploaded_at`) and the file itself lives in the private `meeting-pdfs` Supabase Storage bucket.
+- Meeting detail reads the stored path, creates a signed URL, and embeds the PDF for viewing.
+- Existing report approval logic and notification flow were not changed.
+
+## 2026-06-01 Notes - Report Delete and Feedback
+- Report list/detail now expose delete actions for users allowed by the existing report management permission rules.
+- Report feedback is stored separately in `report_feedback` and is available to `super_admin`, `president`, and `accountant` without touching approval state.
+- Keep the approval workflow unchanged; feedback is an additive side channel, not a new approval step.
+
+## 2026-06-01 Notes - Meeting Delete and Feedback
+- Meeting list/detail now expose delete actions for users who can edit the meeting content.
+- Meeting feedback is stored separately in `meeting_feedback` and is available to `super_admin`, `president`, and `accountant`.
+- Meetings do not use the report approval flow; feedback is only a comment trail and should stay separate from status/state logic.
+
+## 2026-06-11 Notes - CU1 Attendance And Approval Operations
+- Attendance screen reads absent rows as well as present rows, preventing duplicate-key failures when a previously unchecked attendance row is checked again.
+- Attendance writes now use explicit Supabase error handling and `onConflict: member_id,attendance_date,attendance_type` upsert where appropriate.
+- Bulk attendance actions respect the current cell filter and roll back UI state if the write fails.
+- Data operations for Do Jisu/Dahui cell, Park Cheolho/Mina cell, and CU1 pending cell-leader report bulk approval are prepared in `scripts/ops-2026-06-11-cu1-request.sql`.
+- Existing attendance/report/accounting/auth/RLS structures remain unchanged; production SQL still needs a fresh Supabase PAT/MCP connection because the cached token is unauthorized.

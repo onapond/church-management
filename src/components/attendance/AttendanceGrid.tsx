@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useTransition, useMemo, useCallback, memo } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { exportAttendanceToExcel } from '@/lib/excel'
 import CellFilter from '@/components/ui/CellFilter'
+import { useToastContext } from '@/providers/ToastProvider'
 
 interface Department {
   id: string
@@ -135,6 +137,7 @@ export default function AttendanceGrid({
   const [memberCellMap, setMemberCellMap] = useState<Map<string, string | null>>(new Map())
 
   const queryClient = useQueryClient()
+  const toast = useToastContext()
   // Supabase 클라이언트를 useMemo로 캐싱
   const supabase = useMemo(() => createClient(), [])
 
@@ -253,6 +256,7 @@ export default function AttendanceGrid({
 
   const toggleAttendance = useCallback(async (memberId: string, type: 'worship' | 'meeting') => {
     setSaving(`${memberId}-${type}`)
+    const previousRecords = records
 
     const existingRecord = records.find(
       r => r.member_id === memberId && r.attendance_type === type
@@ -267,10 +271,21 @@ export default function AttendanceGrid({
           )
         )
 
-        await supabase
+        const { data, error } = await supabase
           .from('attendance_records')
           .update({ is_present: newPresent })
           .eq('id', existingRecord.id)
+          .select('id, member_id, attendance_type, is_present')
+          .single()
+
+        if (error) throw error
+        if (!data) throw new Error('Attendance update returned no row')
+
+        setRecords(prev =>
+          prev.map(r =>
+            r.id === existingRecord.id ? data as AttendanceRecordBasic : r
+          )
+        )
       } else {
         const newRecord = {
           member_id: memberId,
@@ -280,31 +295,46 @@ export default function AttendanceGrid({
           checked_via: 'manual',
         }
 
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('attendance_records')
-          .insert(newRecord)
+          .upsert(newRecord, {
+            onConflict: 'member_id,attendance_date,attendance_type',
+          })
           .select('id, member_id, attendance_type, is_present')
           .single()
 
-        if (data) {
-          setRecords(prev => [...prev, data as AttendanceRecordBasic])
-        }
+        if (error) throw error
+        if (!data) throw new Error('Attendance insert returned no row')
+
+        setRecords(prev => {
+          const nextRecord = data as AttendanceRecordBasic
+          const existingIndex = prev.findIndex(
+            r => r.member_id === memberId && r.attendance_type === type
+          )
+          if (existingIndex === -1) return [...prev, nextRecord]
+          return prev.map((r, index) => index === existingIndex ? nextRecord : r)
+        })
       }
+    } catch (error) {
+      console.error('Attendance save failed:', error)
+      setRecords(previousRecords)
+      toast.error('출석 저장에 실패했습니다. 권한 또는 네트워크 상태를 확인해주세요.')
     } finally {
       setSaving(null)
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
     }
-  }, [records, selectedDate, supabase, queryClient])
+  }, [records, selectedDate, supabase, queryClient, toast])
 
   // 일괄 출석 체크
   const bulkCheckAttendance = useCallback(async (type: 'worship' | 'meeting', markPresent: boolean) => {
-    if (members.length === 0) return
+    if (filteredMembers.length === 0) return
 
     setBulkSaving(`${type}-${markPresent ? 'check' : 'uncheck'}`)
+    const previousRecords = records
 
     try {
       // 출석 처리할 멤버들 찾기
-      const membersToUpdate = members.filter(m => {
+      const membersToUpdate = filteredMembers.filter(m => {
         const isPresent = attendanceMap.get(`${m.id}-${type}`) || false
         return markPresent ? !isPresent : isPresent
       })
@@ -345,18 +375,22 @@ export default function AttendanceGrid({
 
         // 기존 레코드 업데이트
         if (recordsToUpdate.length > 0) {
-          await supabase
+          const { error } = await supabase
             .from('attendance_records')
             .update({ is_present: true })
             .in('id', recordsToUpdate)
+          if (error) throw error
         }
 
         // 새 레코드 삽입
         if (newRecordsToInsert.length > 0) {
-          const { data: insertedRecords } = await supabase
+          const { data: insertedRecords, error } = await supabase
             .from('attendance_records')
-            .insert(newRecordsToInsert)
+            .upsert(newRecordsToInsert, {
+              onConflict: 'member_id,attendance_date,attendance_type',
+            })
             .select('id, member_id, attendance_type, is_present')
+          if (error) throw error
 
           if (insertedRecords) {
             setRecords(prev => [
@@ -375,15 +409,17 @@ export default function AttendanceGrid({
         }
       } else {
         // 전체 결석 처리
+        const filteredMemberIds = new Set(filteredMembers.map(member => member.id))
         const recordIds = records
-          .filter(r => r.attendance_type === type && r.is_present)
+          .filter(r => filteredMemberIds.has(r.member_id) && r.attendance_type === type && r.is_present)
           .map(r => r.id)
 
         if (recordIds.length > 0) {
-          await supabase
+          const { error } = await supabase
             .from('attendance_records')
             .update({ is_present: false })
             .in('id', recordIds)
+          if (error) throw error
 
           setRecords(prev =>
             prev.map(r =>
@@ -392,11 +428,15 @@ export default function AttendanceGrid({
           )
         }
       }
+    } catch (error) {
+      console.error('Bulk attendance save failed:', error)
+      setRecords(previousRecords)
+      toast.error('출석 일괄 저장에 실패했습니다. 권한 또는 네트워크 상태를 확인해주세요.')
     } finally {
       setBulkSaving(null)
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
     }
-  }, [members, records, attendanceMap, selectedDate, supabase, queryClient])
+  }, [filteredMembers, records, attendanceMap, selectedDate, supabase, queryClient, toast])
 
   // 엑셀 내보내기
   const handleExportExcel = useCallback(() => {
@@ -549,9 +589,9 @@ export default function AttendanceGrid({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             <p className="text-gray-500 text-sm">등록된 교인이 없습니다.</p>
-            <a href="/members" className="inline-block mt-3 text-blue-600 hover:text-blue-700 font-medium text-sm">
+            <Link href="/members" className="inline-block mt-3 text-blue-600 hover:text-blue-700 font-medium text-sm">
               교인 등록하기 →
-            </a>
+            </Link>
           </div>
         )}
       </div>

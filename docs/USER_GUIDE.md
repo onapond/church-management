@@ -473,3 +473,34 @@
 - While writing a draft, automatic draft save no longer shows a false failure message just because you pressed the main submit/save button at the same time.
 - Draft autosave, explicit save, and edit save now follow a clearer server validation path for the target report.
 - If you attach photos, the main report can still save first and photo upload may still need a retry separately.
+
+## Reference Document (2026-04-18)
+- A portfolio/submission document is now available at `docs/reference/mro-dx-ax-reference.md`.
+- It summarizes the product, architecture, major functions, AX-ready design direction, and recommended screenshots for external presentation.
+
+## Meeting PDF Attachments (2026-06-01)
+- When creating a new meeting from the Meetings tab, users with meeting creation permission can attach a PDF minutes file.
+- The attached PDF is preserved as the original file and can be viewed from the meeting detail page.
+- The meeting detail page also provides a link to open the PDF in a new browser tab.
+- Report approval still follows the existing chair, department, and pastor approval workflow in the report module.
+
+## Report Delete and Feedback (2026-06-01)
+- In the report list, users who can manage a report can tap the delete button on the right side of the row.
+- In the report detail page, the same delete action is available from the top action buttons.
+- In the report detail page, `super_admin`, `president`, and `accountant` can leave feedback separately from approval.
+- Feedback does not change the approval status. It is only a comment trail for the report.
+
+## Meeting Delete and Feedback (2026-06-01)
+- In the meeting list, users who can edit the meeting content can tap the delete button on the right side of the row.
+- In the meeting detail page, the same delete action is available from the top action buttons.
+- In the meeting detail page, `super_admin`, `president`, and `accountant` can leave feedback separately from the meeting notes.
+- Feedback does not change any meeting status. It is only a comment trail for the meeting.
+
+## Attendance Save Reliability (2026-06-11)
+- When checking attendance, the screen now keeps track of previously unchecked rows too, so checking someone again updates the existing record instead of failing in the background.
+- If attendance cannot be saved because of permissions or network issues, the checkmark is reverted and an error message is shown.
+- Bulk attendance buttons apply to the currently visible cell-filtered list.
+
+## CU1 Data Operations Prepared (2026-06-11)
+- A data-only SQL script is ready for adding Do Jisu to Dahui cell, Park Cheolho to Mina cell, and approving existing pending CU1 cell-leader reports in bulk.
+- The script still needs to be run with a valid Supabase admin/PAT/MCP connection.

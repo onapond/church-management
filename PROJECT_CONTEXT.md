@@ -211,3 +211,31 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - The deprecated root src/middleware.ts entry was replaced with src/proxy.ts.
 - Auth/session behavior is unchanged because the actual logic still lives in src/lib/supabase/middleware.ts and is reused by the new proxy entry.
 - Local build verification confirms the previous Next.js middleware -> proxy deprecation warning no longer appears.
+
+## 2026-04-18 Update - MRO DX/AX Reference Document
+- Added `docs/reference/mro-dx-ax-reference.md` as a submission-oriented reference document for describing this project as a DX/AX case study.
+- The document organizes system architecture, implemented features, AX-ready design points, and screenshot capture guidance for external/internal portfolio use.
+- This is a documentation-only additive change and does not modify attendance, report, accounting, auth, or RLS behavior.
+
+## 2026-06-01 Update - Meeting PDF Attachments
+- Meeting Management now supports attaching one original PDF minutes file during new meeting creation.
+- PDF metadata is stored additively on `meeting_minutes`, while the PDF binary is stored in the private Supabase Storage bucket `meeting-pdfs`.
+- Meeting detail creates a signed URL for the attached PDF and shows it inline with a separate open-in-new-window link.
+- This does not change attendance, report, accounting, auth, or the existing report approval workflow. The chair/department/pastor approval flow remains in the report module.
+
+## 2026-06-01 Update - Report Delete and Feedback
+- Report management now includes delete actions for permitted users in the list and detail views.
+- A separate `report_feedback` flow was added so president/department lead/pastor-equivalent roles can leave comments without changing approval state.
+- This remains additive and does not change attendance, accounting, auth, or the report approval workflow.
+
+## 2026-06-01 Update - Meeting Delete and Feedback
+- Meeting management now includes delete actions in the list and detail views for users who can edit the meeting content.
+- A separate `meeting_feedback` flow was added so president/department lead/pastor-equivalent roles can leave comments without changing any approval state, because meetings do not use the report approval flow.
+- This remains additive and does not change attendance, report, accounting, auth, or the meeting PDF workflow.
+
+## 2026-06-11 Update - CU1 Attendance And Approval Operations
+- Attendance management now loads both present and absent attendance rows for the selected date so an existing false row does not cause a duplicate insert when toggled back on.
+- Attendance toggle and bulk actions now check Supabase write errors, roll back optimistic UI state on failure, and show a toast instead of silently appearing saved.
+- Added `scripts/ops-2026-06-11-cu1-request.sql` for the requested CU1 data operations: assign Do Jisu to Dahui cell, assign Park Cheolho to Mina cell, and bulk-final-approve existing pending CU1 cell-leader reports.
+- This is additive and does not change report approval code, accounting, auth, RLS policies, or schema.
+- Production data SQL was not executed because the existing Supabase MCP token returned `Unauthorized`; a fresh Supabase PAT/MCP connection is required.

@@ -159,3 +159,44 @@ WHERE year = 2026 AND report_type = 'weekly';
 - Root request interception now uses src/proxy.ts instead of the deprecated src/middleware.ts convention.
 - The implementation still delegates to src/lib/supabase/middleware.ts for cookie/session refresh and protected-route redirects.
 - Verified locally: npm run build passes without the previous middleware -> proxy deprecation warning.
+
+## 2026-04-18 Reference Documentation
+- Added `docs/reference/mro-dx-ax-reference.md`.
+- Purpose: explain the current architecture and implemented workflow as a DX/AX reference document, including screenshot capture guidance and business translation for non-church operational environments.
+- No technical behavior, schema, auth, or RLS changes were introduced.
+
+## 2026-06-01 Meeting PDF Attachments
+- Migration `008_add_meeting_pdf_attachments.sql` extends `meeting_minutes` with PDF attachment metadata:
+  - `pdf_file_path`
+  - `pdf_file_name`
+  - `pdf_file_size`
+  - `pdf_uploaded_at`
+- Supabase Storage bucket `meeting-pdfs` is private, limited to `application/pdf`, and capped at 20MB per object.
+- Storage RLS:
+  - select: active authenticated users
+  - insert/update/delete: active users who can edit the meeting content, aligned with existing meeting minutes scope (`super_admin`, `president`, or team leader for the meeting department)
+- UI/API flow:
+  - `MeetingForm` creates the base meeting, uploads the PDF under `{meetingId}/...`, then upserts `meeting_minutes` metadata.
+  - `MeetingDetail` uses a signed URL query to embed the PDF and provide a new-window link.
+- Existing attendance, report, accounting, auth, and report approval workflow behavior is unchanged.
+
+## 2026-06-01 Report Delete and Feedback
+- Report deletion now uses a shared helper that removes `report-photos/{reportId}` objects before deleting the `weekly_reports` row.
+- The report list view shows a delete action for users who already satisfy the existing report-management permission rules.
+- A new `report_feedback` table stores separate comments from `super_admin`, `president`, and `accountant` roles.
+- Feedback is read through a dedicated TanStack Query hook and written without changing `weekly_reports.status` or `approval_history`.
+
+## 2026-06-01 Meeting Delete and Feedback
+- Meeting deletion now uses a shared helper that removes `meeting-pdfs/{meetingId}` objects before deleting the `meetings` row.
+- The meeting list and detail views show delete actions for users who already satisfy the existing meeting-content edit permission rules.
+- A new `meeting_feedback` table stores separate comments from `super_admin`, `president`, and `accountant` roles.
+- Feedback is read through a dedicated TanStack Query hook and written without changing meeting rows or minutes rows.
+
+## 2026-06-11 CU1 Attendance And Approval Operations
+- Attendance date queries used by the attendance screen no longer filter to `is_present = true`; false rows are needed so toggling them back on updates the existing unique `(member_id, attendance_date, attendance_type)` row.
+- Attendance writes now fail visibly on Supabase/RLS errors and use explicit conflict handling for insert-or-update paths.
+- Added data-only SQL script `scripts/ops-2026-06-11-cu1-request.sql`.
+- The SQL targets:
+  - `member_departments.cell_id` for Do Jisu and Park Cheolho in CU1.
+  - `weekly_reports.status`, final approver fields, and missing `approval_history` rows for CU1 `cell_leader` reports still in `submitted`.
+- No schema, RLS policy, auth flow, report workflow code, or accounting behavior changed.
