@@ -175,3 +175,8 @@
   - 박철호 is assigned to 민아셀.
   - CU1 pending `cell_leader` submitted reports were bulk-final-approved.
 - The prior Supabase MCP/PAT blocker for this CU1 operational request is resolved.
+
+## 2026-06-12 Worktree Cleanup Handoff
+- Consolidated accumulated uncommitted work in commit `9a55fa0` and pushed it to `origin/main`.
+- Removed ignored local cache/scratch/reference artifacts and confirmed the working tree is clean.
+- Full handoff: `docs/handoffs/2026-06-12-worktree-cleanup-handoff.md`.
