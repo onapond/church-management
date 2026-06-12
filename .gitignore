@@ -36,6 +36,32 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Local agent/editor state
+.claude/agent-memory/
+.claude/report.html
+.codex_mcp_apply.ps1
+.obsidian/
+.idea/
+
+# Local automation snapshots
+docs/.bkit-memory.json
+docs/.pdca-status.json
+docs/.pdca-snapshots/
+
+# Local scratch files and extracted photos
+ref/
+temp_photos/
+nul
+무제*.md
+Cdevchurchtemp_xlsx/
+
+# Supabase CLI local cache
+supabase/.temp/
+supabase/rls-patch-*.sql
+supabase/rls_patch_*.sql
+supabase/rls-rollback.sql
+supabase/test-rls.mjs
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -37,6 +37,7 @@ const MemberRow = memo(function MemberRow({
       <div className="flex items-center gap-3">
         {/* 프로필 사진 */}
         {member.photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={member.photoUrl}
             alt={member.name}

@@ -124,15 +124,6 @@ interface ReportDraftBackup {
   }
 }
 
-const REPORT_TYPE_LABELS: Record<ReportType, string> = {
-  weekly: '주차 보고서',
-  meeting: '모임 보고서',
-  education: '교육 보고서',
-  cell_leader: '셀장 보고서',
-  project: '프로젝트 계획',
-  visitation: '심방 보고서',
-}
-
 // 섹션 정의
 const SECTIONS = [
   { id: 'basic', label: '기본', icon: '📋' },
@@ -166,8 +157,6 @@ type ProjectSectionId = typeof PROJECT_OPTIONAL_SECTIONS[number]['id']
 const ALL_PROJECT_SECTIONS: ProjectSectionId[] = PROJECT_OPTIONAL_SECTIONS.map(s => s.id)
 
 // 프로젝트 섹션 표시 순서 (컴포넌트 외부에서 상수로 정의)
-const PROJECT_SECTION_ORDER: ProjectSectionId[] = ['overview', 'purpose', 'organization', 'content', 'schedule', 'budget']
-
 export default function ReportForm({
   reportType,
   departments,
@@ -213,7 +202,7 @@ export default function ReportForm({
 
   const serializableSnapshot = useMemo<ReportDraftBackup>(() => ({
     version: 1,
-    updatedAt: Date.now(),
+    updatedAt: 0,
     draftReportId,
     data: {
       form,
@@ -280,7 +269,7 @@ export default function ReportForm({
   }, [])
 
   // 제출 (useReportSubmit 훅에 로직 위임)
-  const { submit, saveDraftSnapshot, isLoading: loading, error, clearError: _clearError } = useReportSubmit({
+  const { submit, saveDraftSnapshot, isLoading: loading, error } = useReportSubmit({
     supabase,
     authorId,
     reportType,
@@ -331,6 +320,7 @@ export default function ReportForm({
       setEnabledSections(backup.data.enabledSections)
       setSelectedCellId(backup.data.selectedCellId)
       setMemberAttendance(backup.data.memberAttendance)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDraftReportId(backup.draftReportId)
       setAutosaveStatus('local')
       toast.warning('로컬 임시 저장본을 복구했습니다.')
@@ -354,7 +344,10 @@ export default function ReportForm({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      window.localStorage.setItem(backupKey, JSON.stringify(serializableSnapshot))
+      window.localStorage.setItem(backupKey, JSON.stringify({
+        ...serializableSnapshot,
+        updatedAt: Date.now(),
+      }))
       setAutosaveStatus(prev => (prev === 'idle' ? 'local' : prev))
     }, 400)
 

@@ -14,10 +14,10 @@ import {
   getAccessibleDepartmentIds,
   getTeamLeaderDepartments,
   canViewReport,
+  canManageReport,
 } from './permissions'
 import type { UserData } from '@/types/shared'
 
-// 테스트용 사용자 팩토리
 function createUser(overrides: Partial<UserData> = {}): UserData {
   return {
     id: 'test-user',
@@ -173,6 +173,17 @@ describe('canEditMembers', () => {
   })
 })
 
+describe('canManageReport', () => {
+  it('관리자는 제출 상태 보고서도 수정 가능', () => {
+    expect(canManageReport('president', 'admin-1', { author_id: 'author-1', status: 'submitted' })).toBe(true)
+  })
+
+  it('작성자는 draft 상태만 수정 가능', () => {
+    expect(canManageReport('member', 'author-1', { author_id: 'author-1', status: 'draft' })).toBe(true)
+    expect(canManageReport('member', 'author-1', { author_id: 'author-1', status: 'submitted' })).toBe(false)
+  })
+})
+
 describe('canApprove', () => {
   it('president는 결재 가능', () => {
     expect(canApprove('president')).toBe(true)
@@ -225,8 +236,6 @@ describe('getTeamLeaderDepartments', () => {
     expect(result[0].name).toBe('CU2부')
   })
 })
-
-// ─── canViewReport 테스트 ──────────────────────────────
 
 describe('canViewReport', () => {
   const report = { author_id: 'author-1', department_id: 'dept-1', status: 'submitted' }
@@ -291,9 +300,7 @@ describe('canViewReport', () => {
         departments: { id: 'dept-1', name: '1청년', code: 'cu1' },
       }],
     })
-    // 팀장이 작성한 보고서도 열람 가능
     expect(canViewReport(user, report, true)).toBe(true)
-    // 셀장이 작성한 보고서도 열람 가능
     expect(canViewReport(user, report, false)).toBe(true)
   })
 
@@ -307,10 +314,8 @@ describe('canViewReport', () => {
         departments: { id: 'dept-1', name: '1청년', code: 'cu1' },
       }],
     })
-    // 같은 부서(dept-1) 보고서 → 열람 가능 (작성자 무관)
     expect(canViewReport(user, report, false)).toBe(true)
     expect(canViewReport(user, report, true)).toBe(true)
-    // 다른 부서 보고서 → 열람 불가
     const otherDeptReport = { author_id: 'other', department_id: 'dept-2', status: 'submitted' }
     expect(canViewReport(user, otherDeptReport)).toBe(false)
   })
@@ -339,7 +344,6 @@ describe('canViewReport', () => {
       }],
     })
     const reportByB = { author_id: 'tl-b', department_id: 'dept-youth', status: 'submitted' }
-    // 둘 다 is_team_leader=false → peer 열람 가능
     expect(canViewReport(teamLeaderA, reportByB, false)).toBe(true)
   })
 })

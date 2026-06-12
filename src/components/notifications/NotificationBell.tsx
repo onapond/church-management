@@ -6,7 +6,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNotifications, useUnreadCount, useMarkAsRead, useMarkAllAsRead } from '@/queries/notifications'
 import NotificationItem from './NotificationItem'
 import PushPermission from './PushPermission'
-import type { Notification } from '@/types/database'
 
 interface NotificationBellProps {
   userId: string

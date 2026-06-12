@@ -2,9 +2,8 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { ReportSummary } from '@/types/shared'
-import type { WeeklyReport, ReportProgram, Newcomer, ApprovalHistory } from '@/types/database'
-import { toLocalDateString, getWeekBounds } from '@/lib/utils'
+import type { WeeklyReport, ReportProgram, Newcomer, ApprovalHistory, ReportFeedback } from '@/types/database'
+import { getWeekBounds } from '@/lib/utils'
 
 const supabase = createClient()
 
@@ -45,6 +44,7 @@ export interface ReportDetailData extends WeeklyReport {
 }
 
 export type ApprovalHistoryWithUser = ApprovalHistory & { users: { name: string } | null }
+export type ReportFeedbackWithUser = ReportFeedback & { users: { name: string; role?: string } | null }
 
 // ─── 보고서 상세 훅 ──────────────────────────────
 
@@ -123,6 +123,25 @@ export function useApprovalHistory(reportId: string | undefined) {
         .order('created_at', { ascending: false })
       if (error) throw error
       return (data || []) as ApprovalHistoryWithUser[]
+    },
+    enabled: !!reportId,
+    staleTime: 30_000,
+  })
+}
+
+/** 보고서 피드백 조회 */
+export function useReportFeedback(reportId: string | undefined) {
+  return useQuery({
+    queryKey: ['reports', 'feedback', reportId],
+    queryFn: async (): Promise<ReportFeedbackWithUser[]> => {
+      const { data, error } = await supabase
+        .from('report_feedback')
+        .select('*, users(name, role)')
+        .eq('report_id', reportId!)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return (data || []) as ReportFeedbackWithUser[]
     },
     enabled: !!reportId,
     staleTime: 30_000,

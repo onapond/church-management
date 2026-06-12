@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -23,6 +23,7 @@ function AuthForm() {
   })
   const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,17 +47,33 @@ function AuthForm() {
     router.refresh()
   }
 
+  // 쿨다운 타이머
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = setTimeout(() => setCooldown(cooldown - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [cooldown])
+
+  const startCooldown = useCallback((seconds: number) => {
+    setCooldown(seconds > 0 ? seconds : 60)
+  }, [])
+
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setSuccess(null)
-    setLoading(true)
 
     if (!email.trim()) {
       setError('이메일을 입력해주세요.')
-      setLoading(false)
       return
     }
+
+    if (cooldown > 0) {
+      setError(`보안을 위해 ${cooldown}초 후에 다시 시도해주세요.`)
+      return
+    }
+
+    setLoading(true)
 
     const supabase = createClient()
 
@@ -66,17 +83,22 @@ function AuthForm() {
 
     if (error) {
       console.error('Password reset error:', error)
-      if (error.message.includes('Email rate limit')) {
-        setError('너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요. (Supabase 기본 SMTP 사용 시 시간당 요청 제한이 있을 수 있습니다.)')
+      // Supabase rate limit: "For security purposes, you can only request this after X seconds"
+      const secMatch = error.message.match(/after (\d+) ?seconds/)
+      if (error.message.includes('Email rate limit') || error.message.includes('security purposes') || secMatch) {
+        const wait = secMatch ? parseInt(secMatch[1], 10) : 60
+        startCooldown(wait)
+        setError(`보안을 위해 ${wait > 0 ? wait : 60}초 후에 다시 시도해주세요.`)
       } else if (error.message.includes('Invalid email')) {
         setError('유효하지 않은 이메일 주소입니다.')
       } else {
-        setError(`비밀번호 재설정 요청 실패: ${error.message}`)
+        setError('비밀번호 재설정 요청 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
       }
       setLoading(false)
       return
     }
 
+    startCooldown(60)
     setSuccess('비밀번호 재설정 링크를 이메일로 보냈습니다. 이메일을 확인해주세요.')
     setLoading(false)
   }
@@ -122,7 +144,7 @@ function AuthForm() {
       } else if (error.message.includes('Password')) {
         setError('비밀번호가 요구 조건을 충족하지 않습니다.')
       } else {
-        setError(`회원가입 실패: ${error.message}`)
+        setError('회원가입 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
       }
       setLoading(false)
       return
@@ -140,7 +162,7 @@ function AuthForm() {
 
   const handleSubmit = mode === 'login' ? handleLogin : mode === 'signup' ? handleSignup : handleForgotPassword
 
-  const submitLabel = mode === 'login' ? '로그인' : mode === 'signup' ? '회원가입' : '재설정 링크 보내기'
+  const submitLabel = mode === 'login' ? '로그인' : mode === 'signup' ? '회원가입' : cooldown > 0 ? `${cooldown}초 후 재시도` : '재설정 링크 보내기'
   const loadingLabel = mode === 'login' ? '로그인 중...' : mode === 'signup' ? '가입 중...' : '전송 중...'
 
   return (
@@ -238,7 +260,7 @@ function AuthForm() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (mode === 'forgot' && cooldown > 0)}
           className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl font-medium hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (

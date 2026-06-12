@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/providers/AuthProvider'
 import { useRecentReports, useThisWeekReport, useDashboardPending, useThisWeekStats } from '@/queries/dashboard'
 import { getAccessibleDepartmentIds } from '@/lib/permissions'
+import type { UserDepartment } from '@/types/shared'
 
 const roleDisplayNames: Record<string, string> = {
   'president': '회장',
@@ -23,7 +24,7 @@ export default function DashboardContent() {
     if (!user) return false
     const adminRoles = ['super_admin', 'president', 'accountant']
     if (adminRoles.includes(user.role)) return true
-    return user.role === 'team_leader' || user.user_departments?.some((ud: any) => ud.is_team_leader)
+    return user.role === 'team_leader' || user.user_departments?.some((ud: UserDepartment) => ud.is_team_leader)
   }, [user])
   const isDeptHead = user?.user_departments?.some((ud) => ud.is_team_leader)
   const defaultReportType = isDeptHead ? 'weekly' : 'cell_leader'

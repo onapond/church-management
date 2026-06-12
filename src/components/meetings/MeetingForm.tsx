@@ -1,12 +1,13 @@
-﻿'use client'
+'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/providers/AuthProvider'
 import { useToastContext } from '@/providers/ToastProvider'
 import { useDepartments } from '@/queries/departments'
 import { useCreateMeeting, useUpsertMeetingMinutes } from '@/queries/meetings/useCreateMeeting'
 import { canAccessAllDepartments, canCreateMeeting } from '@/lib/permissions'
+import { createClient } from '@/lib/supabase/client'
 
 interface MeetingFormState {
   title: string
@@ -41,6 +42,9 @@ const MINUTES_SECTIONS: Array<{
   },
 ]
 
+const supabase = createClient()
+const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024
+
 export default function MeetingForm() {
   const router = useRouter()
   const toast = useToastContext()
@@ -48,10 +52,12 @@ export default function MeetingForm() {
   const { data: allDepartments = [], isLoading: departmentsLoading } = useDepartments()
   const createMeeting = useCreateMeeting()
   const upsertMeetingMinutes = useUpsertMeetingMinutes()
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [form, setForm] = useState<MeetingFormState>({
     title: '',
     department_id: '',
-    meeting_date: '',
+    meeting_date: getDefaultMeetingDateTime(),
     location: '',
     description: '',
     discussion_notes: '',
@@ -67,18 +73,7 @@ export default function MeetingForm() {
     return allDepartments.filter((department) => allowedDepartmentIds.has(department.id))
   }, [allDepartments, user])
 
-  useEffect(() => {
-    if (departments.length === 0 || form.department_id) return
-    setForm((current) => ({ ...current, department_id: departments[0].id }))
-  }, [departments, form.department_id])
-
-  useEffect(() => {
-    if (form.meeting_date) return
-
-    const now = new Date()
-    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
-    setForm((current) => ({ ...current, meeting_date: localDateTime }))
-  }, [form.meeting_date])
+  const selectedDepartmentId = form.department_id || departments[0]?.id || ''
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -88,29 +83,58 @@ export default function MeetingForm() {
       return
     }
 
-    if (!form.title.trim() || !form.department_id || !form.meeting_date) {
+    if (!form.title.trim() || !selectedDepartmentId || !form.meeting_date) {
       toast.warning('필수 항목을 모두 입력해 주세요.')
       return
     }
 
+    if (pdfFile && !isValidPdfFile(pdfFile)) {
+      toast.warning('PDF 파일만 20MB 이하로 업로드할 수 있습니다.')
+      return
+    }
+
     try {
+      setIsSubmitting(true)
       const meeting = await createMeeting.mutateAsync({
         title: form.title.trim(),
-        department_id: form.department_id,
+        department_id: selectedDepartmentId,
         meeting_date: new Date(form.meeting_date).toISOString(),
         location: form.location.trim() || null,
         description: form.description.trim() || null,
         created_by: user.id,
       })
 
-      if (hasStructuredMinutes(form)) {
-        await upsertMeetingMinutes.mutateAsync({
-          meeting_id: meeting.id,
-          discussion_notes: normalizeTextareaValue(form.discussion_notes),
-          decisions: normalizeTextareaValue(form.decisions),
-          handoff_notes: normalizeTextareaValue(form.handoff_notes),
-          updated_by: user.id,
-        })
+      let uploadedPdf: Awaited<ReturnType<typeof uploadMeetingPdf>> | null = null
+      if (pdfFile) {
+        try {
+          uploadedPdf = await uploadMeetingPdf(meeting.id, pdfFile)
+        } catch (uploadError) {
+          console.error('Failed to upload meeting PDF:', uploadError)
+          toast.error(`회의는 저장됐지만 PDF 업로드에 실패했습니다. ${getErrorMessage(uploadError)}`)
+          router.push(`/meetings/${meeting.id}`)
+          return
+        }
+      }
+
+      if (hasStructuredMinutes(form) || uploadedPdf) {
+        try {
+          await upsertMeetingMinutes.mutateAsync({
+            meeting_id: meeting.id,
+            discussion_notes: normalizeTextareaValue(form.discussion_notes),
+            decisions: normalizeTextareaValue(form.decisions),
+            handoff_notes: normalizeTextareaValue(form.handoff_notes),
+            pdf_file_path: uploadedPdf?.path ?? null,
+            pdf_file_name: uploadedPdf?.name ?? null,
+            pdf_file_size: uploadedPdf?.size ?? null,
+            pdf_uploaded_at: uploadedPdf ? new Date().toISOString() : null,
+            updated_by: user.id,
+          })
+        } catch (minutesError) {
+          console.error('Failed to save meeting minutes:', minutesError)
+          toast.error(`회의는 저장됐지만 회의록 저장에 실패했습니다. ${getErrorMessage(minutesError)}`)
+          router.push(`/meetings/${meeting.id}`)
+          return
+        }
       }
 
       toast.success('회의와 회의록이 저장되었습니다.')
@@ -118,6 +142,8 @@ export default function MeetingForm() {
     } catch (error) {
       console.error('Failed to create meeting:', error)
       toast.error('회의 저장 중 오류가 발생했습니다.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -168,7 +194,7 @@ export default function MeetingForm() {
               </label>
               <select
                 id="meeting-department"
-                value={form.department_id}
+                value={selectedDepartmentId}
                 onChange={(event) => setForm((current) => ({ ...current, department_id: event.target.value }))}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
@@ -249,6 +275,27 @@ export default function MeetingForm() {
               ))}
             </div>
           </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+            <label htmlFor="meeting-pdf" className="block text-sm font-semibold text-gray-900">
+              PDF 회의록
+            </label>
+            <p className="mt-1 text-sm text-gray-500">
+              원본 PDF 내용을 그대로 보관하고 회의 상세 화면에서 바로 확인할 수 있습니다.
+            </p>
+            <input
+              id="meeting-pdf"
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(event) => setPdfFile(event.target.files?.[0] ?? null)}
+              className="mt-3 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+            />
+            {pdfFile ? (
+              <p className="mt-2 text-xs text-gray-500">
+                선택한 파일: {pdfFile.name} ({formatFileSize(pdfFile.size)})
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-8 flex gap-3">
@@ -261,15 +308,52 @@ export default function MeetingForm() {
           </button>
           <button
             type="submit"
-            disabled={createMeeting.isPending || upsertMeetingMinutes.isPending}
+            disabled={isSubmitting}
             className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
-            {createMeeting.isPending || upsertMeetingMinutes.isPending ? '저장 중...' : '저장'}
+            {isSubmitting ? '저장 중...' : '저장'}
           </button>
         </div>
       </form>
     </div>
   )
+}
+
+async function uploadMeetingPdf(meetingId: string, file: File) {
+  const filePath = `${meetingId}/${Date.now()}-${sanitizeFileName(file.name)}`
+  const { data, error } = await supabase.storage
+    .from('meeting-pdfs')
+    .upload(filePath, file, {
+      contentType: 'application/pdf',
+      upsert: false,
+    })
+
+  if (error) throw error
+
+  return {
+    path: data.path,
+    name: file.name,
+    size: file.size,
+  }
+}
+
+function isValidPdfFile(file: File) {
+  return file.size <= MAX_PDF_SIZE_BYTES && (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'))
+}
+
+function sanitizeFileName(fileName: string) {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))}KB`
+  return `${(size / 1024 / 1024).toFixed(1)}MB`
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error && 'message' in error) return String(error.message)
+  return '권한 또는 Storage 설정을 확인해 주세요.'
 }
 
 function normalizeTextareaValue(value: string) {
@@ -279,4 +363,9 @@ function normalizeTextareaValue(value: string) {
 
 function hasStructuredMinutes(form: MeetingFormState) {
   return [form.discussion_notes, form.decisions, form.handoff_notes].some((value) => value.trim().length > 0)
+}
+
+function getDefaultMeetingDateTime() {
+  const now = new Date()
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 }

@@ -37,13 +37,10 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // 로그인 필요한 페이지 보호
-  const protectedPaths = ['/dashboard', '/reports', '/attendance', '/members', '/approvals', '/stats', '/users', '/settings', '/accounting', '/photos']
+  const protectedPaths = ['/dashboard', '/reports', '/meetings', '/attendance', '/members', '/approvals', '/stats', '/users', '/settings', '/accounting', '/photos', '/visitations']
   const isProtectedPath = protectedPaths.some((path) =>
     pathname.startsWith(path)
   )
-
-  // 승인 대기 페이지는 로그인 필요하지만 승인 체크 제외
-  const isPendingPage = pathname === '/pending'
 
   if (isProtectedPath && !user) {
     const url = request.nextUrl.clone()

@@ -11,6 +11,7 @@ export interface Program {
 
 export interface Newcomer {
   _key: string
+  id?: string
   name: string
   phone: string
   birth_date: string
@@ -31,6 +32,7 @@ export interface CellAttendance {
 // 프로젝트 보고서 타입
 export interface ProjectContentItem {
   _key: string
+  id?: string
   col1: string
   col2: string
   col3: string
@@ -40,6 +42,7 @@ export interface ProjectContentItem {
 
 export interface ProjectScheduleItem {
   _key: string
+  id?: string
   schedule: string
   detail: string
   note: string
@@ -48,6 +51,7 @@ export interface ProjectScheduleItem {
 
 export interface ProjectBudgetItem {
   _key: string
+  id?: string
   category: string
   subcategory: string
   item_name: string

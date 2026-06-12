@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { MeetingMinutesWithDetails, MeetingWithDetails } from '@/types/database'
+import type { MeetingFeedbackWithDetails, MeetingMinutesWithDetails, MeetingWithDetails } from '@/types/database'
 
 const supabase = createClient()
 
@@ -15,6 +15,11 @@ const MEETING_SELECT = `
 const MEETING_MINUTES_SELECT = `
   *,
   users!meeting_minutes_updated_by_fkey(name)
+`
+
+const MEETING_FEEDBACK_SELECT = `
+  *,
+  users!meeting_feedback_commenter_id_fkey(name, role)
 `
 
 export function useMeetings() {
@@ -69,5 +74,39 @@ export function useMeetingMinutes(meetingId: string | undefined) {
     enabled: !!meetingId,
     staleTime: 60_000,
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useMeetingPdfUrl(filePath: string | null | undefined) {
+  return useQuery({
+    queryKey: ['meetings', 'pdf-url', filePath],
+    queryFn: async (): Promise<string> => {
+      const { data, error } = await supabase.storage
+        .from('meeting-pdfs')
+        .createSignedUrl(filePath!, 60 * 60)
+
+      if (error) throw error
+      return data.signedUrl
+    },
+    enabled: !!filePath,
+    staleTime: 50 * 60 * 1000,
+  })
+}
+
+export function useMeetingFeedback(meetingId: string | undefined) {
+  return useQuery({
+    queryKey: ['meetings', 'feedback', meetingId],
+    queryFn: async (): Promise<MeetingFeedbackWithDetails[]> => {
+      const { data, error } = await supabase
+        .from('meeting_feedback')
+        .select(MEETING_FEEDBACK_SELECT)
+        .eq('meeting_id', meetingId!)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return (data || []) as MeetingFeedbackWithDetails[]
+    },
+    enabled: !!meetingId,
+    staleTime: 30_000,
   })
 }

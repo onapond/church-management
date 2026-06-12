@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useTransition } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { exportMembersToExcel } from '@/lib/excel'
 import type { MemberWithDepts, DepartmentInfo } from '@/types/shared'
@@ -24,11 +24,9 @@ export default function MemberList({ members, departments, canEdit }: MemberList
   const router = useRouter()
   const deleteMemberMutation = useDeleteMember()
   const toast = useToastContext()
-  const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [deleteTarget, setDeleteTarget] = useState<MemberWithDepts | null>(null)
-  const [deleting, setDeleting] = useState(false)
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   // URL에서 파생된 상태 (useEffect 대신 직접 계산)
@@ -140,7 +138,7 @@ export default function MemberList({ members, departments, canEdit }: MemberList
     setDeleteTarget(null)
   }, [])
 
-  const handleDelete = useCallback(async () => {
+  async function handleDelete() {
     if (!deleteTarget) return
     const targetId = deleteTarget.id
 
@@ -163,7 +161,7 @@ export default function MemberList({ members, departments, canEdit }: MemberList
         toast.error('삭제 중 오류가 발생했습니다.')
       },
     })
-  }, [deleteTarget, deleteMemberMutation])
+  }
 
   const handleExportExcel = useCallback(() => {
     const exportData = filteredMembers.map(member => ({
@@ -245,7 +243,7 @@ export default function MemberList({ members, departments, canEdit }: MemberList
       {/* 삭제 확인 모달 */}
       <DeleteConfirmModal
         member={deleteTarget}
-        deleting={deleting}
+        deleting={deleteMemberMutation.isPending}
         onConfirm={handleDelete}
         onCancel={handleDeleteCancel}
       />

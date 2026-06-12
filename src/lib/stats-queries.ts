@@ -1,6 +1,6 @@
-// 출결 통계 계산 로직 (서버/클라이언트 공용)
-// Supabase 클라이언트를 인자로 받아 양쪽에서 사용 가능
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { toLocalDateString } from '@/lib/utils'
+import type { Database } from '@/types/database'
 
 interface Department {
   id: string
@@ -26,8 +26,25 @@ export interface WeeklyStats {
 }
 
 type Period = 'month' | 'quarter' | 'year'
+type DatabaseClient = SupabaseClient<Database>
 
-/** 기간 시작일 계산 */
+type MemberDepartmentWithMember = {
+  member_id: string
+  department_id: string
+  members: { is_active: boolean } | null
+}
+
+type AttendanceStatsRecord = {
+  member_id: string
+  attendance_type: Database['public']['Enums']['attendance_type']
+  is_present: boolean
+  attendance_date: string
+}
+
+type MemberDepartmentRecord = {
+  member_id: string
+}
+
 export function getStartDate(period: Period): string {
   const now = new Date()
   let startDate: Date
@@ -44,88 +61,91 @@ export function getStartDate(period: Period): string {
   return toLocalDateString(startDate)
 }
 
-/** 주 시작일 계산 (일요일 기준) */
 function getWeekStart(date: Date): Date {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = d.getDate() - day
-  return new Date(d.setDate(diff))
+  const normalizedDate = new Date(date)
+  const day = normalizedDate.getDay()
+  const diff = normalizedDate.getDate() - day
+  return new Date(normalizedDate.setDate(diff))
 }
 
-/** 주 포맷 (M/D 형식) */
 function formatWeek(dateStr: string): string {
   const date = new Date(dateStr)
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
-/** 부서별 출결 통계 계산 */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function computeDepartmentStats(
-  supabase: any,
+  supabase: DatabaseClient,
   departments: Department[],
   startDate: string,
   period: Period,
 ): Promise<DepartmentStats[]> {
-  // member_departments를 통해 부서별 멤버 조회
   const { data: memberDepts } = await supabase
     .from('member_departments')
     .select('member_id, department_id, members!inner(id, is_active)')
     .eq('members.is_active', true)
 
-  const activeMemberDepts = (memberDepts || []).filter(
-    (md: { members?: { is_active: boolean } }) => md.members?.is_active
+  const activeMemberDepts = ((memberDepts || []) as MemberDepartmentWithMember[]).filter(
+    (memberDepartment) => memberDepartment.members?.is_active,
   )
 
-  // 출결 기록 조회
   const { data: attendance } = await supabase
     .from('attendance_records')
     .select('member_id, attendance_type, is_present, attendance_date')
     .gte('attendance_date', startDate)
     .eq('is_present', true)
 
-  // 멤버ID -> 부서ID 매핑
-  const memberToDepts = new Map<string, Set<string>>()
-  activeMemberDepts.forEach((md: { member_id: string; department_id: string }) => {
-    if (!memberToDepts.has(md.member_id)) {
-      memberToDepts.set(md.member_id, new Set())
+  const memberToDepartments = new Map<string, Set<string>>()
+  activeMemberDepts.forEach((memberDepartment) => {
+    if (!memberToDepartments.has(memberDepartment.member_id)) {
+      memberToDepartments.set(memberDepartment.member_id, new Set())
     }
-    memberToDepts.get(md.member_id)!.add(md.department_id)
+
+    memberToDepartments.get(memberDepartment.member_id)?.add(memberDepartment.department_id)
   })
 
-  // 부서별 멤버 수
-  const deptMemberCounts = new Map<string, number>()
-  activeMemberDepts.forEach((md: { department_id: string }) => {
-    deptMemberCounts.set(md.department_id, (deptMemberCounts.get(md.department_id) || 0) + 1)
+  const departmentMemberCounts = new Map<string, number>()
+  activeMemberDepts.forEach((memberDepartment) => {
+    departmentMemberCounts.set(
+      memberDepartment.department_id,
+      (departmentMemberCounts.get(memberDepartment.department_id) || 0) + 1,
+    )
   })
 
-  // 부서별 집계
-  const deptMap = new Map<string, { worship: number; meeting: number; total: number }>()
-  departments.forEach(dept => {
-    deptMap.set(dept.id, { worship: 0, meeting: 0, total: deptMemberCounts.get(dept.id) || 0 })
+  const departmentStatsMap = new Map<string, { worship: number; meeting: number; total: number }>()
+  departments.forEach((department) => {
+    departmentStatsMap.set(department.id, {
+      worship: 0,
+      meeting: 0,
+      total: departmentMemberCounts.get(department.id) || 0,
+    })
   })
 
-  // 출결 기록을 부서별로 집계
-  ;(attendance || []).forEach((record: { member_id: string; attendance_type: string }) => {
-    const deptIds = memberToDepts.get(record.member_id)
-    if (deptIds) {
-      deptIds.forEach(deptId => {
-        if (deptMap.has(deptId)) {
-          const stats = deptMap.get(deptId)!
-          if (record.attendance_type === 'worship') stats.worship++
-          else if (record.attendance_type === 'meeting') stats.meeting++
-        }
-      })
-    }
+  ;((attendance || []) as AttendanceStatsRecord[]).forEach((record) => {
+    const departmentIds = memberToDepartments.get(record.member_id)
+
+    if (!departmentIds) return
+
+    departmentIds.forEach((departmentId) => {
+      const stats = departmentStatsMap.get(departmentId)
+      if (!stats) return
+
+      if (record.attendance_type === 'worship') {
+        stats.worship += 1
+      } else if (record.attendance_type === 'meeting') {
+        stats.meeting += 1
+      }
+    })
   })
 
   const weeks = period === 'month' ? 4 : period === 'quarter' ? 13 : 52
 
-  return departments.map(dept => {
-    const data = deptMap.get(dept.id) || { worship: 0, meeting: 0, total: 0 }
+  return departments.map((department) => {
+    const data = departmentStatsMap.get(department.id) || { worship: 0, meeting: 0, total: 0 }
     const expectedAttendance = data.total * weeks
+
     return {
-      department: dept.name,
-      code: dept.code,
+      department: department.name,
+      code: department.code,
       totalMembers: data.total,
       worshipCount: data.worship,
       meetingCount: data.meeting,
@@ -135,10 +155,8 @@ export async function computeDepartmentStats(
   })
 }
 
-/** 주간 출석 추이 계산 */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function computeWeeklyTrend(
-  supabase: any,
+  supabase: DatabaseClient,
   selectedDept: string,
   selectedCell: string,
   startDate: string,
@@ -146,35 +164,34 @@ export async function computeWeeklyTrend(
   let memberIds: string[] = []
 
   if (selectedDept !== 'all') {
-    let query = supabase
+    let memberDepartmentsQuery = supabase
       .from('member_departments')
       .select('member_id')
       .eq('department_id', selectedDept)
 
     if (selectedCell !== 'all') {
-      query = query.eq('cell_id', selectedCell)
+      memberDepartmentsQuery = memberDepartmentsQuery.eq('cell_id', selectedCell)
     }
 
-    const { data: memberDepts } = await query
-    const ids = (memberDepts || []).map((md: { member_id: string }) => md.member_id)
-    memberIds = [...new Set(ids)] as string[]
+    const { data: memberDepts } = await memberDepartmentsQuery
+    const ids = ((memberDepts || []) as MemberDepartmentRecord[]).map((memberDepartment) => memberDepartment.member_id)
+    memberIds = [...new Set(ids)]
   }
 
-  let query = supabase
+  let attendanceQuery = supabase
     .from('attendance_records')
     .select('attendance_date, attendance_type, is_present, member_id')
     .gte('attendance_date', startDate)
     .eq('is_present', true)
 
   if (selectedDept !== 'all' && memberIds.length > 0) {
-    query = query.in('member_id', memberIds)
+    attendanceQuery = attendanceQuery.in('member_id', memberIds)
   }
 
-  const { data: attendance } = await query
+  const { data: attendance } = await attendanceQuery
 
-  // 주별 그룹핑
   const weekMap = new Map<string, { worship: number; meeting: number }>()
-  ;(attendance || []).forEach((record: { attendance_date: string; attendance_type: string }) => {
+  ;((attendance || []) as AttendanceStatsRecord[]).forEach((record) => {
     const date = new Date(record.attendance_date)
     const weekStart = getWeekStart(date)
     const weekKey = toLocalDateString(weekStart)
@@ -183,12 +200,16 @@ export async function computeWeeklyTrend(
       weekMap.set(weekKey, { worship: 0, meeting: 0 })
     }
 
-    const stats = weekMap.get(weekKey)!
-    if (record.attendance_type === 'worship') stats.worship++
-    else if (record.attendance_type === 'meeting') stats.meeting++
+    const stats = weekMap.get(weekKey)
+    if (!stats) return
+
+    if (record.attendance_type === 'worship') {
+      stats.worship += 1
+    } else if (record.attendance_type === 'meeting') {
+      stats.meeting += 1
+    }
   })
 
-  // 재적 인원 조회
   let total = 0
   if (selectedDept === 'all') {
     const { count } = await supabase
@@ -212,7 +233,7 @@ export async function computeWeeklyTrend(
   }
 
   return Array.from(weekMap.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
+    .sort((left, right) => left[0].localeCompare(right[0]))
     .map(([week, data]) => ({
       week: formatWeek(week),
       worship: data.worship,

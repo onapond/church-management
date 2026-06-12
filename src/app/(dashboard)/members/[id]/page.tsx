@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -33,7 +33,6 @@ interface Member {
 
 export default function MemberDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   const deptParam = searchParams.get('dept')
@@ -43,16 +42,12 @@ export default function MemberDetailPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [canEdit, setCanEdit] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   // 목록으로 돌아갈 때 부서 필터 유지
   const backToListUrl = deptParam ? `/members?dept=${deptParam}` : '/members'
 
-  useEffect(() => {
-    loadMember()
-  }, [params.id])
-
-  const loadMember = async () => {
+  const loadMember = useCallback(async () => {
     // 현재 사용자 권한 확인
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
@@ -82,7 +77,11 @@ export default function MemberDetailPage() {
 
     setMember(data as Member)
     setLoading(false)
-  }
+  }, [params.id, supabase])
+
+  useEffect(() => {
+    loadMember()
+  }, [loadMember])
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

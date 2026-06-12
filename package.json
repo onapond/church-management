@@ -6,9 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint src scripts/check-required-docs.mjs eslint.config.mjs --max-warnings=0",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "docs:check": "node scripts/check-required-docs.mjs",
+    "verify": "npm run docs:check && npm run lint && npm test && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.5",

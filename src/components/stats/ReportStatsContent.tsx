@@ -4,7 +4,6 @@ import { useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { toLocalDateString } from '@/lib/utils'
 import { useReportStats } from '@/queries/reports'
-import type { ReportStatsRow } from '@/queries/reports'
 import { ChartSkeleton } from '@/components/ui/Skeleton'
 import type {
   StatusDistribution,

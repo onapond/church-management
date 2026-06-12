@@ -1,13 +1,32 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/providers/AuthProvider'
-import { canCreateMeeting, canViewMeeting } from '@/lib/permissions'
+import { canCreateMeeting, canDeleteMeeting, canViewMeeting } from '@/lib/permissions'
+import { createClient } from '@/lib/supabase/client'
 import { useMeetings } from '@/queries/meetings/useMeetings'
+import { deleteMeetingBundle } from '@/components/meetings/utils/meetingDeletion'
+
+const supabase = createClient()
 
 export default function MeetingList() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const { data: meetings = [], isLoading, isFetching } = useMeetings()
+
+  const handleDelete = async (meetingId: string, meetingTitle: string) => {
+    if (!user) return
+    if (!window.confirm(`"${meetingTitle}" 회의를 삭제하시겠습니까?`)) return
+
+    try {
+      await deleteMeetingBundle(supabase, meetingId)
+      await queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    } catch (error) {
+      console.error('Failed to delete meeting:', error)
+    }
+  }
 
   if (!canViewMeeting(user)) {
     return (
@@ -22,7 +41,7 @@ export default function MeetingList() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-lg font-bold text-gray-900 lg:text-xl">회의</h1>
-          <p className="mt-0.5 text-sm text-gray-500">부서별 회의 기록과 운영 메모의 기초 데이터를 관리합니다.</p>
+          <p className="mt-0.5 text-sm text-gray-500">부서별 회의 기록과 운영 메모를 관리합니다.</p>
         </div>
         {canCreateMeeting(user) && (
           <Link
@@ -57,23 +76,47 @@ export default function MeetingList() {
               <span>작성자</span>
             </div>
             <div className="divide-y divide-gray-100">
-              {meetings.map((meeting) => (
-                <Link
-                  key={meeting.id}
-                  href={`/meetings/${meeting.id}`}
-                  className="block px-5 py-4 transition-colors hover:bg-gray-50"
-                >
-                  <div className="grid gap-2 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_160px_120px] md:items-center md:gap-4">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-gray-900">{meeting.title}</p>
-                      {meeting.location ? <p className="mt-1 truncate text-xs text-gray-500">장소: {meeting.location}</p> : null}
-                    </div>
-                    <p className="text-sm text-gray-600">{meeting.departments?.name || '-'}</p>
-                    <p className="text-sm text-gray-600">{formatMeetingDate(meeting.meeting_date)}</p>
-                    <p className="text-sm text-gray-600">{meeting.users?.name || '-'}</p>
+              {meetings.map((meeting) => {
+                const canDelete = canDeleteMeeting(user, meeting)
+
+                return (
+                  <div
+                    key={meeting.id}
+                    className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-gray-50 active:bg-gray-100"
+                  >
+                    <Link href={`/meetings/${meeting.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-lg">
+                        📋
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-gray-900">{meeting.title}</p>
+                        {meeting.location ? <p className="mt-1 truncate text-xs text-gray-500">장소: {meeting.location}</p> : null}
+                      </div>
+                      <p className="hidden text-sm text-gray-600 md:block">{meeting.departments?.name || '-'}</p>
+                      <p className="hidden text-sm text-gray-600 md:block">{formatMeetingDate(meeting.meeting_date)}</p>
+                      <p className="hidden text-sm text-gray-600 md:block">{meeting.users?.name || '-'}</p>
+                    </Link>
+
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(meeting.id, meeting.title)}
+                        className="shrink-0 rounded-lg border border-red-200 bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
+                        title="삭제"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    )}
                   </div>
-                </Link>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}

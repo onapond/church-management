@@ -51,17 +51,17 @@ export default function VisitationClient() {
   }, [selectedDate, visitationsByDate, visitations])
 
   // 월 이동
-  const handlePrevMonth = useCallback(() => {
+  function handlePrevMonth() {
     if (month === 1) { setYear(y => y - 1); setMonth(12) }
     else setMonth(m => m - 1)
     setSelectedDate('')
-  }, [month])
+  }
 
-  const handleNextMonth = useCallback(() => {
+  function handleNextMonth() {
     if (month === 12) { setYear(y => y + 1); setMonth(1) }
     else setMonth(m => m + 1)
     setSelectedDate('')
-  }, [month])
+  }
 
   // 일정 등록 모달 열기
   const handleAdd = useCallback((date?: string) => {

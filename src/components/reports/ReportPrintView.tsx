@@ -1,6 +1,7 @@
 'use client'
 
 import { forwardRef } from 'react'
+import { APPROVAL_SIGNATORIES } from '@/lib/constants'
 
 interface ReportData {
   id: string
@@ -36,12 +37,35 @@ interface ReportPrintViewProps {
 
 const ReportPrintView = forwardRef<HTMLDivElement, ReportPrintViewProps>(
   ({ report }, ref) => {
-    const parsedNotes = report.notes ? JSON.parse(report.notes) : {}
+    interface ParsedNotes {
+      cell_attendance?: Array<{
+        name?: string
+        isPresent?: boolean
+        cell_name?: string
+        registered?: number | string
+        worship?: number | string
+        meeting?: number | string
+        note?: string
+      }>
+      sermon_title?: string
+      sermon_scripture?: string
+      discussion_notes?: string
+      other_notes?: string
+    }
+    let parsedNotes: ParsedNotes = {}
+    if (report.notes) {
+      try {
+        parsedNotes = JSON.parse(report.notes) as ParsedNotes
+      } catch (error) {
+        console.error('Invalid report notes JSON:', error)
+      }
+    }
     const cellAttendance = parsedNotes.cell_attendance || []
 
     const formatDate = (dateStr: string) => {
-      const date = new Date(dateStr)
-      return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
+      const parts = dateStr.split('-')
+      if (parts.length < 3) return dateStr
+      return `${parts[0]}년 ${parseInt(parts[1], 10)}월 ${parseInt(parts[2], 10)}일`
     }
 
     const getDeptDisplayName = () => {
@@ -81,12 +105,12 @@ const ReportPrintView = forwardRef<HTMLDivElement, ReportPrintViewProps>(
               </tr>
               <tr>
                 <td className="border border-gray-800 px-3 py-4 text-center h-12"></td>
-                <td className="border border-gray-800 px-3 py-4 text-center h-12">강현숙</td>
+                <td className="border border-gray-800 px-3 py-4 text-center h-12">{APPROVAL_SIGNATORIES.head}</td>
               </tr>
               <tr>
                 <td className="border border-gray-800 px-2 py-1 bg-gray-100 font-bold text-center">협조</td>
-                <td className="border border-gray-800 px-3 py-1 text-center">신요한</td>
-                <td className="border border-gray-800 px-3 py-1 text-center">전홍균</td>
+                <td className="border border-gray-800 px-3 py-1 text-center">{APPROVAL_SIGNATORIES.coordinator1}</td>
+                <td className="border border-gray-800 px-3 py-1 text-center">{APPROVAL_SIGNATORIES.coordinator2}</td>
               </tr>
             </tbody>
           </table>
@@ -178,8 +202,8 @@ const ReportPrintView = forwardRef<HTMLDivElement, ReportPrintViewProps>(
               </tr>
             </thead>
             <tbody>
-              {cellAttendance.length > 0 && cellAttendance.some((c: any) => c.cell_name) ? (
-                cellAttendance.map((cell: any, index: number) => (
+              {cellAttendance.length > 0 && cellAttendance.some((c) => c.cell_name) ? (
+                cellAttendance.map((cell, index) => (
                   <tr key={index}>
                     <td className="border border-gray-400 px-3 py-2">{cell.cell_name || '-'}</td>
                     <td className="border border-gray-400 px-3 py-2 text-center">{cell.registered || '-'}</td>

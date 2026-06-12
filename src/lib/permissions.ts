@@ -1,4 +1,9 @@
-﻿import type { UserData } from '@/types/shared'
+import type { UserData } from '@/types/shared'
+
+type ReportPermissionTarget = {
+  author_id: string
+  status: string
+}
 
 export function isAdmin(role: string): boolean {
   return role === 'super_admin' || role === 'president'
@@ -38,6 +43,15 @@ export function canEditMeetingContent(user: UserData | null, departmentId?: stri
   ) ?? false
 }
 
+export function canDeleteMeeting(
+  user: UserData | null,
+  meeting: { created_by: string; department_id: string }
+): boolean {
+  if (!user || !user.is_active) return false
+  if (user.id === meeting.created_by) return true
+  return canEditMeetingContent(user, meeting.department_id)
+}
+
 export function canViewMeeting(user: UserData | null): boolean {
   return !!user?.is_active
 }
@@ -52,22 +66,30 @@ export function canDeleteMembers(user: UserData | null): boolean {
   return canEditMembers(user)
 }
 
+export function canManageReport(
+  role: string | null | undefined,
+  userId: string | null | undefined,
+  report: ReportPermissionTarget
+): boolean {
+  if (!role || !userId) return false
+  if (canAccessAllDepartments(role)) return true
+  return userId === report.author_id && ['draft', 'rejected'].includes(report.status)
+}
+
 export function canDeleteReport(
   user: UserData | null,
-  report: { author_id: string; status: string }
+  report: ReportPermissionTarget
 ): boolean {
   if (!user) return false
-  if (canAccessAllDepartments(user.role)) return true
-  return user.id === report.author_id && ['draft', 'rejected'].includes(report.status)
+  return canManageReport(user.role, user.id, report)
 }
 
 export function canEditReport(
   user: UserData | null,
-  report: { author_id: string; status: string }
+  report: ReportPermissionTarget
 ): boolean {
   if (!user) return false
-  if (canAccessAllDepartments(user.role)) return true
-  return user.id === report.author_id && ['draft', 'rejected'].includes(report.status)
+  return canManageReport(user.role, user.id, report)
 }
 
 export function canApprove(role: string): boolean {
@@ -98,8 +120,9 @@ export function canViewAllReports(user: UserData | null): boolean {
 export function canViewReport(
   user: UserData | null,
   report: { author_id: string; department_id: string; status?: string; report_type?: string },
-  _authorIsTeamLeader?: boolean
+  authorIsTeamLeader?: boolean
 ): boolean {
+  void authorIsTeamLeader
   if (!user) return false
   if (user.id === report.author_id) return true
   if (report.status === 'draft') return false

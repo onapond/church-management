@@ -45,7 +45,7 @@ export default function AccountingImport({ onImport, onClose }: AccountingImport
     try {
       const importResult = await importAccountingFromExcel(file)
       setResult(importResult)
-    } catch (error) {
+    } catch {
       setResult({
         data: [],
         errors: ['파일 처리 중 오류가 발생했습니다.'],

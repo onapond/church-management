@@ -187,12 +187,27 @@ export interface Database {
           discussion_notes: string | null
           decisions: string | null
           handoff_notes: string | null
+          pdf_file_path: string | null
+          pdf_file_name: string | null
+          pdf_file_size: number | null
+          pdf_uploaded_at: string | null
           updated_by: string
           created_at: string
           updated_at: string
         }
         Insert: Omit<Database['public']['Tables']['meeting_minutes']['Row'], 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Database['public']['Tables']['meeting_minutes']['Insert']>
+      }
+      meeting_feedback: {
+        Row: {
+          id: string
+          meeting_id: string
+          commenter_id: string
+          comment: string
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['meeting_feedback']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['meeting_feedback']['Insert']>
       }
       approval_history: {
         Row: {
@@ -206,6 +221,17 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['approval_history']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['approval_history']['Insert']>
+      }
+      report_feedback: {
+        Row: {
+          id: string
+          report_id: string
+          commenter_id: string
+          comment: string
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['report_feedback']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['report_feedback']['Insert']>
       }
       report_programs: {
         Row: {
@@ -388,6 +414,14 @@ export interface Database {
         }
       }
     }
+    Functions: {
+      save_report_bundle: {
+        Args: {
+          payload: Record<string, unknown>
+        }
+        Returns: Record<string, unknown>
+      }
+    }
     Enums: {
       user_role: UserRole
       department_code: DepartmentCode
@@ -405,11 +439,13 @@ export type MemberDepartment = Database['public']['Tables']['member_departments'
 export type WeeklyReport = Database['public']['Tables']['weekly_reports']['Row']
 export type Meeting = Database['public']['Tables']['meetings']['Row']
 export type MeetingMinutes = Database['public']['Tables']['meeting_minutes']['Row']
+export type MeetingFeedback = Database['public']['Tables']['meeting_feedback']['Row']
 export type AttendanceRecord = Database['public']['Tables']['attendance_records']['Row']
 export type Newcomer = Database['public']['Tables']['newcomers']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
 export type ReportProgram = Database['public']['Tables']['report_programs']['Row']
 export type ApprovalHistory = Database['public']['Tables']['approval_history']['Row']
+export type ReportFeedback = Database['public']['Tables']['report_feedback']['Row']
 
 export type Cell = Database['public']['Tables']['cells']['Row']
 
@@ -441,6 +477,14 @@ export interface MeetingWithDetails extends Meeting {
 
 export interface MeetingMinutesWithDetails extends MeetingMinutes {
   users?: { name: string } | null
+}
+
+export interface MeetingFeedbackWithDetails extends MeetingFeedback {
+  users?: { name: string; role?: string } | null
+}
+
+export interface ReportFeedbackWithDetails extends ReportFeedback {
+  users?: { name: string; role?: string } | null
 }
 
 // 지출결의서 + 항목 조인 타입

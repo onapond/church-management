@@ -45,11 +45,16 @@ interface MemberFormProps {
   newcomerData?: NewcomerData | null
 }
 
+type MemberWithOptionalGuardian = MemberWithDepartments & {
+  guardian?: string | null
+}
+
 export default function MemberForm({ departments, member, newcomerData }: MemberFormProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const supabase = useMemo(() => createClient(), [])
   const isEdit = !!member
+  const memberWithGuardian = member as MemberWithOptionalGuardian | undefined
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +71,7 @@ export default function MemberForm({ departments, member, newcomerData }: Member
     birth_date: member?.birth_date || newcomerData?.birth_date || '',
     address: member?.address || newcomerData?.address || '',
     occupation: member?.occupation || newcomerData?.affiliation || '',
-    guardian: (member as any)?.guardian || '',
+    guardian: memberWithGuardian?.guardian || '',
   })
 
   // 새신자의 부서 기본 선택

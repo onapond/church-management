@@ -31,14 +31,6 @@ interface UserChanges {
   department_id?: string | null
 }
 
-const roleLabels: Record<string, string> = {
-  super_admin: '관리자',
-  president: '회장',
-  accountant: '부장',
-  team_leader: '팀장',
-  member: '일반',
-}
-
 const roleOptions = [
   { value: 'member', label: '일반' },
   { value: 'team_leader', label: '팀장' },

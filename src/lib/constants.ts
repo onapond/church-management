@@ -39,6 +39,13 @@ export const VISITATION_STATUS_LABELS: Record<string, string> = {
   cancelled: '취소',
 }
 
+// ─── 결재 라인 (인사 변동 시 이곳만 수정) ───────────────
+export const APPROVAL_SIGNATORIES = {
+  head: '강현숙',       // 부장
+  coordinator1: '신요한', // 협조자 1
+  coordinator2: '전홍균', // 협조자 2
+}
+
 // ─── 부서 코드 ───────────────────────────────────────
 export const CU1_DEPARTMENT_CODE = 'cu1'
 

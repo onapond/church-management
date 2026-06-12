@@ -1,7 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { createApprovalNotification } from '@/lib/notifications'
@@ -10,11 +11,37 @@ import { useAuth } from '@/providers/AuthProvider'
 import DOMPurify from 'dompurify'
 import { canAccessAllDepartments, canViewReport, canDeleteReport, canEditReport } from '@/lib/permissions'
 import type { UserDepartment } from '@/types/shared'
-import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems, useChangeReportType } from '@/queries/reports'
+import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useReportFeedback, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems, useChangeReportType } from '@/queries/reports'
 import { useCellMembers, useCellAttendanceRecords } from '@/queries/attendance'
 import { escapeHtml, printHtmlInIframe } from '@/lib/utils'
+import { deleteReportBundle } from '@/components/reports/utils/reportDeletion'
+import type { Database } from '@/types/database'
 
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
+type ReportUpdate = Database['public']['Tables']['weekly_reports']['Update']
+type ParsedReportNotes = Record<string, unknown> & {
+  cell_attendance?: CellAttendancePrintRow[]
+  sermon_title?: string
+  sermon_scripture?: string
+  discussion_notes?: string
+  other_notes?: string
+  project_sections?: string[]
+  organization?: string
+}
+type CellAttendancePrintRow = {
+  cell_name?: string | null
+  registered?: number | string | null
+  worship?: number | string | null
+  meeting?: number | string | null
+  note?: string | null
+}
+type ApprovalStepStatus = 'completed' | 'current' | 'pending'
+type ApprovalStepProps = {
+  label: string
+  status: ApprovalStepStatus
+  name?: string | null
+  date?: string | null
+}
 
 interface ReportDetailProps {
   reportId: string
@@ -73,6 +100,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   const { data: programs = [], isLoading: programsLoading } = useReportPrograms(reportId)
   const { data: newcomers = [] } = useReportNewcomers(reportId)
   const { data: history = [] } = useApprovalHistory(reportId)
+  const { data: feedbackItems = [] } = useReportFeedback(reportId)
   const { data: projectContentItems = [] } = useProjectContentItems(reportId)
   const { data: projectScheduleItems = [] } = useProjectScheduleItems(reportId)
   const { data: projectBudgetItems = [] } = useProjectBudgetItems(reportId)
@@ -89,16 +117,18 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   const [printerIP, setPrinterIP] = useState('')
   const [showTypeChangeModal, setShowTypeChangeModal] = useState(false)
   const [newReportType, setNewReportType] = useState<ReportType>('weekly')
+  const [feedback, setFeedback] = useState('')
+  const [isSavingFeedback, setIsSavingFeedback] = useState(false)
 
   // 3. 파생 데이터 및 메모이제이션 (Hooks)
   const reportType: ReportType = useMemo(
-    () => ((report as any)?.report_type || 'weekly') as ReportType,
-    [report]
+    () => (report?.report_type || 'weekly') as ReportType,
+    [report?.report_type]
   )
 
-  const parsedNotes = useMemo(() => {
+  const parsedNotes = useMemo<ParsedReportNotes>(() => {
     try {
-      return report?.notes ? JSON.parse(report.notes) : {}
+      return report?.notes ? JSON.parse(report.notes) as ParsedReportNotes : {}
     } catch {
       return {}
     }
@@ -162,7 +192,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   }, [])
 
   // 인쇄 핸들러
-  const handlePrint = useCallback((_directIP?: string) => {
+  const handlePrint = useCallback(() => {
     if (!report) return
     const cellAttendance = parsedNotes.cell_attendance || []
     const reportDate = new Date(report.report_date)
@@ -181,8 +211,8 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         : `<tr><td class="cell" colspan="4" style="height:60px;"></td></tr>`
 
       let attendanceRows = ''
-      if (cellAttendance.length > 0 && cellAttendance.some((c: any) => c.cell_name)) {
-        attendanceRows = cellAttendance.map((cell: any) => `
+      if (cellAttendance.length > 0 && cellAttendance.some((cell) => cell.cell_name)) {
+        attendanceRows = cellAttendance.map((cell) => `
           <tr>
             <td class="cell">${escapeHtml(cell.cell_name || '')}</td>
             <td class="cell">${escapeHtml(String(cell.registered || ''))}</td>
@@ -201,27 +231,28 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         ? newcomers.map(n => `<tr><td class="cell">${escapeHtml(n.name)}</td><td class="cell">${escapeHtml(n.phone || '')}</td><td class="cell">${escapeHtml(n.birth_date || '')}</td><td class="cell">${escapeHtml(n.introducer || '')}</td><td class="cell" style="text-align:left;">${escapeHtml(n.address || '')}</td><td class="cell">${escapeHtml(n.affiliation || '')}</td></tr>`).join('')
         : `<tr><td class="cell" colspan="6" style="height:28px;"></td></tr>`
 
-      html = generateWeeklyPrintHTML(getDeptDisplayName(), report, reportDate, programRows, attendanceRows, newcomerRows, parsedNotes)
+      html = generateWeeklyPrintHTML(getDeptDisplayName(), reportDate, programRows, attendanceRows, newcomerRows, parsedNotes)
     } else if (reportType === 'project') {
-      html = generateProjectPrintHTML(report.meeting_title || getDeptDisplayName(), report, reportDate, parsedNotes, projectContentItems, projectScheduleItems, projectBudgetItems)
+      html = generateProjectPrintHTML(report.meeting_title || getDeptDisplayName())
     } else {
       const programRows = programs.length > 0
         ? programs.map(p => `<tr><td class="cell">${p.start_time ? escapeHtml(p.start_time.slice(0, 5)) : ''}</td><td class="cell" style="text-align:left;">${escapeHtml(p.content || '')}</td><td class="cell">${escapeHtml(p.person_in_charge || '')}</td><td class="cell"></td></tr>`).join('')
         : `<tr><td class="cell" colspan="4" style="height:60px;"></td></tr>`
-      html = generateMeetingPrintHTML(reportType, report.meeting_title || getDeptDisplayName(), report, reportDate, programRows, parsedNotes, cellMembers, cellAttendanceRecords)
+      html = generateMeetingPrintHTML(report.meeting_title || getDeptDisplayName(), reportDate, programRows)
     }
 
     printHtmlInIframe(html)
     setShowPrintOptions(false)
-  }, [report, programs, newcomers, getDeptDisplayName, reportType, projectContentItems, projectScheduleItems, projectBudgetItems, cellMembers, cellAttendanceRecords, parsedNotes])
+  }, [report, programs, newcomers, getDeptDisplayName, reportType, parsedNotes])
 
   // 권한 계산
   const userRole = currentUser?.role || ''
   const canApprove = useMemo(
     () => report ? checkApprovalPermission(userRole, report.status, reportType, currentUser?.user_departments, report.department_id) : null,
-    [userRole, report?.status, reportType, currentUser?.user_departments, report?.department_id]
+    [userRole, report, reportType, currentUser?.user_departments]
   )
   const canDelete = canAccessAllDepartments(userRole)
+  const canLeaveFeedback = ['super_admin', 'president', 'accountant'].includes(userRole)
 
   // 이펙트
   useEffect(() => {
@@ -286,17 +317,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
     if (!canDeleteReport(currentUser, report)) return
     setLoading(true); setShowDeleteModal(false)
     try {
-      const tid = report.id
-      
-      // 1. Storage 사진 삭제
-      const { data: files } = await supabase.storage.from('report-photos').list(tid)
-      if (files && files.length > 0) {
-        await supabase.storage.from('report-photos').remove(files.map((f: any) => `${tid}/${f.name}`))
-      }
-
-      // 2. 보고서 삭제 (하위 테이블은 ON DELETE CASCADE로 자동 정리)
-      const { error } = await supabase.from('weekly_reports').delete().eq('id', tid)
-      if (error) throw error
+      await deleteReportBundle(supabase, report.id)
 
       await queryClient.invalidateQueries({ queryKey: ['approvals'] })
       await queryClient.invalidateQueries({ queryKey: ['reports'] })
@@ -306,6 +327,30 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
     } catch (err) {
       console.error(err); toast.error('보고서 삭제 중 오류가 발생했습니다.')
     } finally { setLoading(false) }
+  }
+
+  const handleSaveFeedback = async () => {
+    const trimmed = feedback.trim()
+    if (!canLeaveFeedback || !trimmed || !currentUser) return
+
+    setIsSavingFeedback(true)
+    try {
+      const { error } = await supabase.from('report_feedback').insert({
+        report_id: report.id,
+        commenter_id: currentUser.id,
+        comment: trimmed,
+      })
+      if (error) throw error
+
+      setFeedback('')
+      await queryClient.invalidateQueries({ queryKey: ['reports', 'feedback', report.id] })
+      toast.success('피드백이 저장되었습니다.')
+    } catch (err) {
+      console.error(err)
+      toast.error('피드백 저장 중 오류가 발생했습니다.')
+    } finally {
+      setIsSavingFeedback(false)
+    }
   }
 
   const handleChangeType = () => {
@@ -321,7 +366,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
     try {
       const now = new Date().toISOString()
       let newStatus = report.status
-      const updateData: Record<string, any> = {}
+      const updateData: ReportUpdate = {}
       if (approvalAction === 'approve') {
         if (canApprove === 'coordinator') { newStatus = 'coordinator_reviewed'; updateData.coordinator_id = currentUser.id; updateData.coordinator_reviewed_at = now; updateData.coordinator_comment = comment }
         else if (canApprove === 'manager') { newStatus = 'manager_approved'; updateData.manager_id = currentUser.id; updateData.manager_approved_at = now; updateData.manager_comment = comment }
@@ -399,7 +444,17 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
               const isPresent = cellAttendanceRecords.some(r => r.member_id === member.id && r.is_present)
               return (
                 <div key={member.id} className={`flex items-center gap-2 p-2.5 rounded-xl ${isPresent ? 'bg-green-50' : 'bg-gray-50'}`}>
-                  {member.photo_url ? <img src={member.photo_url} alt={member.name} className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">{member.name.charAt(0)}</div>}
+                  {member.photo_url ? (
+                    <Image
+                      src={member.photo_url}
+                      alt={member.name}
+                      width={24}
+                      height={24}
+                      className="w-6 h-6 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">{member.name.charAt(0)}</div>
+                  )}
                   <span className="text-sm font-medium text-gray-900 flex-1">{member.name}</span>
                   {isPresent ? <svg className="w-4 h-4 text-green-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg> : <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>}
                 </div>
@@ -502,6 +557,65 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6"><h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">결재 이력</h2><div className="space-y-3">{history.map((item) => (<div key={item.id} className="flex gap-3"><div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5 shrink-0" /><div className="flex-1 min-w-0"><div className="flex items-center gap-2 flex-wrap"><span className="text-sm font-medium text-gray-900">{item.users?.name}</span><StatusBadge status={item.to_status} /></div>{item.comment && <p className="text-xs text-gray-500 mt-1">{item.comment}</p>}<p className="text-xs text-gray-400 mt-0.5">{new Date(item.created_at).toLocaleString('ko-KR')}</p></div></div>))}</div></div>
       )}
 
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="font-semibold text-gray-900 text-sm lg:text-base">피드백</h2>
+          <span className="text-xs text-gray-400">결재와 별도 의견</span>
+        </div>
+
+        {feedbackItems.length > 0 ? (
+          <div className="space-y-3 mb-4">
+            {feedbackItems.map((item) => (
+              <div key={item.id} className="rounded-xl bg-gray-50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-gray-900">{item.users?.name || '사용자'}</span>
+                    {item.users?.role && (
+                      <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                        {item.users.role === 'super_admin'
+                          ? '목사'
+                          : item.users.role === 'president'
+                            ? '회장'
+                            : item.users.role === 'accountant'
+                              ? '부장'
+                              : item.users.role}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleString('ko-KR')}</span>
+                </div>
+                <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{item.comment}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 mb-4">아직 피드백이 없습니다.</p>
+        )}
+
+        {canLeaveFeedback ? (
+          <div className="space-y-3">
+            <textarea
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="피드백을 입력하세요"
+              rows={4}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none text-base"
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={handleSaveFeedback}
+                disabled={isSavingFeedback || !feedback.trim()}
+                className="px-4 py-2.5 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {isSavingFeedback ? '저장 중...' : '피드백 저장'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">회장, 부장, 목사만 피드백을 남길 수 있습니다.</p>
+        )}
+      </div>
+
       {/* 결재 모달 */}
       {showApprovalModal && (
         <div className="fixed inset-0 bg-black/50 flex items-end lg:items-center justify-center z-50 p-4">
@@ -546,7 +660,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
           <div className="bg-white rounded-2xl w-full lg:max-w-md p-5 lg:p-6 animate-slide-up">
             <h3 className="text-lg font-bold text-gray-900 mb-4">보고서 타입 변경</h3>
             <div className="space-y-2 mb-6">
-              {(Object.entries(REPORT_TYPE_CONFIG) as [ReportType, any][]).map(([type, config]) => (
+              {(Object.entries(REPORT_TYPE_CONFIG) as [ReportType, { label: string; icon: string }][]).map(([type, config]) => (
                 <button
                   key={type}
                   onClick={() => setNewReportType(type)}
@@ -594,23 +708,23 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   )
 }
 
-function generateWeeklyPrintHTML(dn: string, r: any, rd: Date, pr: string, ar: string, nr: string, pn: any) {
+function generateWeeklyPrintHTML(dn: string, rd: Date, pr: string, ar: string, nr: string, pn: ParsedReportNotes) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${dn}</title><style>@page { size: A4; margin: 0; } body { font-family: sans-serif; padding: 15mm; } table { border-collapse: collapse; width: 100%; } .cell { border: 1px solid #000; padding: 6px; text-align: center; } .section-header { background: #eee; font-weight: bold; text-align: center; padding: 8px; border: 1px solid #000; }</style></head><body><div style="text-align:center;"><h1>${dn} 주차 보고서</h1><p>${rd.getFullYear()}년 ${rd.getMonth()+1}월 ${rd.getDate()}일</p></div><table style="margin-top:20px;"><tr><td class="section-header" colspan="4">진행순서</td></tr>${pr}</table><table style="margin-top:20px;"><tr><td class="section-header" colspan="5">출결상황</td></tr>${ar}</table><table style="margin-top:20px;"><tr><td class="section-header" colspan="6">새신자 명단</td></tr>${nr}</table><div style="margin-top:20px;"><h3>논의사항</h3><pre>${pn.discussion_notes||''}</pre><h3>기타사항</h3><pre>${pn.other_notes||''}</pre></div><script>window.onload=function(){window.print();}</script></body></html>`
 }
 
-function generateMeetingPrintHTML(t: any, ti: string, r: any, rd: Date, pr: string, pn: any, cm: any, cr: any) {
+function generateMeetingPrintHTML(ti: string, rd: Date, pr: string) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ti}</title></head><body><h1>${ti}</h1><p>${rd.toLocaleDateString()}</p><div>${pr}</div><script>window.onload=function(){window.print();}</script></body></html>`
 }
 
-function generateProjectPrintHTML(ti: string, r: any, rd: Date, pn: any, ci: any, si: any, bi: any) {
+function generateProjectPrintHTML(ti: string) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ti}</title></head><body><h1>${ti}</h1><script>window.onload=function(){window.print();}</script></body></html>`
 }
 
-function ApprovalStep({ label, status, name, date }: any) {
+function ApprovalStep({ label, status, name, date }: ApprovalStepProps) {
   return (<div className="text-center shrink-0"><div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 ${status === 'completed' ? 'bg-blue-500 text-white' : status === 'current' ? 'bg-blue-100 text-blue-600 ring-4 ring-blue-50' : 'bg-gray-100 text-gray-400'}`}>{status === 'completed' ? <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <div className="w-2 h-2 bg-current rounded-full" />}</div><p className="text-xs font-medium text-gray-900">{label}</p>{name && <p className="text-xs text-gray-500 mt-0.5">{name}</p>}{date && <p className="text-xs text-gray-400">{new Date(date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</p>}</div>)
 }
 
-function ApprovalStepVertical({ label, status, name, date }: any) {
+function ApprovalStepVertical({ label, status, name, date }: ApprovalStepProps) {
   return (<div className="flex items-start gap-4 relative"><div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 ${status === 'completed' ? 'bg-blue-500 text-white' : status === 'current' ? 'bg-blue-100 text-blue-600 ring-2 ring-blue-200' : 'bg-gray-100 text-gray-400'}`}>{status === 'completed' ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> : <div className="w-1.5 h-1.5 bg-current rounded-full" />}</div><div className="flex-1 min-w-0 pb-1"><p className={`text-sm font-medium ${status === 'current' ? 'text-blue-600' : 'text-gray-900'}`}>{label}</p><div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">{name ? (<><span>{name}</span>{date && (<><span>·</span><span>{new Date(date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</span></>)}</>) : (<span className="text-gray-400">{status === 'pending' ? '대기중' : status === 'current' ? '진행중' : ''}</span>)}</div></div></div>)
 }
 

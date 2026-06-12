@@ -36,11 +36,11 @@ The SQL script:
 - `npm test` passed, 153 tests.
 - `npm run build` passed.
 
-## Blocker
-Production data SQL was not executed. The cached Supabase MCP token in `.codex_mcp_apply.ps1` returned `Unauthorized` on a harmless `select 1` test.
+## Resolution
+Production data SQL was executed manually in Supabase SQL Editor after the handoff.
+The requested member cell assignments and CU1 pending cell-leader report bulk approval were confirmed by follow-up verification queries.
 
-## Next Step
-Run `scripts/ops-2026-06-11-cu1-request.sql` with a fresh Supabase admin/PAT/MCP connection, then verify:
+## Verification Queries Used
 
 ```sql
 select m.name, c.name as cell_name

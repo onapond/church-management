@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Rate limit 체크
-  const { allowed, remaining } = checkRateLimit(`notifications:${user.id}`)
+  const { allowed } = checkRateLimit(`notifications:${user.id}`)
   if (!allowed) {
     return NextResponse.json(
       { error: 'Too many requests' },

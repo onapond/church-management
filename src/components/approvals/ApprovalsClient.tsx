@@ -194,7 +194,7 @@ export default function ApprovalsClient() {
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {displayReports.map((report: any) => {
+            {displayReports.map((report: ApprovalReport) => {
               const status = STATUS_CONFIG[report.status] || STATUS_CONFIG.submitted
               const weekNum = getWeekNumber(report.report_date)
               

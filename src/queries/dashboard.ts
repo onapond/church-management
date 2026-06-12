@@ -3,11 +3,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toLocalDateString } from '@/lib/utils'
-import type { ReportSummary } from '@/types/shared'
+import type { ReportSummary, UserDepartment } from '@/types/shared'
 
-const supabase = createClient()
-
-// 이번 주 일요일 계산
 function getThisSunday(): string {
   const today = new Date()
   const sunday = new Date(today)
@@ -15,16 +12,17 @@ function getThisSunday(): string {
   return toLocalDateString(sunday)
 }
 
-/** 최근 보고서 5건 */
 export function useRecentReports() {
   return useQuery({
     queryKey: ['dashboard', 'recentReports'],
     queryFn: async (): Promise<ReportSummary[]> => {
+      const supabase = createClient()
       const { data, error } = await supabase
         .from('weekly_reports')
         .select('*, departments(name), users!weekly_reports_author_id_fkey(name)')
         .order('created_at', { ascending: false })
         .limit(5)
+
       if (error) throw error
       return (data || []) as ReportSummary[]
     },
@@ -32,17 +30,18 @@ export function useRecentReports() {
   })
 }
 
-/** 이번 주 내 보고서 작성 여부 */
 export function useThisWeekReport(userId: string | undefined) {
   return useQuery({
     queryKey: ['dashboard', 'thisWeekReport', userId],
     queryFn: async () => {
+      const supabase = createClient()
       const { data, error } = await supabase
         .from('weekly_reports')
         .select('id, status')
         .eq('report_date', getThisSunday())
         .eq('author_id', userId!)
         .maybeSingle()
+
       if (error) throw error
       return data as { id: string; status: string } | null
     },
@@ -51,19 +50,18 @@ export function useThisWeekReport(userId: string | undefined) {
   })
 }
 
-/** 역할별 결재 대기 보고서 */
-export function useDashboardPending(userRole: string | undefined, userDepts?: any[]) {
+export function useDashboardPending(userRole: string | undefined, userDepts?: UserDepartment[]) {
   return useQuery({
-    queryKey: ['dashboard', 'pending', userRole, 'v3'], // 키 변경으로 캐시 무효화
+    queryKey: ['dashboard', 'pending', userRole, 'v3'],
     queryFn: async (): Promise<ReportSummary[]> => {
       if (!userRole) return []
 
+      const supabase = createClient()
       let query = supabase
         .from('weekly_reports')
         .select('*, departments(name), users!weekly_reports_author_id_fkey(name)')
 
       if (userRole === 'super_admin') {
-        // 관리자: 모든 유형의 결재 대기 (단, 셀장보고서는 팀장 승인 후 넘지 않도록 이미 usePendingReports에서 걸렀으므로 여기도 동일하게 적용)
         query = query
           .in('status', ['submitted', 'coordinator_reviewed', 'manager_approved'])
           .neq('report_type', 'cell_leader')
@@ -76,11 +74,12 @@ export function useDashboardPending(userRole: string | undefined, userDepts?: an
           .eq('status', 'coordinator_reviewed')
           .neq('report_type', 'cell_leader')
       } else if (userRole === 'team_leader') {
-        // 부서장(팀장): 자기 부서의 셀장보고서(submitted)만
         const teamLeaderDeptIds = userDepts
-          ?.filter(ud => ud.is_team_leader)
-          .map(ud => ud.department_id) || []
+          ?.filter((department) => department.is_team_leader)
+          .map((department) => department.department_id) || []
+
         if (teamLeaderDeptIds.length === 0) return []
+
         query = query
           .eq('report_type', 'cell_leader')
           .eq('status', 'submitted')
@@ -97,11 +96,10 @@ export function useDashboardPending(userRole: string | undefined, userDepts?: an
       return (data || []) as ReportSummary[]
     },
     enabled: !!userRole,
-    staleTime: 0, // 대시보드에서도 즉시 갱신
+    staleTime: 0,
   })
 }
 
-/** 이번 주 출석 통계 (재적/예배/모임) */
 export function useThisWeekStats(userDeptIds: string[]) {
   const sundayStr = getThisSunday()
 
@@ -110,30 +108,33 @@ export function useThisWeekStats(userDeptIds: string[]) {
     queryFn: async () => {
       if (userDeptIds.length === 0) return { total: 0, worship: 0, meeting: 0 }
 
-      const [membersResult, attendanceResult] = await Promise.all([
-        supabase
-          .from('members')
-          .select('id', { count: 'exact' })
-          .in('department_id', userDeptIds)
-          .eq('is_active', true),
-        supabase
-          .from('attendance_records')
-          .select('member_id, attendance_type')
-          .eq('attendance_date', sundayStr)
-          .eq('is_present', true),
-      ])
+      const supabase = createClient()
+      const { data: memberDeptRows, error: membersError } = await supabase
+        .from('member_departments')
+        .select('member_id, members!inner(id, is_active)')
+        .in('department_id', userDeptIds)
+        .eq('members.is_active', true)
 
-      const members = (membersResult.data || []) as { id: string }[]
-      const memberIds = new Set(members.map(m => m.id))
-      const attendance = ((attendanceResult.data || []) as { member_id: string; attendance_type: string }[])
-        .filter(a => memberIds.has(a.member_id))
+      if (membersError) throw membersError
 
-      const totalCount = 'count' in membersResult ? (membersResult.count as number | null) : null
+      const memberIds = Array.from(new Set(((memberDeptRows || []) as { member_id: string }[]).map((row) => row.member_id)))
+      if (memberIds.length === 0) return { total: 0, worship: 0, meeting: 0 }
+
+      const { data: attendanceResult, error: attendanceError } = await supabase
+        .from('attendance_records')
+        .select('member_id, attendance_type')
+        .eq('attendance_date', sundayStr)
+        .eq('is_present', true)
+        .in('member_id', memberIds)
+
+      if (attendanceError) throw attendanceError
+
+      const attendance = (attendanceResult || []) as { member_id: string; attendance_type: string }[]
 
       return {
-        total: totalCount || members.length,
-        worship: attendance.filter(a => a.attendance_type === 'worship').length,
-        meeting: attendance.filter(a => a.attendance_type === 'meeting').length,
+        total: memberIds.length,
+        worship: attendance.filter((item) => item.attendance_type === 'worship').length,
+        meeting: attendance.filter((item) => item.attendance_type === 'meeting').length,
       }
     },
     enabled: userDeptIds.length > 0,

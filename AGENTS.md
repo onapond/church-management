@@ -43,6 +43,20 @@
 7. docs/REACT_BEST_PRACTICES.md
 8. CURRENT_TASK.md
 
+## 3-1. 구현 전 필수 작업 절차
+코딩을 시작하기 전에 반드시 아래 순서를 따른다.
+1. AGENTS.md 읽기
+2. PROJECT_CONTEXT.md 읽기
+3. CURRENT_TASK.md 읽기
+4. 직접 관련된 코드 파일 읽기
+5. 변경 전 구현 계획 요약 공유
+
+구현 계획 요약에는 반드시 아래 내용을 포함한다.
+- 기존 attendance/report/accounting 흐름 영향 여부
+- additive change로 처리할지 여부
+- 관련 권한/RLS/auth 영향 범위
+- 수정 대상 파일 예상 목록
+
 ## 4. 현재 기술 스택
 - Next.js 16.x App Router
 - TypeScript strict mode
@@ -104,6 +118,11 @@
 2. npm test
 3. 필요 시 npx tsc --noEmit
 
+구현 후 반드시:
+- 작업에 맞는 build/test를 실행할 것
+- 변경 파일 목록을 보고할 것
+- 가정한 내용과 미해결 이슈를 보고할 것
+
 배포:
 - git add / commit / push
 - npx vercel --prod
@@ -127,3 +146,17 @@ GitHub 자동 배포는 연결되어 있지 않다고 가정한다.
 5. 테스트
 6. 문서 업데이트
 7. session-notes 업데이트
+
+## 12. Supabase 변경 규칙
+- DB 스키마 변경은 Supabase Dashboard에서 수동 적용하지 않는다.
+- 항상 migration 파일을 먼저 작성한다.
+- 실제 반영 및 검증은 Supabase MCP 연결 환경에서 수행한다.
+- 테이블/정책 변경 후에는 타입과 문서를 함께 업데이트한다.
+- 로컬 코드만 변경하고 DB 미반영 상태로 완료 처리하지 않는다.
+
+추가 고정 규칙:
+- 기존 attendance/report/accounting 흐름을 깨지 말 것
+- invasive refactor보다 additive change를 우선할 것
+- Supabase RLS와 기존 auth 패턴을 존중할 것
+- App Router + TypeScript strict + TanStack Query 패턴을 따를 것
+- 구현 완료 후 필수 문서를 함께 업데이트할 것

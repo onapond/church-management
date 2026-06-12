@@ -1,10 +1,11 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo } from 'react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { useMembers } from '@/queries/members'
-import { isAdmin as checkAdmin, canEditMembers, canAccessAllDepartments, getAccessibleDepartmentIds } from '@/lib/permissions'
+import { canEditMembers, canAccessAllDepartments, getAccessibleDepartmentIds } from '@/lib/permissions'
 import { HIDDEN_DEPARTMENT_CODES } from '@/lib/constants'
 import MemberList from './MemberList'
 
@@ -12,7 +13,6 @@ export default function MembersClient() {
   const { user } = useAuth()
   const { data: allDepts = [], isLoading: deptsLoading } = useDepartments()
 
-  const adminUser = checkAdmin(user?.role || '')
   const isAllAccess = canAccessAllDepartments(user?.role || '')
 
   // 접근 가능한 부서 (리더부/CU워십 제외 — 원소속에서 이미 카운트)
@@ -62,7 +62,7 @@ export default function MembersClient() {
         </div>
         {canEdit && (
           <div className="flex items-center gap-2">
-            <a
+            <Link
               href="/members/bulk-photos"
               className="flex items-center gap-1.5 px-4 py-2.5 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors text-sm shrink-0"
             >
@@ -70,8 +70,8 @@ export default function MembersClient() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <span className="hidden sm:inline">사진 일괄</span>
-            </a>
-            <a
+            </Link>
+            <Link
               href="/members/new"
               className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors text-sm shrink-0"
             >
@@ -79,7 +79,7 @@ export default function MembersClient() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               <span>등록</span>
-            </a>
+            </Link>
           </div>
         )}
       </div>

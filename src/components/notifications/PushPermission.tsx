@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 
 interface PushPermissionProps {
-  userId: string
+  userId?: string
 }
 
 // 타임아웃 래퍼
@@ -16,7 +16,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ])
 }
 
-export default function PushPermission({ userId }: PushPermissionProps) {
+export default function PushPermission({}: PushPermissionProps) {
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default')
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)

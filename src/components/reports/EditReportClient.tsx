@@ -11,6 +11,15 @@ import ReportForm from '@/components/reports/ReportForm'
 
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 
+type EditableReport = NonNullable<ReturnType<typeof useReportDetail>['data']> & {
+  report_type?: ReportType
+  meeting_title?: string | null
+  meeting_location?: string | null
+  attendees?: string | null
+  main_content?: string | null
+  application_notes?: string | null
+}
+
 const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = {
   weekly: { label: '주차 보고서', icon: '📋' },
   meeting: { label: '모임 보고서', icon: '👥' },
@@ -77,7 +86,8 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
     return null
   }
 
-  const reportType = (report as any).report_type as ReportType || 'weekly'
+  const editableReport = report as EditableReport
+  const reportType = editableReport.report_type || 'weekly'
   const config = REPORT_TYPE_CONFIG[reportType]
 
   // 주차 계산 (일요일 기준)
@@ -87,14 +97,15 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
     id: report.id,
     department_id: report.department_id,
     author_id: report.author_id,
+    status: report.status,
     report_date: report.report_date,
     week_number: report.week_number,
     notes: report.notes,
-    meeting_title: (report as any).meeting_title,
-    meeting_location: (report as any).meeting_location,
-    attendees: (report as any).attendees,
-    main_content: (report as any).main_content,
-    application_notes: (report as any).application_notes,
+    meeting_title: editableReport.meeting_title,
+    meeting_location: editableReport.meeting_location,
+    attendees: editableReport.attendees,
+    main_content: editableReport.main_content,
+    application_notes: editableReport.application_notes,
     cell_id: report.cell_id,
     programs: programs || [],
     newcomers: newcomers || [],
@@ -129,3 +140,4 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
     </div>
   )
 }
+

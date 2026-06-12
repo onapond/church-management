@@ -30,6 +30,7 @@ export default function PhotoUploadSection({
         {/* 미리보기 */}
         {photoPreviews.map((preview, index) => (
           <div key={`photo-${index}-${preview.slice(-20)}`} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={preview} alt={`사진 ${index + 1}`} className="w-full h-full object-cover" />
             <button
               type="button"

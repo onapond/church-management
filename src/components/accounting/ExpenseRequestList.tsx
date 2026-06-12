@@ -7,6 +7,7 @@ import { useDepartments } from '@/queries/departments'
 import { useExpenseRequests, useDeleteExpenseRequest } from '@/queries/accounting'
 import { canAccessAllDepartments } from '@/types/database'
 import { useToastContext } from '@/providers/ToastProvider'
+import type { ExpenseItem, ExpenseRequestWithItems } from '@/types/database'
 
 export default function ExpenseRequestList() {
   const toast = useToastContext()
@@ -123,7 +124,7 @@ export default function ExpenseRequestList() {
         </div>
       ) : (
         <div className="space-y-4">
-          {requests.map((request: any) => (
+          {requests.map((request: ExpenseRequestWithItems) => (
             <div key={request.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -153,7 +154,7 @@ export default function ExpenseRequestList() {
               {/* 항목 요약 */}
               <div className="border-t border-gray-100 pt-3 mt-3">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                  {(request.expense_items || []).slice(0, 4).map((item: any) => (
+                  {(request.expense_items || []).slice(0, 4).map((item: ExpenseItem) => (
                     <div key={item.id} className="flex items-center justify-between text-sm">
                       <span className="text-gray-600 truncate">{item.description}</span>
                       <span className="text-gray-900 font-medium ml-2">{formatAmount(item.amount)}원</span>

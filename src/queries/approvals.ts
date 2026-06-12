@@ -22,11 +22,10 @@ const REPORT_SELECT = `
   users!weekly_reports_author_id_fkey(name)
 `
 
-/** 결재 대기 보고서 조회 */
 export function usePendingReports(userRole: string, userDepts?: UserDepartment[]) {
   return useQuery({
     queryKey: ['approvals', 'pending', userRole, 'v2'],
-    queryFn: async (): Promise<any[]> => {
+    queryFn: async (): Promise<ApprovalReport[]> => {
       if (!userRole) return []
 
       let query = supabase
@@ -34,7 +33,6 @@ export function usePendingReports(userRole: string, userDepts?: UserDepartment[]
         .select('*, departments(name, code), users!weekly_reports_author_id_fkey(name)')
 
       if (userRole === 'super_admin') {
-        // super_admin은 셀장보고서 제외한 결재 대기만
         query = query
           .in('status', ['submitted', 'coordinator_reviewed', 'manager_approved'])
           .neq('report_type', 'cell_leader')
@@ -47,11 +45,12 @@ export function usePendingReports(userRole: string, userDepts?: UserDepartment[]
           .eq('status', 'coordinator_reviewed')
           .neq('report_type', 'cell_leader')
       } else if (userRole === 'team_leader') {
-        // 팀장: 자기 부서의 셀장보고서(submitted)만
         const teamLeaderDeptIds = userDepts
-          ?.filter(ud => ud.is_team_leader)
-          .map(ud => ud.department_id) || []
+          ?.filter((department) => department.is_team_leader)
+          .map((department) => department.department_id) || []
+
         if (teamLeaderDeptIds.length === 0) return []
+
         query = query
           .eq('report_type', 'cell_leader')
           .eq('status', 'submitted')
@@ -68,14 +67,14 @@ export function usePendingReports(userRole: string, userDepts?: UserDepartment[]
         console.error('Pending reports fetch error:', error)
         throw error
       }
-      return data || []
+
+      return (data || []) as ApprovalReport[]
     },
     enabled: !!userRole,
     staleTime: 0,
   })
 }
 
-/** 처리 완료 보고서 조회 */
 export function useCompletedReports(userRole: string, userDepts?: UserDepartment[]) {
   return useQuery({
     queryKey: ['approvals', 'completed', userRole],
@@ -99,11 +98,12 @@ export function useCompletedReports(userRole: string, userDepts?: UserDepartment
           .in('status', ['manager_approved', 'final_approved'])
           .neq('report_type', 'cell_leader')
       } else if (userRole === 'team_leader') {
-        // 팀장: 자기 부서의 셀장보고서(final_approved, rejected)만
         const teamLeaderDeptIds = userDepts
-          ?.filter(ud => ud.is_team_leader)
-          .map(ud => ud.department_id) || []
+          ?.filter((department) => department.is_team_leader)
+          .map((department) => department.department_id) || []
+
         if (teamLeaderDeptIds.length === 0) return []
+
         query = query
           .eq('report_type', 'cell_leader')
           .in('status', ['final_approved', 'rejected'])

@@ -8,6 +8,17 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import { Extension } from '@tiptap/core'
 import { useEffect, useState } from 'react'
 
+type FontSizeCommandChain = {
+  setMark: (type: string, attributes: Record<string, unknown>) => FontSizeCommandChain
+  removeEmptyTextStyle: () => FontSizeCommandChain
+  run: () => boolean
+}
+
+type FontSizeEditorChain = {
+  setFontSize: (size: string) => FontSizeEditorChain
+  run: () => boolean
+}
+
 // 커스텀 폰트 크기 확장
 const FontSize = Extension.create({
   name: 'fontSize',
@@ -42,10 +53,10 @@ const FontSize = Extension.create({
 
   addCommands() {
     return {
-      setFontSize: (fontSize: string) => ({ chain }: { chain: () => any }) => {
+      setFontSize: (fontSize: string) => ({ chain }: { chain: () => FontSizeCommandChain }) => {
         return chain().setMark('textStyle', { fontSize }).run()
       },
-      unsetFontSize: () => ({ chain }: { chain: () => any }) => {
+      unsetFontSize: () => ({ chain }: { chain: () => FontSizeCommandChain }) => {
         return chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run()
       },
     }
@@ -144,7 +155,7 @@ export default function RichTextEditor({
   }
 
   const setFontSize = (size: string) => {
-    ;(editor.chain().focus() as any).setFontSize(size).run()
+    ;(editor.chain().focus() as unknown as FontSizeEditorChain).setFontSize(size).run()
     setShowFontSizeMenu(false)
   }
 

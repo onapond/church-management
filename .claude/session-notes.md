@@ -167,3 +167,11 @@
   - `npm run build` passed.
 - Blocker:
   - Existing Supabase MCP token returned `Unauthorized`; production SQL was not executed.
+
+## 2026-06-12 CU1 Request - Production SQL Completed
+- User ran `scripts/ops-2026-06-11-cu1-request.sql` directly in Supabase SQL Editor.
+- Follow-up verification confirmed:
+  - 도지수 is assigned to 다희셀.
+  - 박철호 is assigned to 민아셀.
+  - CU1 pending `cell_leader` submitted reports were bulk-final-approved.
+- The prior Supabase MCP/PAT blocker for this CU1 operational request is resolved.

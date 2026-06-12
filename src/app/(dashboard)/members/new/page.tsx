@@ -14,10 +14,11 @@ export default async function NewMemberPage({
 
   // 현재 사용자 정보
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
   const { data: userData } = await supabase
     .from('users')
     .select('*, user_departments(department_id, is_team_leader, departments(id, name))')
-    .eq('id', user!.id)
+    .eq('id', user.id)
     .single()
 
   const userInfo = userData as UserData | null
@@ -48,7 +49,8 @@ export default async function NewMemberPage({
     department_id: string | null
   } | null = null
 
-  if (newcomerId) {
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (newcomerId && UUID_REGEX.test(newcomerId)) {
     const { data } = await supabase
       .from('newcomers')
       .select('id, name, phone, birth_date, address, affiliation, department_id')

@@ -3,12 +3,22 @@
 import { useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
-import { useReports } from '@/queries/reports'
-import { canAccessAllDepartments, canWriteReport as checkCanWriteReport, getAccessibleDepartmentIds, canViewReport, canViewAllReports } from '@/lib/permissions'
+import { useReports, type ReportListItem } from '@/queries/reports'
+import {
+  canAccessAllDepartments,
+  canWriteReport as checkCanWriteReport,
+  getAccessibleDepartmentIds,
+  canViewReport,
+  canViewAllReports,
+  canDeleteReport,
+} from '@/lib/permissions'
 import { formatDate } from '@/lib/utils'
 import type { UserDepartment } from '@/types/shared'
+import { createClient } from '@/lib/supabase/client'
+import { deleteReportBundle } from '@/components/reports/utils/reportDeletion'
 
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 
@@ -23,9 +33,11 @@ const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string; colo
 
 export default function ReportListClient() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const { data: allDepartments = [] } = useDepartments()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const supabase = createClient()
 
   const isAdmin = canAccessAllDepartments(user?.role || '')
   const canViewAll = canViewAllReports(user)
@@ -40,23 +52,20 @@ export default function ReportListClient() {
 
   const departments = useMemo(() => {
     if (canViewAll) return allDepartments
-    return allDepartments.filter(d => userDepartmentIds.includes(d.id))
+    return allDepartments.filter((d) => userDepartmentIds.includes(d.id))
   }, [canViewAll, allDepartments, userDepartmentIds])
 
-  // URL에서 타입/부서 읽기
   const selectedType = (searchParams.get('type') as ReportType) || 'weekly'
   const selectedDept = searchParams.get('dept') || 'all'
 
-  // TanStack Query로 보고서 목록 조회
   const { data: reports = [], isLoading, isFetching } = useReports({
     reportType: selectedType,
     departmentId: selectedDept !== 'all' ? selectedDept : undefined,
     departmentIds: selectedDept === 'all' && !canViewAll ? userDepartmentIds : undefined,
   })
 
-  // 열람 권한 필터링
   const filteredReports = useMemo(() => {
-    return reports.filter(report =>
+    return reports.filter((report) =>
       canViewReport(user, {
         author_id: report.author_id,
         department_id: report.department_id,
@@ -66,26 +75,50 @@ export default function ReportListClient() {
     )
   }, [reports, user])
 
-  const handleTypeChange = useCallback((type: ReportType) => {
-    const params = new URLSearchParams()
-    params.set('type', type)
-    if (selectedDept !== 'all') params.set('dept', selectedDept)
-    router.push(`/reports?${params.toString()}`)
-  }, [router, selectedDept])
+  const handleTypeChange = useCallback(
+    (type: ReportType) => {
+      const params = new URLSearchParams()
+      params.set('type', type)
+      if (selectedDept !== 'all') params.set('dept', selectedDept)
+      router.push(`/reports?${params.toString()}`)
+    },
+    [router, selectedDept]
+  )
 
-  const handleDeptChange = useCallback((deptId: string) => {
-    const params = new URLSearchParams()
-    params.set('type', selectedType)
-    if (deptId !== 'all') params.set('dept', deptId)
-    router.push(`/reports?${params.toString()}`)
-  }, [router, selectedType])
+  const handleDeptChange = useCallback(
+    (deptId: string) => {
+      const params = new URLSearchParams()
+      params.set('type', selectedType)
+      if (deptId !== 'all') params.set('dept', deptId)
+      router.push(`/reports?${params.toString()}`)
+    },
+    [router, selectedType]
+  )
+
+  const handleDeleteReport = useCallback(
+    async (report: ReportListItem) => {
+      if (!user || !canDeleteReport(user, report)) return
+      if (!window.confirm('정말 이 보고서를 삭제하시겠습니까?')) return
+
+      try {
+        await deleteReportBundle(supabase, report.id)
+        await queryClient.invalidateQueries({ queryKey: ['reports'] })
+        await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      } catch (error) {
+        console.error('Failed to delete report:', error)
+      }
+    },
+    [queryClient, supabase, user]
+  )
 
   if (!user) {
     return (
       <div className="space-y-4 lg:space-y-6 max-w-4xl mx-auto">
         <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
         <div className="flex gap-2">
-          {[1,2,3].map(i => <div key={i} className="h-10 w-28 bg-gray-100 rounded-xl animate-pulse" />)}
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-10 w-28 bg-gray-100 rounded-xl animate-pulse" />
+          ))}
         </div>
         <div className="bg-gray-100 rounded-2xl h-64 animate-pulse" />
       </div>
@@ -94,7 +127,6 @@ export default function ReportListClient() {
 
   return (
     <div className="space-y-4 lg:space-y-6 max-w-4xl mx-auto">
-      {/* 헤더 */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-lg lg:text-xl font-bold text-gray-900">보고서</h1>
@@ -124,7 +156,6 @@ export default function ReportListClient() {
         </div>
       </div>
 
-      {/* 유형 탭 */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {(Object.keys(REPORT_TYPE_CONFIG) as ReportType[]).map((type) => {
           const config = REPORT_TYPE_CONFIG[type]
@@ -146,7 +177,6 @@ export default function ReportListClient() {
         })}
       </div>
 
-      {/* 부서 필터 */}
       {(canViewAll || departments.length > 1) && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
@@ -175,65 +205,91 @@ export default function ReportListClient() {
         </div>
       )}
 
-      {/* 보고서 목록 */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {isLoading ? (
           <div className="py-12 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
           </div>
         ) : filteredReports.length > 0 ? (
           <div className={`divide-y divide-gray-100 ${isFetching ? 'opacity-70 transition-opacity' : ''}`}>
             {filteredReports.map((report) => (
-              <Link
+              <div
                 key={report.id}
-                href={`/reports/${report.id}`}
-                className="flex items-center gap-3 p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                className="flex items-center gap-3 p-4 transition-colors hover:bg-gray-50 active:bg-gray-100"
               >
-                {/* 아이콘 */}
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  selectedType === 'weekly' ? 'bg-blue-100' :
-                  selectedType === 'meeting' ? 'bg-green-100' :
-                  selectedType === 'cell_leader' ? 'bg-teal-100' :
-                  selectedType === 'project' ? 'bg-orange-100' :
-                  selectedType === 'visitation' ? 'bg-rose-100' : 'bg-purple-100'
-                }`}>
-                  <span className="text-lg">{REPORT_TYPE_CONFIG[selectedType].icon}</span>
-                </div>
+                <Link
+                  href={`/reports/${report.id}`}
+                  className="flex flex-1 items-center gap-3 min-w-0"
+                >
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      selectedType === 'weekly'
+                        ? 'bg-blue-100'
+                        : selectedType === 'meeting'
+                          ? 'bg-green-100'
+                          : selectedType === 'cell_leader'
+                            ? 'bg-teal-100'
+                            : selectedType === 'project'
+                              ? 'bg-orange-100'
+                              : selectedType === 'visitation'
+                                ? 'bg-rose-100'
+                                : 'bg-purple-100'
+                    }`}
+                  >
+                    <span className="text-lg">{REPORT_TYPE_CONFIG[selectedType].icon}</span>
+                  </div>
 
-                {/* 정보 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-gray-900 text-sm truncate">
-                      {selectedType === 'weekly'
-                        ? report.departments?.name
-                        : report.meeting_title || report.departments?.name}
-                    </p>
-                    <StatusBadge status={report.status} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-gray-900 text-sm truncate">
+                        {selectedType === 'weekly'
+                          ? report.departments?.name
+                          : report.meeting_title || report.departments?.name}
+                      </p>
+                      <StatusBadge status={report.status} />
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                      <span>{formatDate(report.report_date, 'month-day')}</span>
+                      <span>·</span>
+                      <span className="truncate">{report.users?.name}</span>
+                      {selectedType !== 'weekly' && report.departments?.name && (
+                        <>
+                          <span>·</span>
+                          <span className="truncate">{report.departments?.name}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
-                    <span>{formatDate(report.report_date, 'month-day')}</span>
-                    <span>·</span>
-                    <span className="truncate">{report.users?.name}</span>
-                    {selectedType !== 'weekly' && report.departments?.name && (
-                      <>
-                        <span>·</span>
-                        <span className="truncate">{report.departments?.name}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
 
-                {/* 출석 정보 (주차보고서만) */}
-                {selectedType === 'weekly' && (
-                  <div className="text-right shrink-0">
-                    <p className="text-lg font-bold text-gray-900">
-                      {report.worship_attendance}
-                      <span className="text-sm font-normal text-gray-400">/{report.total_registered}</span>
-                    </p>
-                    <p className="text-xs text-gray-400">출석</p>
-                  </div>
+                  {selectedType === 'weekly' && (
+                    <div className="text-right shrink-0">
+                      <p className="text-lg font-bold text-gray-900">
+                        {report.worship_attendance}
+                        <span className="text-sm font-normal text-gray-400">/{report.total_registered}</span>
+                      </p>
+                      <p className="text-xs text-gray-400">출석</p>
+                    </div>
+                  )}
+                </Link>
+
+                {user && canDeleteReport(user, report) && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteReport(report)}
+                    className="shrink-0 rounded-lg border border-red-200 bg-red-50 p-2 text-red-600 transition-colors hover:bg-red-100"
+                    title="삭제"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
                 )}
-              </Link>
+              </div>
             ))}
           </div>
         ) : (
