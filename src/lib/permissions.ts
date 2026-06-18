@@ -43,6 +43,12 @@ export function canEditMeetingContent(user: UserData | null, departmentId?: stri
   ) ?? false
 }
 
+export function canParticipateInMeetingAgenda(user: UserData | null): boolean {
+  if (!user || !user.is_active) return false
+  if (['super_admin', 'president', 'accountant'].includes(user.role)) return true
+  return user.user_departments?.some((userDepartment) => userDepartment.is_team_leader) ?? false
+}
+
 export function canDeleteMeeting(
   user: UserData | null,
   meeting: { created_by: string; department_id: string }

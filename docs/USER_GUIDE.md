@@ -504,3 +504,11 @@
 ## CU1 Data Operations Prepared (2026-06-11)
 - A data-only SQL script is ready for adding Do Jisu to Dahui cell, Park Cheolho to Mina cell, and approving existing pending CU1 cell-leader reports in bulk.
 - The script still needs to be run with a valid Supabase admin/PAT/MCP connection.
+
+## Meeting Agenda Discussion (2026-06-18)
+- In a meeting detail page, department leaders and administrators can add pre-meeting items before an in-person meeting.
+- Each item can be marked as an agenda, question, or notice and is tied to a department.
+- The meeting detail page groups items by department sections, such as common agenda, youth, CU1, CU2, and worship team sections.
+- Department leaders and administrators can leave comments under each item to ask follow-up questions or share feedback.
+- Items can be marked as resolved after the discussion is organized for the meeting.
+- This discussion area is separate from finalized meeting minutes, PDF files, and admin-only meeting feedback.

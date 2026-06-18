@@ -15,6 +15,8 @@ export type ApprovalStatus =
 export type AttendanceType = 'worship' | 'meeting'
 export type VisitationStatus = 'scheduled' | 'completed' | 'cancelled'
 export type VisitationReason = 'hospital' | 'newcomer' | 'regular' | 'encouragement' | 'other'
+export type MeetingAgendaItemType = 'agenda' | 'question' | 'notice'
+export type MeetingAgendaStatus = 'open' | 'resolved'
 
 // 회계 카테고리
 export type ExpenseCategory =
@@ -208,6 +210,36 @@ export interface Database {
         }
         Insert: Omit<Database['public']['Tables']['meeting_feedback']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['meeting_feedback']['Insert']>
+      }
+      meeting_agenda_items: {
+        Row: {
+          id: string
+          meeting_id: string
+          department_id: string
+          author_id: string
+          item_type: MeetingAgendaItemType
+          title: string
+          content: string | null
+          status: MeetingAgendaStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['meeting_agenda_items']['Row'], 'id' | 'created_at' | 'updated_at' | 'status' | 'item_type'> & {
+          item_type?: MeetingAgendaItemType
+          status?: MeetingAgendaStatus
+        }
+        Update: Partial<Database['public']['Tables']['meeting_agenda_items']['Insert']>
+      }
+      meeting_agenda_comments: {
+        Row: {
+          id: string
+          agenda_item_id: string
+          commenter_id: string
+          comment: string
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['meeting_agenda_comments']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['meeting_agenda_comments']['Insert']>
       }
       approval_history: {
         Row: {
@@ -440,6 +472,8 @@ export type WeeklyReport = Database['public']['Tables']['weekly_reports']['Row']
 export type Meeting = Database['public']['Tables']['meetings']['Row']
 export type MeetingMinutes = Database['public']['Tables']['meeting_minutes']['Row']
 export type MeetingFeedback = Database['public']['Tables']['meeting_feedback']['Row']
+export type MeetingAgendaItem = Database['public']['Tables']['meeting_agenda_items']['Row']
+export type MeetingAgendaComment = Database['public']['Tables']['meeting_agenda_comments']['Row']
 export type AttendanceRecord = Database['public']['Tables']['attendance_records']['Row']
 export type Newcomer = Database['public']['Tables']['newcomers']['Row']
 export type Notification = Database['public']['Tables']['notifications']['Row']
@@ -481,6 +515,16 @@ export interface MeetingMinutesWithDetails extends MeetingMinutes {
 
 export interface MeetingFeedbackWithDetails extends MeetingFeedback {
   users?: { name: string; role?: string } | null
+}
+
+export interface MeetingAgendaCommentWithDetails extends MeetingAgendaComment {
+  users?: { name: string; role?: string } | null
+}
+
+export interface MeetingAgendaItemWithDetails extends MeetingAgendaItem {
+  departments?: { id: string; name: string } | null
+  users?: { name: string; role?: string } | null
+  meeting_agenda_comments?: MeetingAgendaCommentWithDetails[] | null
 }
 
 export interface ReportFeedbackWithDetails extends ReportFeedback {

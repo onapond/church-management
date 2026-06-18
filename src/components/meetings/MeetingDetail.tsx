@@ -17,6 +17,7 @@ import {
 } from '@/queries/meetings/useMeetings'
 import { useUpsertMeetingMinutes } from '@/queries/meetings/useCreateMeeting'
 import { deleteMeetingBundle } from '@/components/meetings/utils/meetingDeletion'
+import MeetingAgendaBoard from '@/components/meetings/MeetingAgendaBoard'
 
 interface MeetingDetailProps {
   meetingId: string
@@ -219,6 +220,8 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
           {meeting.description?.trim() || '기본 회의 설명이 아직 없습니다.'}
         </div>
       </div>
+
+      <MeetingAgendaBoard meetingId={meetingId} meetingDepartmentId={meeting.department_id} meetingDate={meeting.meeting_date} />
 
       <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">

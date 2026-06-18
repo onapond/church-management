@@ -200,3 +200,20 @@ WHERE year = 2026 AND report_type = 'weekly';
   - `member_departments.cell_id` for Do Jisu and Park Cheolho in CU1.
   - `weekly_reports.status`, final approver fields, and missing `approval_history` rows for CU1 `cell_leader` reports still in `submitted`.
 - No schema, RLS policy, auth flow, report workflow code, or accounting behavior changed.
+
+## 2026-06-18 Meeting Agenda Discussion
+- Added `public.meeting_agenda_items`:
+  - `meeting_id`, `department_id`, `author_id`
+  - `item_type`: `agenda`, `question`, or `notice`
+  - `title`, `content`, `status`: `open` or `resolved`
+- Added `public.meeting_agenda_comments` for item-level follow-up questions and feedback.
+- RLS:
+  - select: active authenticated users
+  - insert: active `super_admin`, `president`, `accountant`, or department leaders
+  - update/delete agenda items: item author or meeting-content editors
+  - delete comments: commenter, item author, or meeting-content editors
+- UI:
+  - `MeetingDetail` renders `MeetingAgendaBoard` before finalized minutes/PDF sections so pre-meeting coordination is visible first.
+  - `MeetingAgendaBoard` presents agenda items in Notion-like department sections, while still storing each item in the normalized `meeting_agenda_items` table.
+  - The feature is separate from `meeting_feedback`, which remains an admin feedback trail and does not become a discussion board.
+- Existing attendance, report approval, accounting, meeting minutes, and PDF flows are unchanged.

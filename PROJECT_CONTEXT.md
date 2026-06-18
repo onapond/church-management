@@ -239,3 +239,9 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Added `scripts/ops-2026-06-11-cu1-request.sql` for the requested CU1 data operations: assign Do Jisu to Dahui cell, assign Park Cheolho to Mina cell, and bulk-final-approve existing pending CU1 cell-leader reports.
 - This is additive and does not change report approval code, accounting, auth, RLS policies, or schema.
 - Production data SQL was not executed because the existing Supabase MCP token returned `Unauthorized`; a fresh Supabase PAT/MCP connection is required.
+
+## 2026-06-18 Update - Meeting Agenda Discussion
+- Meeting detail now includes a pre-meeting agenda and question board for department leaders ahead of in-person meetings.
+- Added `meeting_agenda_items` and `meeting_agenda_comments` as additive tables for agenda/question/notice items and threaded feedback.
+- Active users can view agenda discussion; `super_admin`, `president`, `accountant`, and department leaders can post agenda items and comments.
+- This does not change attendance, report, accounting, existing meeting minutes, PDF attachments, or report approval workflows.

@@ -164,6 +164,7 @@
 - Verification:
   - `npx tsc --noEmit` passed.
   - `npm test` passed, 153 tests.
+  - `npm run lint` passed.
   - `npm run build` passed.
 - Blocker:
   - Existing Supabase MCP token returned `Unauthorized`; production SQL was not executed.
@@ -180,3 +181,17 @@
 - Consolidated accumulated uncommitted work in commit `9a55fa0` and pushed it to `origin/main`.
 - Removed ignored local cache/scratch/reference artifacts and confirmed the working tree is clean.
 - Full handoff: `docs/handoffs/2026-06-12-worktree-cleanup-handoff.md`.
+
+## 2026-06-18 Meeting Agenda Discussion
+- Added pre-meeting agenda discussion for meeting detail pages.
+- New migration: `supabase/migrations/012_add_meeting_agenda_discussion.sql`.
+- New UI component: `src/components/meetings/MeetingAgendaBoard.tsx`.
+- Department leaders and administrators can add agenda/question/notice items and comment on each item before an in-person meeting.
+- Updated the UI to match the provided Notion-style reference: agenda items are grouped under fixed department sections instead of only appearing as standalone cards.
+- Existing attendance, report approval, accounting, meeting minutes, PDF attachments, and admin-only meeting feedback flows remain unchanged.
+- Verification so far:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 153 tests.
+  - `npm run build` passed.
+- Open item:
+  - Remote Supabase migration application still needs a valid Supabase PAT/MCP connection.

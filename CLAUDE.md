@@ -199,3 +199,9 @@ pm run build.
 - Bulk attendance actions respect the current cell filter and roll back UI state if the write fails.
 - Data operations for Do Jisu/Dahui cell, Park Cheolho/Mina cell, and CU1 pending cell-leader report bulk approval are prepared in `scripts/ops-2026-06-11-cu1-request.sql`.
 - Existing attendance/report/accounting/auth/RLS structures remain unchanged; production SQL still needs a fresh Supabase PAT/MCP connection because the cached token is unauthorized.
+
+## 2026-06-18 Notes - Meeting Agenda Discussion
+- Meeting detail includes a pre-meeting agenda discussion board through `src/components/meetings/MeetingAgendaBoard.tsx`.
+- Schema extension lives in `supabase/migrations/012_add_meeting_agenda_discussion.sql` and adds `meeting_agenda_items` plus `meeting_agenda_comments`.
+- Agenda participation is intentionally broader than meeting-content editing: active `super_admin`, `president`, `accountant`, and department leaders can post items/comments.
+- Keep this separate from `meeting_minutes` and `meeting_feedback`; it is for pre-meeting coordination, not approval or finalized minutes.

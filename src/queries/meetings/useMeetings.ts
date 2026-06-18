@@ -1,8 +1,15 @@
 ﻿'use client'
 
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { MeetingFeedbackWithDetails, MeetingMinutesWithDetails, MeetingWithDetails } from '@/types/database'
+import type {
+  Database,
+  MeetingAgendaItemWithDetails,
+  MeetingAgendaStatus,
+  MeetingFeedbackWithDetails,
+  MeetingMinutesWithDetails,
+  MeetingWithDetails,
+} from '@/types/database'
 
 const supabase = createClient()
 
@@ -21,6 +28,19 @@ const MEETING_FEEDBACK_SELECT = `
   *,
   users!meeting_feedback_commenter_id_fkey(name, role)
 `
+
+const MEETING_AGENDA_SELECT = `
+  *,
+  departments(id, name),
+  users!meeting_agenda_items_author_id_fkey(name, role),
+  meeting_agenda_comments(
+    *,
+    users!meeting_agenda_comments_commenter_id_fkey(name, role)
+  )
+`
+
+type MeetingAgendaInsert = Database['public']['Tables']['meeting_agenda_items']['Insert']
+type MeetingAgendaCommentInsert = Database['public']['Tables']['meeting_agenda_comments']['Insert']
 
 export function useMeetings() {
   return useQuery({
@@ -108,5 +128,119 @@ export function useMeetingFeedback(meetingId: string | undefined) {
     },
     enabled: !!meetingId,
     staleTime: 30_000,
+  })
+}
+
+export function useMeetingAgendaItems(meetingId: string | undefined) {
+  return useQuery({
+    queryKey: ['meetings', 'agenda', meetingId],
+    queryFn: async (): Promise<MeetingAgendaItemWithDetails[]> => {
+      const { data, error } = await supabase
+        .from('meeting_agenda_items')
+        .select(MEETING_AGENDA_SELECT)
+        .eq('meeting_id', meetingId!)
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+
+      return ((data || []) as MeetingAgendaItemWithDetails[]).map((item) => ({
+        ...item,
+        meeting_agenda_comments: [...(item.meeting_agenda_comments || [])].sort((first, second) =>
+          first.created_at.localeCompare(second.created_at)
+        ),
+      }))
+    },
+    enabled: !!meetingId,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useCreateMeetingAgendaItem(meetingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: MeetingAgendaInsert) => {
+      const { data, error } = await supabase
+        .from('meeting_agenda_items')
+        .insert(payload)
+        .select(MEETING_AGENDA_SELECT)
+        .single()
+
+      if (error) throw error
+      return data as MeetingAgendaItemWithDetails
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    },
+  })
+}
+
+export function useCreateMeetingAgendaComment(meetingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: MeetingAgendaCommentInsert) => {
+      const { data, error } = await supabase
+        .from('meeting_agenda_comments')
+        .insert(payload)
+        .select('*, users!meeting_agenda_comments_commenter_id_fkey(name, role)')
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    },
+  })
+}
+
+export function useUpdateMeetingAgendaStatus(meetingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ itemId, status }: { itemId: string; status: MeetingAgendaStatus }) => {
+      const { data, error } = await supabase
+        .from('meeting_agenda_items')
+        .update({ status })
+        .eq('id', itemId)
+        .select(MEETING_AGENDA_SELECT)
+        .single()
+
+      if (error) throw error
+      return data as MeetingAgendaItemWithDetails
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    },
+  })
+}
+
+export function useDeleteMeetingAgendaItem(meetingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase.from('meeting_agenda_items').delete().eq('id', itemId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    },
+  })
+}
+
+export function useDeleteMeetingAgendaComment(meetingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (commentId: string) => {
+      const { error } = await supabase.from('meeting_agenda_comments').delete().eq('id', commentId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    },
   })
 }
