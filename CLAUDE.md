@@ -205,3 +205,13 @@ pm run build.
 - Schema extension lives in `supabase/migrations/012_add_meeting_agenda_discussion.sql` and adds `meeting_agenda_items` plus `meeting_agenda_comments`.
 - Agenda participation is intentionally broader than meeting-content editing: active `super_admin`, `president`, `accountant`, and department leaders can post items/comments.
 - Keep this separate from `meeting_minutes` and `meeting_feedback`; it is for pre-meeting coordination, not approval or finalized minutes.
+
+## 2026-06-18 Notes - Meeting Edit And Cancel Actions
+- Meeting detail now has explicit `수정` and `제출 취소` text buttons for users who can edit/delete the meeting.
+- `제출 취소` deletes the meeting bundle because meetings do not have the report approval status lifecycle.
+- `supabase/migrations/013_add_meeting_update_policy.sql` adds authorized update RLS for `meetings`.
+
+## 2026-06-18 Notes - Department Agenda PDF Attachments
+- `supabase/migrations/014_add_meeting_agenda_pdf_attachments.sql` extends `meeting_agenda_items` with PDF metadata.
+- Agenda PDFs reuse the private `meeting-pdfs` bucket and are stored under `agenda/{meetingId}/{departmentId}/...`.
+- Keep agenda PDFs separate from meeting minutes PDFs; they are source material for department agenda discussion.

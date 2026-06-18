@@ -512,3 +512,13 @@
 - Department leaders and administrators can leave comments under each item to ask follow-up questions or share feedback.
 - Items can be marked as resolved after the discussion is organized for the meeting.
 - This discussion area is separate from finalized meeting minutes, PDF files, and admin-only meeting feedback.
+
+## Meeting Edit And Submit Cancel (2026-06-18)
+- In a meeting detail page, users with meeting edit permission can tap `수정` to update title, department, date/time, location, and description.
+- Users with meeting delete permission can tap `제출 취소` to cancel the meeting registration.
+- Meeting submit cancel removes the meeting and its related meeting content. It is not the same as report approval cancellation.
+
+## Department Agenda PDF Attachments (2026-06-18)
+- When adding a pre-meeting agenda item, department leaders and administrators can attach a PDF file for that department's agenda.
+- The attached PDF appears under the agenda item with an `열기` link.
+- Use this for original agenda documents, reference materials, or department-prepared PDFs before the in-person meeting.

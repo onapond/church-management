@@ -220,6 +220,10 @@ export interface Database {
           item_type: MeetingAgendaItemType
           title: string
           content: string | null
+          pdf_file_path: string | null
+          pdf_file_name: string | null
+          pdf_file_size: number | null
+          pdf_uploaded_at: string | null
           status: MeetingAgendaStatus
           created_at: string
           updated_at: string

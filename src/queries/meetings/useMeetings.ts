@@ -41,6 +41,7 @@ const MEETING_AGENDA_SELECT = `
 
 type MeetingAgendaInsert = Database['public']['Tables']['meeting_agenda_items']['Insert']
 type MeetingAgendaCommentInsert = Database['public']['Tables']['meeting_agenda_comments']['Insert']
+type MeetingUpdate = Database['public']['Tables']['meetings']['Update']
 
 export function useMeetings() {
   return useQuery({
@@ -78,6 +79,29 @@ export function useMeetingDetail(id: string | undefined) {
   })
 }
 
+export function useUpdateMeeting(meetingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: MeetingUpdate): Promise<MeetingWithDetails> => {
+      const { data, error } = await supabase
+        .from('meetings')
+        .update(payload)
+        .eq('id', meetingId)
+        .select(MEETING_SELECT)
+        .single()
+
+      if (error) throw error
+      return data as MeetingWithDetails
+    },
+    onSuccess: (meeting) => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.setQueryData(['meetings', 'detail', meeting.id], meeting)
+    },
+  })
+}
+
 export function useMeetingMinutes(meetingId: string | undefined) {
   return useQuery({
     queryKey: ['meetings', 'minutes', meetingId],
@@ -100,6 +124,22 @@ export function useMeetingMinutes(meetingId: string | undefined) {
 export function useMeetingPdfUrl(filePath: string | null | undefined) {
   return useQuery({
     queryKey: ['meetings', 'pdf-url', filePath],
+    queryFn: async (): Promise<string> => {
+      const { data, error } = await supabase.storage
+        .from('meeting-pdfs')
+        .createSignedUrl(filePath!, 60 * 60)
+
+      if (error) throw error
+      return data.signedUrl
+    },
+    enabled: !!filePath,
+    staleTime: 50 * 60 * 1000,
+  })
+}
+
+export function useMeetingAgendaPdfUrl(filePath: string | null | undefined) {
+  return useQuery({
+    queryKey: ['meetings', 'agenda-pdf-url', filePath],
     queryFn: async (): Promise<string> => {
       const { data, error } = await supabase.storage
         .from('meeting-pdfs')

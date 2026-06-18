@@ -245,3 +245,15 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Added `meeting_agenda_items` and `meeting_agenda_comments` as additive tables for agenda/question/notice items and threaded feedback.
 - Active users can view agenda discussion; `super_admin`, `president`, `accountant`, and department leaders can post agenda items and comments.
 - This does not change attendance, report, accounting, existing meeting minutes, PDF attachments, or report approval workflows.
+
+## 2026-06-18 Update - Meeting Edit And Cancel Actions
+- Meeting detail now exposes explicit text actions for editing meeting base information and canceling a submitted meeting registration.
+- Meeting base fields can be edited inline by users with existing meeting edit permission.
+- Added a `meetings_update_editors` RLS policy migration so remote Supabase accepts authorized meeting updates.
+- "Submit cancel" uses the existing meeting bundle deletion path and does not introduce a report-like approval status model.
+
+## 2026-06-18 Update - Department Agenda PDF Attachments
+- Department agenda items can now include one original PDF attachment.
+- PDF metadata is stored additively on `meeting_agenda_items`; files reuse the private `meeting-pdfs` Storage bucket under an `agenda/` path.
+- Meeting detail shows attached agenda PDFs inline as open links under each department agenda item.
+- Existing attendance, report, accounting, meeting minutes, and meeting-level PDF behavior remains unchanged.

@@ -4,6 +4,47 @@
 
 ## 2026-06-18 Update - Meeting Agenda Discussion
 
+## 2026-06-18 Follow-up - Meeting Edit And Cancel Actions
+- 요청 제목: 회의 등록 후 수정/제출 취소 버튼 추가
+- 요청 목적: 회의 등록 직후 상세 화면에서 기본 정보를 수정하거나 등록을 취소할 수 있게 한다.
+- 영향 범위:
+  - attendance/report/accounting 흐름 영향 없음.
+  - 기존 meeting agenda/minutes/PDF 흐름은 유지한다.
+  - additive change로 회의 상세 액션과 `meetings` update RLS 정책만 보강한다.
+- 수정 대상:
+  - `supabase/migrations/013_add_meeting_update_policy.sql`
+  - `src/queries/meetings/useMeetings.ts`
+  - `src/components/meetings/MeetingDetail.tsx`
+  - 문서 및 session notes
+- 구현 완료:
+  - 회의 상세 상단에 `수정`, `제출 취소` 텍스트 버튼 추가
+  - 회의 기본 정보 inline edit 추가
+  - `meetings_update_editors` RLS policy 추가
+- 검증:
+  - `npx tsc --noEmit` passed.
+  - `npm run lint` passed.
+  - `npm test` passed, 153 tests.
+  - `npm run build` passed.
+
+## 2026-06-18 Follow-up - Department Agenda PDF Attachments
+- 요청 제목: 부서별 회의 안건 PDF 첨부
+- 요청 목적: 각 부서가 사전 안건을 텍스트뿐 아니라 PDF 원본으로도 올릴 수 있게 한다.
+- 영향 범위:
+  - attendance/report/accounting 흐름 영향 없음.
+  - 기존 회의록 PDF와 같은 private `meeting-pdfs` Storage 버킷을 재사용한다.
+  - 기존 회의 안건/댓글 구조는 유지하고 `meeting_agenda_items`에 PDF 메타데이터만 추가한다.
+- 수정 대상:
+  - `supabase/migrations/014_add_meeting_agenda_pdf_attachments.sql`
+  - `src/types/database.ts`
+  - `src/queries/meetings/useMeetings.ts`
+  - `src/components/meetings/MeetingAgendaBoard.tsx`
+  - 문서 및 session notes
+- 검증:
+  - `npx tsc --noEmit` passed.
+  - `npm run lint` passed.
+  - `npm test` passed, 153 tests.
+  - `npm run build` passed.
+
 ## 1. Task Summary
 - 요청 제목: 회의별 사전 안건/질문 공유 기능
 - 요청 목적: 토요일 대면회의 전에 각 부서장이 회의 상세에서 사전 안건을 올리고, 부서장들끼리 질문과 피드백을 자유롭게 나눌 수 있게 한다.

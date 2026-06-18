@@ -217,3 +217,26 @@ WHERE year = 2026 AND report_type = 'weekly';
   - `MeetingAgendaBoard` presents agenda items in Notion-like department sections, while still storing each item in the normalized `meeting_agenda_items` table.
   - The feature is separate from `meeting_feedback`, which remains an admin feedback trail and does not become a discussion board.
 - Existing attendance, report approval, accounting, meeting minutes, and PDF flows are unchanged.
+
+## 2026-06-18 Meeting Edit And Cancel Actions
+- Added migration `013_add_meeting_update_policy.sql`.
+- `meetings_update_editors` allows updates by:
+  - meeting creator
+  - `super_admin`
+  - `president`
+  - team leader of the meeting department
+- Meeting detail supports inline editing for title, department, date/time, location, and description.
+- Meeting "submit cancel" uses existing meeting bundle deletion, including related minutes, PDFs, feedback, agenda items, and agenda comments through cascade/helper behavior.
+- No report approval status or notification workflow changes were introduced.
+
+## 2026-06-18 Department Agenda PDF Attachments
+- Added migration `014_add_meeting_agenda_pdf_attachments.sql`.
+- `meeting_agenda_items` now includes:
+  - `pdf_file_path`
+  - `pdf_file_name`
+  - `pdf_file_size`
+  - `pdf_uploaded_at`
+- Agenda PDFs reuse the private `meeting-pdfs` Storage bucket and are uploaded to `agenda/{meetingId}/{departmentId}/...`.
+- The UI creates signed URLs for attached agenda PDFs through TanStack Query.
+- Deleting an agenda item also removes its attached Storage object when present.
+- Existing meeting minutes PDFs and meeting-level PDF behavior are unchanged.

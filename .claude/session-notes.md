@@ -191,7 +191,29 @@
 - Existing attendance, report approval, accounting, meeting minutes, PDF attachments, and admin-only meeting feedback flows remain unchanged.
 - Verification so far:
   - `npx tsc --noEmit` passed.
+  - `npm run lint` passed.
+  - `npm test` passed, 153 tests.
+  - `npm run build` passed.
+  - `npm run lint` passed.
+  - `npm test` passed, 153 tests.
+  - `npm run build` passed.
   - `npm test` passed, 153 tests.
   - `npm run build` passed.
 - Open item:
   - Remote Supabase migration application still needs a valid Supabase PAT/MCP connection.
+
+## 2026-06-18 Meeting Edit And Cancel Actions
+- Added explicit meeting detail actions for `수정` and `제출 취소`.
+- Meeting base information can now be edited inline in `src/components/meetings/MeetingDetail.tsx`.
+- Added `supabase/migrations/013_add_meeting_update_policy.sql` for authorized `meetings` updates.
+- `제출 취소` uses the existing meeting bundle delete flow because meetings do not have a report-style submitted status.
+- Verification so far:
+  - `npx tsc --noEmit` passed.
+
+## 2026-06-18 Department Agenda PDF Attachments
+- Added `supabase/migrations/014_add_meeting_agenda_pdf_attachments.sql`.
+- Department agenda items can now attach one PDF when created from `MeetingAgendaBoard`.
+- Agenda PDFs reuse the private `meeting-pdfs` bucket under `agenda/{meetingId}/{departmentId}/...`.
+- Attached PDFs appear under each agenda item through a signed URL.
+- Verification so far:
+  - `npx tsc --noEmit` passed.

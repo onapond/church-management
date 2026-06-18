@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import { canAccessAllDepartments, canEditMeetingContent, canParticipateInMeetingAgenda } from '@/lib/permissions'
+import { createClient } from '@/lib/supabase/client'
 import { useDepartments } from '@/queries/departments'
 import {
   useCreateMeetingAgendaComment,
   useCreateMeetingAgendaItem,
   useDeleteMeetingAgendaComment,
   useDeleteMeetingAgendaItem,
+  useMeetingAgendaPdfUrl,
   useMeetingAgendaItems,
   useUpdateMeetingAgendaStatus,
 } from '@/queries/meetings/useMeetings'
@@ -41,6 +43,9 @@ const INITIAL_FORM: AgendaFormState = {
   content: '',
 }
 
+const MAX_AGENDA_PDF_SIZE_BYTES = 20 * 1024 * 1024
+const supabase = createClient()
+
 const SECTION_LABEL_BY_CODE: Partial<Record<string, string>> = {
   cu: '공통 회의 안건',
   youth: '청소년부 회의 안건',
@@ -62,6 +67,7 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
   const deleteComment = useDeleteMeetingAgendaComment(meetingId)
 
   const [form, setForm] = useState<AgendaFormState>(INITIAL_FORM)
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
 
   const canParticipate = canParticipateInMeetingAgenda(user)
@@ -100,7 +106,21 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
       return
     }
 
+    if (pdfFile && !isValidPdfFile(pdfFile)) {
+      toast.warning('PDF 파일만 20MB 이하로 업로드할 수 있습니다.')
+      return
+    }
+
     try {
+      let uploadedPdf: Awaited<ReturnType<typeof uploadAgendaPdf>> | null = null
+      if (pdfFile) {
+        uploadedPdf = await uploadAgendaPdf({
+          meetingId,
+          departmentId: selectedDepartmentId,
+          file: pdfFile,
+        })
+      }
+
       await createItem.mutateAsync({
         meeting_id: meetingId,
         department_id: selectedDepartmentId,
@@ -108,8 +128,13 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
         item_type: form.item_type,
         title,
         content: normalizeText(form.content),
+        pdf_file_path: uploadedPdf?.path ?? null,
+        pdf_file_name: uploadedPdf?.name ?? null,
+        pdf_file_size: uploadedPdf?.size ?? null,
+        pdf_uploaded_at: uploadedPdf ? new Date().toISOString() : null,
       })
       setForm({ ...INITIAL_FORM, department_id: selectedDepartmentId })
+      setPdfFile(null)
       toast.success('사전 안건이 등록되었습니다.')
     } catch (error) {
       console.error('Failed to create meeting agenda item:', error)
@@ -152,11 +177,15 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
     }
   }
 
-  async function handleDeleteItem(itemId: string, title: string) {
-    if (!window.confirm(`"${title}" 안건을 삭제하시겠습니까?`)) return
+  async function handleDeleteItem(item: MeetingAgendaItemWithDetails) {
+    if (!window.confirm(`"${item.title}" 안건을 삭제하시겠습니까?`)) return
 
     try {
-      await deleteItem.mutateAsync(itemId)
+      if (item.pdf_file_path) {
+        const { error: removeError } = await supabase.storage.from('meeting-pdfs').remove([item.pdf_file_path])
+        if (removeError) throw removeError
+      }
+      await deleteItem.mutateAsync(item.id)
       toast.success('안건이 삭제되었습니다.')
     } catch (error) {
       console.error('Failed to delete meeting agenda item:', error)
@@ -259,6 +288,24 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
             </div>
           </div>
 
+          <div className="mt-3 rounded-xl border border-gray-100 bg-white px-3 py-3">
+            <label htmlFor="agenda-pdf" className="block text-sm font-medium text-gray-700">
+              부서 안건 PDF
+            </label>
+            <input
+              id="agenda-pdf"
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(event) => setPdfFile(event.target.files?.[0] ?? null)}
+              className="mt-2 block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200"
+            />
+            {pdfFile ? (
+              <p className="mt-2 text-xs text-gray-500">
+                선택한 파일: {pdfFile.name} ({formatFileSize(pdfFile.size)})
+              </p>
+            ) : null}
+          </div>
+
           <div className="mt-3 flex justify-end">
             <button
               type="button"
@@ -332,6 +379,13 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                                   {item.content ? (
                                     <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">{item.content}</p>
                                   ) : null}
+                                  {item.pdf_file_path ? (
+                                    <AgendaPdfAttachment
+                                      filePath={item.pdf_file_path}
+                                      fileName={item.pdf_file_name}
+                                      fileSize={item.pdf_file_size}
+                                    />
+                                  ) : null}
                                   <p className="mt-1 text-xs text-gray-400">
                                     {item.users?.name || '작성자'} · {formatDate(item.created_at)}
                                   </p>
@@ -348,7 +402,7 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => void handleDeleteItem(item.id, item.title)}
+                                      onClick={() => void handleDeleteItem(item)}
                                       className="rounded-lg bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
                                     >
                                       삭제
@@ -421,6 +475,73 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
 function normalizeText(value: string) {
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+function AgendaPdfAttachment({
+  filePath,
+  fileName,
+  fileSize,
+}: {
+  filePath: string
+  fileName: string | null
+  fileSize: number | null
+}) {
+  const { data: pdfUrl, isLoading } = useMeetingAgendaPdfUrl(filePath)
+
+  return (
+    <div className="mt-2 inline-flex max-w-full items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+      <span className="min-w-0 truncate text-gray-700">{fileName || 'PDF 안건'}</span>
+      {fileSize ? <span className="shrink-0 text-xs text-gray-400">{formatFileSize(fileSize)}</span> : null}
+      {isLoading ? (
+        <span className="shrink-0 text-xs text-gray-400">불러오는 중</span>
+      ) : pdfUrl ? (
+        <a href={pdfUrl} target="_blank" rel="noreferrer" className="shrink-0 font-medium text-blue-600 hover:text-blue-700">
+          열기
+        </a>
+      ) : (
+        <span className="shrink-0 text-xs text-red-500">오류</span>
+      )}
+    </div>
+  )
+}
+
+async function uploadAgendaPdf({
+  meetingId,
+  departmentId,
+  file,
+}: {
+  meetingId: string
+  departmentId: string
+  file: File
+}) {
+  const filePath = `agenda/${meetingId}/${departmentId}/${Date.now()}-${sanitizeFileName(file.name)}`
+  const { data, error } = await supabase.storage
+    .from('meeting-pdfs')
+    .upload(filePath, file, {
+      contentType: 'application/pdf',
+      upsert: false,
+    })
+
+  if (error) throw error
+
+  return {
+    path: data.path,
+    name: file.name,
+    size: file.size,
+  }
+}
+
+function isValidPdfFile(file: File) {
+  return file.size <= MAX_AGENDA_PDF_SIZE_BYTES && (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'))
+}
+
+function sanitizeFileName(fileName: string) {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))}KB`
+  return `${(size / 1024 / 1024).toFixed(1)}MB`
 }
 
 function formatDate(value: string) {

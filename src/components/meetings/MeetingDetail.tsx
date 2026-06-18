@@ -4,16 +4,18 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { canDeleteMeeting, canEditMeetingContent, canViewMeeting } from '@/lib/permissions'
+import { canAccessAllDepartments, canDeleteMeeting, canEditMeetingContent, canViewMeeting } from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/providers/AuthProvider'
 import { useToastContext } from '@/providers/ToastProvider'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { useDepartments } from '@/queries/departments'
 import {
   useMeetingDetail,
   useMeetingFeedback,
   useMeetingMinutes,
   useMeetingPdfUrl,
+  useUpdateMeeting,
 } from '@/queries/meetings/useMeetings'
 import { useUpsertMeetingMinutes } from '@/queries/meetings/useCreateMeeting'
 import { deleteMeetingBundle } from '@/components/meetings/utils/meetingDeletion'
@@ -27,6 +29,14 @@ interface MinutesFormState {
   discussion_notes: string
   decisions: string
   handoff_notes: string
+}
+
+interface MeetingEditFormState {
+  title: string
+  department_id: string
+  meeting_date: string
+  location: string
+  description: string
 }
 
 const MINUTES_SECTIONS: Array<{
@@ -57,9 +67,13 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
   const { data: minutes, isLoading: minutesLoading } = useMeetingMinutes(meetingId)
   const { data: feedbackItems = [] } = useMeetingFeedback(meetingId)
   const { data: pdfUrl, isLoading: pdfLoading } = useMeetingPdfUrl(minutes?.pdf_file_path)
+  const { data: departments = [] } = useDepartments()
 
   const upsertMinutes = useUpsertMeetingMinutes()
+  const updateMeeting = useUpdateMeeting(meetingId)
   const [isPdfFullscreen, setIsPdfFullscreen] = useState(false)
+  const [isEditingMeeting, setIsEditingMeeting] = useState(false)
+  const [meetingDraft, setMeetingDraft] = useState<MeetingEditFormState | null>(null)
   const [draftForm, setDraftForm] = useState<MinutesFormState | null>(null)
   const [feedback, setFeedback] = useState('')
   const [isSavingFeedback, setIsSavingFeedback] = useState(false)
@@ -78,6 +92,55 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
   const canEdit = canEditMeetingContent(user, meeting?.department_id)
   const canLeaveFeedback = ['super_admin', 'president', 'accountant'].includes(user?.role ?? '')
   const canDelete = canDeleteMeeting(user, meeting ?? { created_by: '', department_id: '' })
+  const editableDepartments = useMemo(() => {
+    if (!user) return []
+    if (canAccessAllDepartments(user.role)) return departments
+
+    const leaderDepartmentIds = new Set(
+      user.user_departments
+        .filter((department) => department.is_team_leader)
+        .map((department) => department.department_id)
+    )
+
+    return departments.filter((department) => leaderDepartmentIds.has(department.id))
+  }, [departments, user])
+  const meetingForm = meetingDraft ?? (meeting ? getMeetingEditForm(meeting) : null)
+
+  function handleStartMeetingEdit() {
+    if (!meeting || !canEdit) return
+    setMeetingDraft(getMeetingEditForm(meeting))
+    setIsEditingMeeting(true)
+  }
+
+  function handleCancelMeetingEdit() {
+    setMeetingDraft(null)
+    setIsEditingMeeting(false)
+  }
+
+  async function handleSaveMeetingEdit() {
+    if (!meeting || !meetingForm || !canEdit) return
+
+    if (!meetingForm.title.trim() || !meetingForm.department_id || !meetingForm.meeting_date) {
+      toast.warning('회의 제목, 부서, 일시를 입력해 주세요.')
+      return
+    }
+
+    try {
+      await updateMeeting.mutateAsync({
+        title: meetingForm.title.trim(),
+        department_id: meetingForm.department_id,
+        meeting_date: new Date(meetingForm.meeting_date).toISOString(),
+        location: normalizeTextareaValue(meetingForm.location),
+        description: normalizeTextareaValue(meetingForm.description),
+      })
+      setMeetingDraft(null)
+      setIsEditingMeeting(false)
+      toast.success('회의 정보가 수정되었습니다.')
+    } catch (error) {
+      console.error('Failed to update meeting:', error)
+      toast.error('회의 정보 수정 중 오류가 발생했습니다.')
+    }
+  }
 
   async function handleSaveMinutes() {
     if (!user || !canEdit || !meeting) {
@@ -131,14 +194,14 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
 
   async function handleDeleteMeeting() {
     if (!meeting || !canDelete) return
-    if (!window.confirm(`"${meeting.title}" 회의를 삭제하시겠습니까?`)) return
+    if (!window.confirm(`"${meeting.title}" 회의 제출을 취소하고 등록 내용을 삭제하시겠습니까?`)) return
 
     try {
       setIsDeleting(true)
       await deleteMeetingBundle(supabase, meeting.id)
       await queryClient.invalidateQueries({ queryKey: ['meetings'] })
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      toast.success('회의가 삭제되었습니다.')
+      toast.success('회의 제출이 취소되었습니다.')
       router.push('/meetings')
     } catch (error) {
       console.error('Failed to delete meeting:', error)
@@ -178,40 +241,139 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
   return (
     <div className="mx-auto max-w-4xl space-y-4 lg:space-y-6">
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-blue-600">{meeting.departments?.name || '-'}</p>
-            <h1 className="mt-1 text-xl font-bold text-gray-900">{meeting.title}</h1>
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-500">
-              <span>일시: {formatMeetingDate(meeting.meeting_date)}</span>
-              <span>장소: {meeting.location || '-'}</span>
-              <span>작성자: {meeting.users?.name || '-'}</span>
+        {isEditingMeeting && meetingForm ? (
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+              <div>
+                <label htmlFor="meeting-edit-title" className="mb-1 block text-sm font-medium text-gray-700">
+                  회의 제목
+                </label>
+                <input
+                  id="meeting-edit-title"
+                  type="text"
+                  value={meetingForm.title}
+                  onChange={(event) => setMeetingDraft((current) => ({ ...(current ?? meetingForm), title: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+              <div>
+                <label htmlFor="meeting-edit-date" className="mb-1 block text-sm font-medium text-gray-700">
+                  회의 일시
+                </label>
+                <input
+                  id="meeting-edit-date"
+                  type="datetime-local"
+                  value={meetingForm.meeting_date}
+                  onChange={(event) => setMeetingDraft((current) => ({ ...(current ?? meetingForm), meeting_date: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
             </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {canDelete && (
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label htmlFor="meeting-edit-department" className="mb-1 block text-sm font-medium text-gray-700">
+                  부서
+                </label>
+                <select
+                  id="meeting-edit-department"
+                  value={meetingForm.department_id}
+                  onChange={(event) => setMeetingDraft((current) => ({ ...(current ?? meetingForm), department_id: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  {editableDepartments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="meeting-edit-location" className="mb-1 block text-sm font-medium text-gray-700">
+                  장소
+                </label>
+                <input
+                  id="meeting-edit-location"
+                  type="text"
+                  value={meetingForm.location}
+                  onChange={(event) => setMeetingDraft((current) => ({ ...(current ?? meetingForm), location: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="meeting-edit-description" className="mb-1 block text-sm font-medium text-gray-700">
+                회의 설명
+              </label>
+              <textarea
+                id="meeting-edit-description"
+                value={meetingForm.description}
+                onChange={(event) => setMeetingDraft((current) => ({ ...(current ?? meetingForm), description: event.target.value }))}
+                rows={4}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => void handleDeleteMeeting()}
-                disabled={isDeleting}
-                className="rounded-xl bg-red-50 p-2.5 text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
-                title="삭제"
+                onClick={handleCancelMeetingEdit}
+                className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
               >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
+                취소
               </button>
-            )}
-            <Link href="/meetings" className="rounded-xl p-2.5 text-sm font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700">
-              목록
-            </Link>
+              <button
+                type="button"
+                onClick={() => void handleSaveMeetingEdit()}
+                disabled={updateMeeting.isPending}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+              >
+                {updateMeeting.isPending ? '저장 중...' : '수정 저장'}
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-blue-600">{meeting.departments?.name || '-'}</p>
+              <h1 className="mt-1 text-xl font-bold text-gray-900">{meeting.title}</h1>
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-500">
+                <span>일시: {formatMeetingDate(meeting.meeting_date)}</span>
+                <span>장소: {meeting.location || '-'}</span>
+                <span>작성자: {meeting.users?.name || '-'}</span>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={handleStartMeetingEdit}
+                  className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200"
+                >
+                  수정
+                </button>
+              ) : null}
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteMeeting()}
+                  disabled={isDeleting}
+                  className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                >
+                  {isDeleting ? '취소 중...' : '제출 취소'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => router.push('/meetings')}
+                className="rounded-xl p-2.5 text-sm font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+              >
+                목록
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -427,6 +589,28 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
 function normalizeTextareaValue(value: string) {
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
+}
+
+function getMeetingEditForm(meeting: {
+  title: string
+  department_id: string
+  meeting_date: string
+  location: string | null
+  description: string | null
+}): MeetingEditFormState {
+  return {
+    title: meeting.title,
+    department_id: meeting.department_id,
+    meeting_date: toDateTimeLocalValue(meeting.meeting_date),
+    location: meeting.location ?? '',
+    description: meeting.description ?? '',
+  }
+}
+
+function toDateTimeLocalValue(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 }
 
 function formatMeetingDate(value: string) {
