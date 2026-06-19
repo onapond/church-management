@@ -533,3 +533,9 @@
 - These leaders can also leave comments under agenda items to ask questions or share feedback before attending the meeting.
 - Attached agenda PDFs follow the same department link rule.
 - This does not grant permission to edit finalized meeting minutes or cancel/edit the meeting itself.
+
+## Meeting Agenda And Comment Edit (2026-06-19)
+- After posting a pre-meeting agenda item, permitted users can tap `수정` to change the agenda title, type, and content.
+- After posting a comment, permitted users can tap `수정` to change the comment text.
+- Save and cancel controls appear inline so the meeting detail page does not need a separate edit screen.
+- This edit feature applies only to pre-meeting agenda discussion, not finalized meeting minutes.

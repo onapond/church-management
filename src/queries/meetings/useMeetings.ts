@@ -40,7 +40,9 @@ const MEETING_AGENDA_SELECT = `
 `
 
 type MeetingAgendaInsert = Database['public']['Tables']['meeting_agenda_items']['Insert']
+type MeetingAgendaUpdate = Database['public']['Tables']['meeting_agenda_items']['Update']
 type MeetingAgendaCommentInsert = Database['public']['Tables']['meeting_agenda_comments']['Insert']
+type MeetingAgendaCommentUpdate = Database['public']['Tables']['meeting_agenda_comments']['Update']
 type MeetingUpdate = Database['public']['Tables']['meetings']['Update']
 
 export function useMeetings() {
@@ -250,6 +252,48 @@ export function useUpdateMeetingAgendaStatus(meetingId: string) {
 
       if (error) throw error
       return data as MeetingAgendaItemWithDetails
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    },
+  })
+}
+
+export function useUpdateMeetingAgendaItem(meetingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ itemId, payload }: { itemId: string; payload: MeetingAgendaUpdate }) => {
+      const { data, error } = await supabase
+        .from('meeting_agenda_items')
+        .update(payload)
+        .eq('id', itemId)
+        .select(MEETING_AGENDA_SELECT)
+        .single()
+
+      if (error) throw error
+      return data as MeetingAgendaItemWithDetails
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    },
+  })
+}
+
+export function useUpdateMeetingAgendaComment(meetingId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ commentId, payload }: { commentId: string; payload: MeetingAgendaCommentUpdate }) => {
+      const { data, error } = await supabase
+        .from('meeting_agenda_comments')
+        .update(payload)
+        .eq('id', commentId)
+        .select('*, users!meeting_agenda_comments_commenter_id_fkey(name, role)')
+        .single()
+
+      if (error) throw error
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })

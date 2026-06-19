@@ -268,3 +268,9 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - This corrects the previous department-head-only gate that required `user_departments.is_team_leader = true`.
 - Agenda PDF Storage policies were aligned with the same participant-leader rule for `agenda/{meetingId}/{departmentId}/...` paths.
 - This remains limited to the agenda discussion layer and does not broaden meeting minutes editing, meeting delete/edit, attendance, report approval, accounting, or auth behavior.
+
+## 2026-06-19 Update - Meeting Agenda And Comment Edit
+- Pre-meeting agenda items now support inline editing for title, type, and content by the item author or meeting-content editors.
+- Agenda comments now support inline editing by the commenter or meeting-content editors.
+- Added migration `017_add_meeting_agenda_edit_policies.sql` to make the update RLS explicit for agenda items and comments.
+- This is limited to the agenda discussion layer and does not change attendance, report approval, accounting, auth, finalized meeting minutes, or meeting delete/edit scope.

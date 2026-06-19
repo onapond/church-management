@@ -1,5 +1,28 @@
 # CURRENT_TASK.md
 
+## 2026-06-19 Follow-up - Meeting Agenda And Comment Edit
+- Request: pre-meeting agenda items and comments must be editable after posting.
+- Impact scope:
+  - attendance/report/accounting flows: no impact.
+  - additive change: yes, a narrow edit UI and RLS policy addition for the agenda discussion layer.
+  - auth flow: unchanged.
+  - RLS scope: `meeting_agenda_items` update policy is restated for authors/meeting-content editors, and `meeting_agenda_comments` receives an update policy for commenters/meeting-content editors.
+- Files in scope:
+  - `src/components/meetings/MeetingAgendaBoard.tsx`
+  - `src/queries/meetings/useMeetings.ts`
+  - `supabase/migrations/017_add_meeting_agenda_edit_policies.sql`
+  - required docs and session notes.
+- Root cause:
+  - The agenda board had create/delete/status mutation support, but no edit mutation/UI for agenda item title/type/content.
+  - Comments had create/delete support, but no update mutation/UI and no RLS policy for update.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm run lint` passed.
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.
+- Open item:
+  - Apply migration `017_add_meeting_agenda_edit_policies.sql` to remote Supabase before production use.
+
 ## 2026-06-19 Follow-up - Meeting Agenda Participant Leader Permission
 - Request: leader-meeting participants should be able to post pre-meeting agenda items and exchange comment feedback before the in-person meeting.
 - Impact scope:

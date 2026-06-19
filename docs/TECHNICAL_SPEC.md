@@ -255,3 +255,10 @@ WHERE year = 2026 AND report_type = 'weekly';
 - Agenda PDF Storage policies now use the same linked-department participant rule for `agenda/{meetingId}/{departmentId}/...` paths.
 - Client permission logic now treats active `team_leader` users as agenda participants, while still limiting the agenda item department selector to their linked departments.
 - Existing meeting minutes editing, meeting delete/edit, attendance, report approval, accounting, and auth flows are unchanged.
+
+## 2026-06-19 Meeting Agenda And Comment Edit
+- Added migration `017_add_meeting_agenda_edit_policies.sql`.
+- `meeting_agenda_items` update RLS explicitly permits the agenda item author or meeting-content editors.
+- `meeting_agenda_comments` update RLS permits the commenter or meeting-content editors.
+- `MeetingAgendaBoard` supports inline editing for agenda item title/type/content and comment text.
+- Existing attendance, report approval, accounting, auth, finalized meeting minutes, and meeting delete/edit scopes are unchanged.

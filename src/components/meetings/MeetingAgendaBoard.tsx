@@ -11,6 +11,8 @@ import {
   useDeleteMeetingAgendaItem,
   useMeetingAgendaPdfUrl,
   useMeetingAgendaItems,
+  useUpdateMeetingAgendaComment,
+  useUpdateMeetingAgendaItem,
   useUpdateMeetingAgendaStatus,
 } from '@/queries/meetings/useMeetings'
 import { useAuth } from '@/providers/AuthProvider'
@@ -63,12 +65,18 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
   const createItem = useCreateMeetingAgendaItem(meetingId)
   const createComment = useCreateMeetingAgendaComment(meetingId)
   const updateStatus = useUpdateMeetingAgendaStatus(meetingId)
+  const updateItem = useUpdateMeetingAgendaItem(meetingId)
+  const updateComment = useUpdateMeetingAgendaComment(meetingId)
   const deleteItem = useDeleteMeetingAgendaItem(meetingId)
   const deleteComment = useDeleteMeetingAgendaComment(meetingId)
 
   const [form, setForm] = useState<AgendaFormState>(INITIAL_FORM)
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({})
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editingItemForm, setEditingItemForm] = useState<AgendaFormState>(INITIAL_FORM)
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editingCommentDraft, setEditingCommentDraft] = useState('')
 
   const canParticipate = canParticipateInMeetingAgenda(user)
   const canModerate = canEditMeetingContent(user, meetingDepartmentId)
@@ -158,6 +166,75 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
     } catch (error) {
       console.error('Failed to create meeting agenda comment:', error)
       toast.error('댓글 등록 중 오류가 발생했습니다.')
+    }
+  }
+
+  function handleStartEditItem(item: MeetingAgendaItemWithDetails) {
+    setEditingItemId(item.id)
+    setEditingItemForm({
+      department_id: item.department_id,
+      item_type: item.item_type,
+      title: item.title,
+      content: item.content ?? '',
+    })
+  }
+
+  function handleCancelEditItem() {
+    setEditingItemId(null)
+    setEditingItemForm(INITIAL_FORM)
+  }
+
+  async function handleUpdateItem(itemId: string) {
+    const title = editingItemForm.title.trim()
+    if (!title) {
+      toast.warning('제목을 입력해 주세요.')
+      return
+    }
+
+    try {
+      await updateItem.mutateAsync({
+        itemId,
+        payload: {
+          item_type: editingItemForm.item_type,
+          title,
+          content: normalizeText(editingItemForm.content),
+        },
+      })
+      handleCancelEditItem()
+      toast.success('안건을 수정했습니다.')
+    } catch (error) {
+      console.error('Failed to update meeting agenda item:', error)
+      toast.error('안건 수정 중 오류가 발생했습니다.')
+    }
+  }
+
+  function handleStartEditComment(commentId: string, comment: string) {
+    setEditingCommentId(commentId)
+    setEditingCommentDraft(comment)
+  }
+
+  function handleCancelEditComment() {
+    setEditingCommentId(null)
+    setEditingCommentDraft('')
+  }
+
+  async function handleUpdateComment(commentId: string) {
+    const comment = editingCommentDraft.trim()
+    if (!comment) {
+      toast.warning('댓글 내용을 입력해 주세요.')
+      return
+    }
+
+    try {
+      await updateComment.mutateAsync({
+        commentId,
+        payload: { comment },
+      })
+      handleCancelEditComment()
+      toast.success('댓글을 수정했습니다.')
+    } catch (error) {
+      console.error('Failed to update meeting agenda comment:', error)
+      toast.error('댓글 수정 중 오류가 발생했습니다.')
     }
   }
 
@@ -389,6 +466,15 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
 
                                 {canManageItem ? (
                                   <div className="flex shrink-0 items-center gap-2">
+                                    {editingItemId === item.id ? null : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleStartEditItem(item)}
+                                        className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                                      >
+                                        수정
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={() => void handleToggleStatus(item.id, item.status)}
@@ -407,9 +493,66 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                                 ) : null}
                               </div>
 
+                              {editingItemId === item.id ? (
+                                <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_130px]">
+                                    <input
+                                      type="text"
+                                      value={editingItemForm.title}
+                                      onChange={(event) =>
+                                        setEditingItemForm((current) => ({ ...current, title: event.target.value }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                    />
+                                    <select
+                                      value={editingItemForm.item_type}
+                                      onChange={(event) =>
+                                        setEditingItemForm((current) => ({
+                                          ...current,
+                                          item_type: event.target.value as MeetingAgendaItemType,
+                                        }))
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                    >
+                                      {AGENDA_TYPE_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <textarea
+                                    value={editingItemForm.content}
+                                    onChange={(event) =>
+                                      setEditingItemForm((current) => ({ ...current, content: event.target.value }))
+                                    }
+                                    rows={3}
+                                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                  />
+                                  <div className="mt-2 flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={handleCancelEditItem}
+                                      className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                                    >
+                                      취소
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleUpdateItem(item.id)}
+                                      disabled={updateItem.isPending || !editingItemForm.title.trim()}
+                                      className="rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      저장
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null}
+
                               <div className="mt-3 space-y-2">
                                 {comments.map((comment) => {
                                   const canDeleteComment = user?.id === comment.commenter_id || user?.id === item.author_id || canModerate
+                                  const canEditComment = user?.id === comment.commenter_id || canModerate
 
                                   return (
                                     <div key={comment.id} className="rounded-lg bg-gray-50 px-3 py-2">
@@ -417,6 +560,15 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                                         <p className="text-xs font-medium text-gray-600">
                                           {comment.users?.name || '사용자'} · {formatDate(comment.created_at)}
                                         </p>
+                                        {canEditComment && editingCommentId !== comment.id ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleStartEditComment(comment.id, comment.comment)}
+                                            className="mr-2 text-xs font-medium text-gray-500 hover:text-gray-700"
+                                          >
+                                            수정
+                                          </button>
+                                        ) : null}
                                         {canDeleteComment ? (
                                           <button
                                             type="button"
@@ -427,7 +579,35 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                                           </button>
                                         ) : null}
                                       </div>
-                                      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">{comment.comment}</p>
+                                      {editingCommentId === comment.id ? (
+                                        <div className="mt-2">
+                                          <textarea
+                                            value={editingCommentDraft}
+                                            onChange={(event) => setEditingCommentDraft(event.target.value)}
+                                            rows={3}
+                                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                          />
+                                          <div className="mt-2 flex justify-end gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={handleCancelEditComment}
+                                              className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                                            >
+                                              취소
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => void handleUpdateComment(comment.id)}
+                                              disabled={updateComment.isPending || !editingCommentDraft.trim()}
+                                              className="rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                              저장
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">{comment.comment}</p>
+                                      )}
                                     </div>
                                   )
                                 })}

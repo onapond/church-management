@@ -226,3 +226,9 @@ pm run build.
 - Active `team_leader` users can post agenda items for departments linked in `user_departments`, even when that link is not marked `is_team_leader = true`.
 - Active `team_leader` users can comment on agenda items, and agenda PDF Storage policies use the same linked-department rule.
 - This is intentionally scoped to the pre-meeting agenda board and does not change meeting minutes edit/delete permissions.
+
+## 2026-06-19 Notes - Meeting Agenda And Comment Edit
+- `src/components/meetings/MeetingAgendaBoard.tsx` now exposes inline edit controls for agenda item title/type/content and comment text.
+- `src/queries/meetings/useMeetings.ts` includes update mutations for `meeting_agenda_items` and `meeting_agenda_comments`.
+- `supabase/migrations/017_add_meeting_agenda_edit_policies.sql` adds explicit update RLS for agenda items/comments.
+- Keep this scoped to pre-meeting discussion; do not broaden finalized minutes edit/delete permissions from this change.

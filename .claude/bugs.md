@@ -120,3 +120,17 @@
   - `src/components/meetings/MeetingAgendaBoard.tsx`
   - `src/lib/permissions.test.ts`
   - `supabase/migrations/016_allow_meeting_agenda_participant_leaders.sql`
+
+#### Meeting agenda board had no edit actions
+- **Symptom**: Users could post pre-meeting agenda items and comments, but could not edit them afterward.
+- **Root cause**:
+  - `MeetingAgendaBoard` had create/delete/status actions but no item update mutation or edit UI.
+  - Comments had create/delete actions but no update mutation/UI and no comment update RLS policy.
+- **Fix**:
+  - Added inline agenda item editing for title, type, and content.
+  - Added inline comment editing for comment text.
+  - Added migration `017_add_meeting_agenda_edit_policies.sql` for agenda item/comment update RLS.
+- **Related files**:
+  - `src/components/meetings/MeetingAgendaBoard.tsx`
+  - `src/queries/meetings/useMeetings.ts`
+  - `supabase/migrations/017_add_meeting_agenda_edit_policies.sql`

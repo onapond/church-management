@@ -250,3 +250,20 @@
   - `npm test -- src/lib/permissions.test.ts` passed, 50 tests.
 - Open item:
   - Remote Supabase migration application was not executed because no Supabase MCP resources are available in this session.
+
+## 2026-06-19 Meeting Agenda And Comment Edit
+- Bug report: agenda items and comments could be posted, but there was no edit function after posting.
+- Root cause found locally:
+  - `MeetingAgendaBoard` exposed create/delete/status actions but no agenda item edit state or update mutation.
+  - Comments exposed create/delete actions but no update mutation/UI, and RLS did not define a comment update policy.
+- Changes:
+  - Added agenda item update mutation and inline edit form for title/type/content.
+  - Added comment update mutation and inline edit form for comment text.
+  - Added `supabase/migrations/017_add_meeting_agenda_edit_policies.sql` for agenda/comment update RLS.
+- Verification so far:
+  - `npx tsc --noEmit` passed.
+  - `npm run lint` passed.
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.
+- Open item:
+  - Remote Supabase migration application was not executed because no Supabase MCP resources are available in this session.
