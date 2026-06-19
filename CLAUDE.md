@@ -215,3 +215,14 @@ pm run build.
 - `supabase/migrations/014_add_meeting_agenda_pdf_attachments.sql` extends `meeting_agenda_items` with PDF metadata.
 - Agenda PDFs reuse the private `meeting-pdfs` bucket and are stored under `agenda/{meetingId}/{departmentId}/...`.
 - Keep agenda PDFs separate from meeting minutes PDFs; they are source material for department agenda discussion.
+
+## 2026-06-19 Notes - Meeting Team Leader Feedback And Agenda PDF RLS Fix
+- `supabase/migrations/015_fix_meeting_team_leader_feedback_and_agenda_pdf.sql` aligns meeting feedback insert RLS with meeting creator/department team leader permissions.
+- Meeting detail uses `canLeaveMeetingFeedback` so team leaders see the feedback form when RLS will allow the insert.
+- Agenda PDF Storage policies now explicitly evaluate `agenda/{meetingId}/{departmentId}/...` paths for department team leader access.
+
+## 2026-06-19 Notes - Meeting Agenda Participant Leader Permission
+- `supabase/migrations/016_allow_meeting_agenda_participant_leaders.sql` aligns pre-meeting agenda RLS with the leader-meeting workflow.
+- Active `team_leader` users can post agenda items for departments linked in `user_departments`, even when that link is not marked `is_team_leader = true`.
+- Active `team_leader` users can comment on agenda items, and agenda PDF Storage policies use the same linked-department rule.
+- This is intentionally scoped to the pre-meeting agenda board and does not change meeting minutes edit/delete permissions.

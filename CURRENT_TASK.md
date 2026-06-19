@@ -1,5 +1,53 @@
 # CURRENT_TASK.md
 
+## 2026-06-19 Follow-up - Meeting Agenda Participant Leader Permission
+- Request: leader-meeting participants should be able to post pre-meeting agenda items and exchange comment feedback before the in-person meeting.
+- Impact scope:
+  - attendance/report/accounting flows: no impact.
+  - additive change: yes, a narrow agenda-board permission/RLS correction.
+  - auth flow: unchanged.
+  - RLS scope: `meeting_agenda_items` insert, `meeting_agenda_comments` insert, and `meeting-pdfs` agenda-path Storage policies.
+- Files in scope:
+  - `src/lib/permissions.ts`
+  - `src/components/meetings/MeetingAgendaBoard.tsx`
+  - `src/lib/permissions.test.ts`
+  - `supabase/migrations/016_allow_meeting_agenda_participant_leaders.sql`
+  - required docs and session notes.
+- Root cause:
+  - The agenda board was implemented for department-head flags (`user_departments.is_team_leader = true`) instead of the product intent: active leader-meeting participants with `role = team_leader`.
+  - The client and RLS therefore blocked leaders whose role is `team_leader` but whose department link is not marked as the department-head flag.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test -- src/lib/permissions.test.ts` passed, 50 tests.
+  - `npm test` passed, 158 tests.
+  - `npm run lint` passed.
+  - `npm run build` passed.
+- Open item:
+  - Remote Supabase migration application still needs a valid Supabase MCP/PAT connection.
+
+## 2026-06-19 Follow-up - Meeting Team Leader PDF And Feedback Fix
+- Request: team leaders reported that meeting-tab PDF upload and feedback writing did not work.
+- Impact scope:
+  - attendance/report/accounting flows: no impact.
+  - additive change: yes, a narrow permission/RLS fix.
+  - auth flow: unchanged.
+  - RLS scope: `meeting_feedback` insert and `meeting-pdfs` agenda-path Storage policies.
+- Files in scope:
+  - `src/lib/permissions.ts`
+  - `src/components/meetings/MeetingDetail.tsx`
+  - `supabase/migrations/015_fix_meeting_team_leader_feedback_and_agenda_pdf.sql`
+  - required docs and session notes.
+- Root cause:
+  - Meeting feedback UI and RLS allowed only `super_admin`, `president`, and `accountant`, excluding department team leaders.
+  - Agenda PDFs used the shared private `meeting-pdfs` bucket under an `agenda/` path, but no follow-up policy explicitly tied that path to department team leader access.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 156 tests.
+  - `npm run build` passed.
+  - `npm run lint` passed.
+- Open item:
+  - Remote Supabase migration application was not executed because no Supabase MCP resources are available in this session.
+
 이 파일은 "이번 작업"의 단일 기준 문서다. 작업을 시작하기 전에 최신 상태로 갱신하고, 구현 중 범위가 바뀌면 즉시 업데이트한다.
 
 ## 2026-06-18 Update - Meeting Agenda Discussion

@@ -77,11 +77,7 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
     if (!user) return []
     if (canAccessAllDepartments(user.role)) return departments
 
-    const leaderDepartmentIds = new Set(
-      user.user_departments
-        .filter((department) => department.is_team_leader)
-        .map((department) => department.department_id)
-    )
+    const leaderDepartmentIds = new Set(user.user_departments.map((department) => department.department_id))
 
     return departments.filter((department) => leaderDepartmentIds.has(department.id))
   }, [departments, user])

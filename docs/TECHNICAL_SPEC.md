@@ -240,3 +240,18 @@ WHERE year = 2026 AND report_type = 'weekly';
 - The UI creates signed URLs for attached agenda PDFs through TanStack Query.
 - Deleting an agenda item also removes its attached Storage object when present.
 - Existing meeting minutes PDFs and meeting-level PDF behavior are unchanged.
+
+## 2026-06-19 Meeting Team Leader Feedback And Agenda PDF RLS Fix
+- Added migration `015_fix_meeting_team_leader_feedback_and_agenda_pdf.sql`.
+- `meeting_feedback` insert RLS now permits active meeting creators, `super_admin`, `president`, `accountant`, and team leaders for the meeting department.
+- `meeting-pdfs` Storage insert/update/delete policies now explicitly support agenda PDF paths under `agenda/{meetingId}/{departmentId}/...` for admins and the matching department team leader.
+- Client permission logic now uses `canLeaveMeetingFeedback` instead of a role-only check.
+- Existing attendance, report approval, accounting, meeting minutes, and auth flows are unchanged.
+
+## 2026-06-19 Meeting Agenda Participant Leader Permission
+- Added migration `016_allow_meeting_agenda_participant_leaders.sql`.
+- `meeting_agenda_items` insert RLS now permits active admins and active `team_leader` users for departments linked through `user_departments.department_id`.
+- `meeting_agenda_comments` insert RLS now permits active admins and active `team_leader` users so leader-meeting participants can exchange questions and feedback before the meeting.
+- Agenda PDF Storage policies now use the same linked-department participant rule for `agenda/{meetingId}/{departmentId}/...` paths.
+- Client permission logic now treats active `team_leader` users as agenda participants, while still limiting the agenda item department selector to their linked departments.
+- Existing meeting minutes editing, meeting delete/edit, attendance, report approval, accounting, and auth flows are unchanged.

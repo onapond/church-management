@@ -103,3 +103,20 @@
 - **해결**: 적용된 해결 방법
 - **관련 파일**: 수정된 파일 목록
 ```
+
+---
+
+## 2026-06-19 Resolved - Meeting Agenda Board Participant Leaders
+
+#### Meeting agenda board blocked leader-meeting participants
+- **Symptom**: The meeting agenda board displayed the "department heads/admins only" message for leader-meeting participants who should be able to post agenda items and comment before the meeting.
+- **Root cause**: Agenda participation was gated on `user_departments.is_team_leader = true`, which represents a department-head flag, not every active `team_leader` participant in the leader meeting.
+- **Fix**:
+  - `canParticipateInMeetingAgenda` now allows active `team_leader` users.
+  - The agenda department selector now uses linked departments for non-admin leaders.
+  - Migration `016_allow_meeting_agenda_participant_leaders.sql` aligns agenda item insert, comment insert, and agenda PDF Storage policies with the same rule.
+- **Related files**:
+  - `src/lib/permissions.ts`
+  - `src/components/meetings/MeetingAgendaBoard.tsx`
+  - `src/lib/permissions.test.ts`
+  - `supabase/migrations/016_allow_meeting_agenda_participant_leaders.sql`

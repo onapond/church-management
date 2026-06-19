@@ -4,7 +4,13 @@ import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { canAccessAllDepartments, canDeleteMeeting, canEditMeetingContent, canViewMeeting } from '@/lib/permissions'
+import {
+  canAccessAllDepartments,
+  canDeleteMeeting,
+  canEditMeetingContent,
+  canLeaveMeetingFeedback,
+  canViewMeeting,
+} from '@/lib/permissions'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/providers/AuthProvider'
 import { useToastContext } from '@/providers/ToastProvider'
@@ -90,7 +96,7 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
 
   const form = draftForm ?? savedForm
   const canEdit = canEditMeetingContent(user, meeting?.department_id)
-  const canLeaveFeedback = ['super_admin', 'president', 'accountant'].includes(user?.role ?? '')
+  const canLeaveFeedback = canLeaveMeetingFeedback(user, meeting)
   const canDelete = canDeleteMeeting(user, meeting ?? { created_by: '', department_id: '' })
   const editableDepartments = useMemo(() => {
     if (!user) return []
@@ -497,7 +503,7 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-gray-900">피드백</h2>
-            <p className="mt-1 text-sm text-gray-500">결재는 아니지만 회장, 부장, 목사가 별도로 의견을 남길 수 있습니다.</p>
+            <p className="mt-1 text-sm text-gray-500">결재는 아니지만 회장, 부장, 목사, 부서 팀장이 별도로 의견을 남길 수 있습니다.</p>
           </div>
           <span className="text-xs text-gray-400">총 {feedbackItems.length}개</span>
         </div>
@@ -546,7 +552,7 @@ export default function MeetingDetail({ meetingId }: MeetingDetailProps) {
             </div>
           </div>
         ) : (
-          <p className="mt-5 text-sm text-gray-400">회장, 부장, 목사만 피드백을 남길 수 있습니다.</p>
+          <p className="mt-5 text-sm text-gray-400">회장, 부장, 목사, 부서 팀장만 피드백을 남길 수 있습니다.</p>
         )}
       </section>
 

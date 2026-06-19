@@ -217,3 +217,36 @@
 - Attached PDFs appear under each agenda item through a signed URL.
 - Verification so far:
   - `npx tsc --noEmit` passed.
+
+## 2026-06-19 Meeting Team Leader PDF And Feedback Fix
+- Bug report: team leaders could not upload meeting-tab PDF files and could not write meeting feedback.
+- Root cause found locally:
+  - Meeting feedback client and RLS used a role-only allowlist and excluded department team leaders.
+  - Agenda PDFs needed explicit Storage policy coverage for `agenda/{meetingId}/{departmentId}/...` paths.
+- Changes:
+  - Added `canLeaveMeetingFeedback` in `src/lib/permissions.ts`.
+  - Updated `src/components/meetings/MeetingDetail.tsx` to show the feedback form for permitted department team leaders.
+  - Added `supabase/migrations/015_fix_meeting_team_leader_feedback_and_agenda_pdf.sql`.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 156 tests.
+  - `npm run build` passed.
+  - `npm run lint` passed.
+- Open item:
+  - Remote Supabase migration application was not executed because no Supabase MCP resources are available in this session.
+
+## 2026-06-19 Meeting Agenda Participant Leader Permission
+- Bug report: the pre-meeting agenda board showed the "department heads/admins only" message even though leader-meeting participants should be able to post agenda items and comment before the meeting.
+- Root cause found locally:
+  - `canParticipateInMeetingAgenda` and the agenda department selector required `user_departments.is_team_leader = true`.
+  - Agenda item/comment RLS and agenda PDF Storage policies had the same department-head-only assumption.
+- Changes:
+  - `src/lib/permissions.ts` now treats active `team_leader` users as agenda participants.
+  - `src/components/meetings/MeetingAgendaBoard.tsx` lets non-admin leaders choose from their linked departments, not only department-head flagged departments.
+  - Added `supabase/migrations/016_allow_meeting_agenda_participant_leaders.sql` for agenda item insert, comment insert, and agenda PDF Storage policies.
+  - Added permission tests for the leader-meeting participant rule.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test -- src/lib/permissions.test.ts` passed, 50 tests.
+- Open item:
+  - Remote Supabase migration application was not executed because no Supabase MCP resources are available in this session.

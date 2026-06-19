@@ -257,3 +257,14 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - PDF metadata is stored additively on `meeting_agenda_items`; files reuse the private `meeting-pdfs` Storage bucket under an `agenda/` path.
 - Meeting detail shows attached agenda PDFs inline as open links under each department agenda item.
 - Existing attendance, report, accounting, meeting minutes, and meeting-level PDF behavior remains unchanged.
+
+## 2026-06-19 Update - Meeting Team Leader Feedback And Agenda PDF RLS Fix
+- Meeting feedback permission now includes the meeting creator and team leaders for the meeting department, matching the meeting delete/edit scope.
+- Agenda PDF Storage policies now explicitly handle `agenda/{meetingId}/{departmentId}/...` paths so department team leaders can upload and manage their agenda PDFs.
+- This is a narrow RLS/client permission fix and does not change attendance, report, accounting, auth, meeting minutes, or report approval workflows.
+
+## 2026-06-19 Update - Meeting Agenda Participant Leader Permission
+- Pre-meeting agenda participation now follows the leader-meeting workflow: active `team_leader` users can post agenda items for their own linked departments and can comment on agenda items before the meeting.
+- This corrects the previous department-head-only gate that required `user_departments.is_team_leader = true`.
+- Agenda PDF Storage policies were aligned with the same participant-leader rule for `agenda/{meetingId}/{departmentId}/...` paths.
+- This remains limited to the agenda discussion layer and does not broaden meeting minutes editing, meeting delete/edit, attendance, report approval, accounting, or auth behavior.

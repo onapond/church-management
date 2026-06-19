@@ -7,6 +7,8 @@ import {
   canWriteReport,
   canCreateMeeting,
   canEditMeetingContent,
+  canParticipateInMeetingAgenda,
+  canLeaveMeetingFeedback,
   canViewMeeting,
   canEditMembers,
   canApprove,
@@ -149,6 +151,52 @@ describe('canEditMeetingContent', () => {
 
     expect(canEditMeetingContent(user, 'dept-1')).toBe(true)
     expect(canEditMeetingContent(user, 'dept-2')).toBe(false)
+  })
+})
+
+describe('canParticipateInMeetingAgenda', () => {
+  it('team_leader role can participate even when the department leader flag is false', () => {
+    const user = createUser({
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-1',
+        is_team_leader: false,
+        departments: { id: 'dept-1', name: 'Worship', code: 'cu_worship' },
+      }],
+    })
+
+    expect(canParticipateInMeetingAgenda(user)).toBe(true)
+  })
+
+  it('member role cannot participate in meeting agenda discussion', () => {
+    expect(canParticipateInMeetingAgenda(createUser({ role: 'member' }))).toBe(false)
+  })
+})
+
+describe('canLeaveMeetingFeedback', () => {
+  const meeting = { created_by: 'creator-1', department_id: 'dept-1' }
+
+  it('admins can leave meeting feedback', () => {
+    expect(canLeaveMeetingFeedback(createUser({ role: 'president' }), meeting)).toBe(true)
+    expect(canLeaveMeetingFeedback(createUser({ role: 'accountant' }), meeting)).toBe(true)
+  })
+
+  it('meeting creator can leave meeting feedback', () => {
+    expect(canLeaveMeetingFeedback(createUser({ id: 'creator-1' }), meeting)).toBe(true)
+  })
+
+  it('team leader can leave feedback only for led meeting department', () => {
+    const user = createUser({
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-1',
+        is_team_leader: true,
+        departments: { id: 'dept-1', name: 'CU1遺', code: 'cu1' },
+      }],
+    })
+
+    expect(canLeaveMeetingFeedback(user, meeting)).toBe(true)
+    expect(canLeaveMeetingFeedback(user, { ...meeting, department_id: 'dept-2' })).toBe(false)
   })
 })
 

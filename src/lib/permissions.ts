@@ -46,7 +46,21 @@ export function canEditMeetingContent(user: UserData | null, departmentId?: stri
 export function canParticipateInMeetingAgenda(user: UserData | null): boolean {
   if (!user || !user.is_active) return false
   if (['super_admin', 'president', 'accountant'].includes(user.role)) return true
-  return user.user_departments?.some((userDepartment) => userDepartment.is_team_leader) ?? false
+  return user.role === 'team_leader'
+}
+
+export function canLeaveMeetingFeedback(
+  user: UserData | null,
+  meeting?: { created_by: string; department_id: string } | null
+): boolean {
+  if (!user || !user.is_active) return false
+  if (['super_admin', 'president', 'accountant'].includes(user.role)) return true
+  if (!meeting) return false
+  if (user.id === meeting.created_by) return true
+
+  return user.user_departments?.some(
+    (userDepartment) => userDepartment.department_id === meeting.department_id && userDepartment.is_team_leader
+  ) ?? false
 }
 
 export function canDeleteMeeting(

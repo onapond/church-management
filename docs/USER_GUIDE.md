@@ -522,3 +522,14 @@
 - When adding a pre-meeting agenda item, department leaders and administrators can attach a PDF file for that department's agenda.
 - The attached PDF appears under the agenda item with an `열기` link.
 - Use this for original agenda documents, reference materials, or department-prepared PDFs before the in-person meeting.
+
+## Meeting Team Leader Feedback And Agenda PDF Fix (2026-06-19)
+- Department team leaders can attach PDF files to their pre-meeting agenda items.
+- Department team leaders can leave feedback on meeting detail pages when they are responsible for that meeting department.
+- This does not change report approvals or finalized meeting minutes.
+
+## Meeting Agenda Participant Leader Permission (2026-06-19)
+- In leader-meeting preparation, active users with the `team_leader` role can add pre-meeting agenda items for their linked departments.
+- These leaders can also leave comments under agenda items to ask questions or share feedback before attending the meeting.
+- Attached agenda PDFs follow the same department link rule.
+- This does not grant permission to edit finalized meeting minutes or cancel/edit the meeting itself.
