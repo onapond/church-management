@@ -1,3 +1,22 @@
+## 2026-06-22 Follow-up - Meeting Agenda Edit UX
+- Request: editing long meeting agenda items felt unnecessarily cumbersome because the edit form opened below the already-rendered content.
+- Impact scope:
+  - attendance/report/accounting flows: no impact.
+  - additive change: yes, UI-only refinement inside the meeting agenda discussion layer.
+  - auth flow: unchanged.
+  - RLS scope: unchanged; existing agenda item/comment update policies and mutations are reused.
+- Files in scope:
+  - `src/components/meetings/MeetingAgendaBoard.tsx`
+  - required docs and session notes.
+- Change:
+  - When an agenda item enters edit mode, the long rendered content and PDF preview are hidden so the edit form appears directly under the item header.
+  - Agenda item and comment edit fields autofocus, use larger dynamic textareas, and support Ctrl/Cmd+Enter to save.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.
+  - `npm run lint` passed.
+
 # CURRENT_TASK.md
 
 ## 2026-06-19 Follow-up - Meeting Agenda And Comment Edit

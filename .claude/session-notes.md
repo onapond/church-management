@@ -235,6 +235,18 @@
 - Open item:
   - Remote Supabase migration application was not executed because no Supabase MCP resources are available in this session.
 
+## 2026-06-22 Meeting Agenda Edit UX
+- User feedback: editing a long meeting agenda item felt too cumbersome because the edit box opened below the already-rendered agenda content.
+- Changed `src/components/meetings/MeetingAgendaBoard.tsx` so agenda item edit mode hides the long read-only body and PDF preview while editing.
+- Agenda item edit fields now open directly below the item header, autofocus the title, use a larger dynamic textarea, and save with Ctrl/Cmd+Enter.
+- Comment editing now also autofocuses, uses a dynamic textarea, and supports Ctrl/Cmd+Enter.
+- Scope stayed UI-only; no database, RLS, auth, attendance, report, accounting, meeting minutes, PDF storage, or feedback behavior changed.
+- Verification so far:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.
+  - `npm run lint` passed.
+
 ## 2026-06-19 Meeting Agenda Participant Leader Permission
 - Bug report: the pre-meeting agenda board showed the "department heads/admins only" message even though leader-meeting participants should be able to post agenda items and comment before the meeting.
 - Root cause found locally:

@@ -539,3 +539,9 @@
 - After posting a comment, permitted users can tap `수정` to change the comment text.
 - Save and cancel controls appear inline so the meeting detail page does not need a separate edit screen.
 - This edit feature applies only to pre-meeting agenda discussion, not finalized meeting minutes.
+
+## Meeting Agenda Edit UX (2026-06-22)
+- When editing a long pre-meeting agenda item, the long read-only body is hidden while the edit fields are open.
+- The edit fields appear directly under the agenda item header, with focus placed in the title field.
+- Larger edit boxes are used for multi-line agenda/comment text, and Ctrl/Cmd+Enter saves the edit.
+- This only changes the editing experience for pre-meeting agenda discussion.

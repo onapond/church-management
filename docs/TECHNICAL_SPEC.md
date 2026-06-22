@@ -262,3 +262,9 @@ WHERE year = 2026 AND report_type = 'weekly';
 - `meeting_agenda_comments` update RLS permits the commenter or meeting-content editors.
 - `MeetingAgendaBoard` supports inline editing for agenda item title/type/content and comment text.
 - Existing attendance, report approval, accounting, auth, finalized meeting minutes, and meeting delete/edit scopes are unchanged.
+
+## 2026-06-22 Meeting Agenda Edit UX
+- `MeetingAgendaBoard` keeps using the existing agenda item/comment update mutations and RLS policies.
+- Agenda item edit mode now suppresses the rendered long body and attached PDF preview while editing, so the edit controls appear immediately near the item header.
+- Agenda item/comment edit controls autofocus, use larger dynamic textarea row counts, and support Ctrl/Cmd+Enter save.
+- No database, storage, auth, RLS, attendance, report, accounting, meeting minutes, or feedback behavior changed.

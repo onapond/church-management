@@ -232,3 +232,9 @@ pm run build.
 - `src/queries/meetings/useMeetings.ts` includes update mutations for `meeting_agenda_items` and `meeting_agenda_comments`.
 - `supabase/migrations/017_add_meeting_agenda_edit_policies.sql` adds explicit update RLS for agenda items/comments.
 - Keep this scoped to pre-meeting discussion; do not broaden finalized minutes edit/delete permissions from this change.
+
+## 2026-06-22 Notes - Meeting Agenda Edit UX
+- `src/components/meetings/MeetingAgendaBoard.tsx` now makes long agenda edits less cumbersome by hiding the read-only body/PDF preview while edit mode is open.
+- Agenda item edit fields appear directly near the item header, autofocus the title, use larger dynamic textareas, and support Ctrl/Cmd+Enter save.
+- Comment edit fields use the same autofocus/dynamic textarea/Ctrl-Cmd-Enter pattern.
+- This is UI-only and keeps existing update mutations, RLS, auth, attendance, report, accounting, meeting minutes, and feedback behavior unchanged.

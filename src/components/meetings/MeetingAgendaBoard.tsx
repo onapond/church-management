@@ -426,6 +426,7 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                       const typeOption = AGENDA_TYPE_OPTIONS.find((option) => option.value === item.item_type) ?? AGENDA_TYPE_OPTIONS[0]
                       const canManageItem = user?.id === item.author_id || canModerate
                       const comments = item.meeting_agenda_comments || []
+                      const isEditingItem = editingItemId === item.id
 
                       return (
                         <li key={item.id} className="pl-1">
@@ -449,10 +450,10 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                                       {item.status === 'open' ? '열림' : '정리됨'}
                                     </span>
                                   </div>
-                                  {item.content ? (
+                                  {!isEditingItem && item.content ? (
                                     <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-700">{item.content}</p>
                                   ) : null}
-                                  {item.pdf_file_path ? (
+                                  {!isEditingItem && item.pdf_file_path ? (
                                     <AgendaPdfAttachment
                                       filePath={item.pdf_file_path}
                                       fileName={item.pdf_file_name}
@@ -466,7 +467,7 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
 
                                 {canManageItem ? (
                                   <div className="flex shrink-0 items-center gap-2">
-                                    {editingItemId === item.id ? null : (
+                                    {isEditingItem ? null : (
                                       <button
                                         type="button"
                                         onClick={() => handleStartEditItem(item)}
@@ -498,6 +499,7 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                                   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_130px]">
                                     <input
                                       type="text"
+                                      autoFocus
                                       value={editingItemForm.title}
                                       onChange={(event) =>
                                         setEditingItemForm((current) => ({ ...current, title: event.target.value }))
@@ -526,10 +528,16 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                                     onChange={(event) =>
                                       setEditingItemForm((current) => ({ ...current, content: event.target.value }))
                                     }
-                                    rows={3}
-                                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                    onKeyDown={(event) => {
+                                      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                                        event.preventDefault()
+                                        void handleUpdateItem(item.id)
+                                      }
+                                    }}
+                                    rows={Math.min(12, Math.max(5, editingItemForm.content.split('\n').length + 1))}
+                                    className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                   />
-                                  <div className="mt-2 flex justify-end gap-2">
+                                  <div className="mt-2 flex flex-wrap justify-end gap-2">
                                     <button
                                       type="button"
                                       onClick={handleCancelEditItem}
@@ -584,8 +592,15 @@ export default function MeetingAgendaBoard({ meetingId, meetingDepartmentId, mee
                                           <textarea
                                             value={editingCommentDraft}
                                             onChange={(event) => setEditingCommentDraft(event.target.value)}
-                                            rows={3}
-                                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                            onKeyDown={(event) => {
+                                              if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                                                event.preventDefault()
+                                                void handleUpdateComment(comment.id)
+                                              }
+                                            }}
+                                            rows={Math.min(8, Math.max(3, editingCommentDraft.split('\n').length + 1))}
+                                            autoFocus
+                                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                           />
                                           <div className="mt-2 flex justify-end gap-2">
                                             <button

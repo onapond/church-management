@@ -274,3 +274,9 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Agenda comments now support inline editing by the commenter or meeting-content editors.
 - Added migration `017_add_meeting_agenda_edit_policies.sql` to make the update RLS explicit for agenda items and comments.
 - This is limited to the agenda discussion layer and does not change attendance, report approval, accounting, auth, finalized meeting minutes, or meeting delete/edit scope.
+
+## 2026-06-22 Update - Meeting Agenda Edit UX
+- Meeting agenda item editing is now less cumbersome for long agenda documents.
+- In edit mode, the agenda board hides the long rendered content/PDF preview and opens the edit fields directly under the item header.
+- Agenda item and comment edit fields now autofocus, size themselves more generously, and support Ctrl/Cmd+Enter save.
+- This is a UI-only additive refinement inside `MeetingAgendaBoard` and does not change attendance, report, accounting, auth, RLS, meeting minutes, PDF storage, or feedback behavior.
