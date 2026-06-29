@@ -280,3 +280,17 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - In edit mode, the agenda board hides the long rendered content/PDF preview and opens the edit fields directly under the item header.
 - Agenda item and comment edit fields now autofocus, size themselves more generously, and support Ctrl/Cmd+Enter save.
 - This is a UI-only additive refinement inside `MeetingAgendaBoard` and does not change attendance, report, accounting, auth, RLS, meeting minutes, PDF storage, or feedback behavior.
+
+## 2026-06-24 Update - Report Title And Agenda Comment UX
+- Report creation header copy was corrected where mojibake text could appear for report type labels and the "작성" title suffix.
+- Meeting agenda comment actions now stay grouped on the right side of each comment row so `수정` and `삭제` do not spread across the full row.
+- Meeting agenda comment create/update/delete mutations now update the TanStack Query agenda cache immediately, then refetch for server verification.
+- This remains UI/client-cache only and does not change attendance, report persistence, accounting, auth, RLS, meeting minutes, PDFs, or database schema.
+## 2026-06-29 Update - Report Photo Visibility And Submit Guard
+- Report detail now reads `report_photos` and displays attached report photos in a dedicated section, so photos uploaded with a report are visible after submission.
+- Report photo upload no longer silently logs upload/metadata failures while showing a success path; failures now surface through the report submit error flow.
+- Report creation now prevents implicit Enter-key form submission and only submits when the explicit submit button is used.
+- Activity photo gallery upload now cleans up the Storage object if `department_photos` metadata insertion fails, and delete now checks Storage/DB errors.
+- `scripts/audit-photo-integrity.sql` was added as a read-only privileged audit to compare `report_photos`/`department_photos` rows with Storage objects.
+- Remote Storage inspection confirmed existing uploaded files in both `report-photos` and `department-photos`; DB row count verification still requires authenticated/service-role access because anon REST is RLS-limited.
+- This is a narrow report UI/client persistence hardening change. It does not change attendance, accounting, approval status rules, auth flow, RLS policies, or database schema.

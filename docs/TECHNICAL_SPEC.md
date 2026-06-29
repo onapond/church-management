@@ -268,3 +268,21 @@ WHERE year = 2026 AND report_type = 'weekly';
 - Agenda item edit mode now suppresses the rendered long body and attached PDF preview while editing, so the edit controls appear immediately near the item header.
 - Agenda item/comment edit controls autofocus, use larger dynamic textarea row counts, and support Ctrl/Cmd+Enter save.
 - No database, storage, auth, RLS, attendance, report, accounting, meeting minutes, or feedback behavior changed.
+
+## 2026-06-24 Report Title And Agenda Comment UX
+- Report creation header labels are maintained as readable Korean strings in the client page configuration.
+- Meeting agenda comment action layout was adjusted in `MeetingAgendaBoard` so comment metadata can flex while action buttons remain grouped.
+- Meeting agenda comment mutations update the cached `['meetings', 'agenda', meetingId]` query immediately for create, update, and delete, then invalidate the query for server reconciliation.
+- This is a client-side UI/cache refinement only. It does not alter database tables, RLS policies, Storage policies, auth flow, attendance, report persistence, or accounting behavior.
+
+## 2026-06-29 Report Photo Visibility And Submit Guard
+- `report_photos` is now represented in `src/types/database.ts` for client reads and metadata inserts.
+- `department_photos` is now also represented in `src/types/database.ts` for the activity photo gallery path.
+- Report detail reads attached photos through `useReportPhotos(reportId)` and renders the stored public URLs in a responsive image grid.
+- Report submit still saves the main report bundle first, then uploads files to the existing `report-photos` bucket and inserts `report_photos` metadata.
+- Upload or metadata failures are no longer swallowed; the submit flow surfaces the failure so operators know the report saved without all photos.
+- The report form prevents implicit Enter-key submits. Explicit draft save and explicit submit keep their existing behavior.
+- Activity photo upload removes the uploaded Storage object if `department_photos` metadata insert fails, preventing new orphan objects from that path.
+- `scripts/audit-photo-integrity.sql` provides a read-only privileged Supabase audit for comparing photo table rows with `storage.objects`.
+- Remote Storage evidence from the anon key confirmed existing objects in both photo buckets, but table row counts require an authenticated/service role because anon REST sees RLS-limited `*/0` results.
+- No database migration, RLS policy, auth flow, attendance flow, accounting flow, or approval status model changed.

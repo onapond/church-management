@@ -17,6 +17,31 @@
   - `npm run build` passed.
   - `npm run lint` passed.
 
+## 2026-06-24 Follow-up - Report Title And Agenda Comment UX
+- Request: fix broken report creation title text, reduce excessive spacing between agenda comment edit/delete actions, and make comments appear immediately after posting.
+- Impact scope:
+  - attendance/report/accounting flows: no behavioral impact.
+  - additive change: yes, UI/client-cache refinement only.
+  - auth flow: unchanged.
+  - RLS scope: unchanged; existing agenda comment insert/update/delete policies remain authoritative.
+- Files in scope:
+  - `src/app/(dashboard)/reports/new/page.tsx`
+  - `src/components/meetings/MeetingAgendaBoard.tsx`
+  - `src/queries/meetings/useMeetings.ts`
+  - required docs and session notes.
+- Root cause:
+  - Report creation title strings had mojibake in the page config.
+  - Agenda comment header used `justify-between` with individual action buttons, spreading `수정` and `삭제` across the row.
+  - Agenda comment mutations only invalidated the agenda query, so the visible list depended on refetch timing instead of immediate cache updates.
+- Change:
+  - Report creation labels/title are readable Korean.
+  - Comment action buttons are grouped together on the right.
+  - Comment create/update/delete mutations patch `['meetings', 'agenda', meetingId]` immediately and still invalidate afterward for server reconciliation.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.
+
 # CURRENT_TASK.md
 
 ## 2026-06-19 Follow-up - Meeting Agenda And Comment Edit
@@ -226,3 +251,35 @@
 - 미해결 이슈:
   - Supabase MCP에 등록된 기존 PAT가 `Unauthorized` 상태라 migration 원격 적용은 이 세션에서 수행하지 못했다.
   - 노션 링크는 공개 내용 접근이 되지 않아 구조 참고 대신 요청 의도 기반으로 구현했다.
+## 2026-06-29 Follow-up - Report Photo Visibility And Submit Guard
+- Request: check report-system feedback that a report can submit while writing and that attached photos are missing on submitted report detail pages.
+- Impact scope:
+  - existing attendance/report/accounting flows: attendance and accounting unchanged; report save/display hardening only.
+  - additive change: yes, a report photo read/display path and form submit guard.
+  - auth/RLS scope: unchanged; uses existing `report_photos` table policy and `report-photos` Storage policy.
+- Files in scope:
+  - `src/types/database.ts`
+  - `src/queries/reports.ts`
+  - `src/components/reports/ReportDetail.tsx`
+  - `src/components/reports/hooks/useReportSubmit.ts`
+  - `src/components/reports/ReportForm.tsx`
+  - required docs and session notes.
+- Root cause:
+  - Submitted report detail did not read or render `report_photos`.
+  - Photo upload/metadata failures were logged but did not stop the success path.
+  - Native form behavior could submit the report when Enter was pressed in a normal input.
+- Change:
+  - Added report photo typing/query and detail display.
+  - Report photo upload errors now surface through submit error handling.
+  - Enter-key implicit submission is blocked; explicit submit button remains the only submit path.
+  - Report photo partial-save recovery now tracks the saved report id, including existing draft submit paths.
+  - Activity photo uploads now remove the Storage object if `department_photos` metadata insert fails, and delete operations now check both Storage and DB errors.
+  - Added read-only `scripts/audit-photo-integrity.sql` for privileged Supabase verification of table rows vs Storage objects.
+- Remote evidence:
+  - Anon REST sees `weekly_reports`, `report_photos`, and `department_photos` as `Content-Range: */0`, so table row counts cannot be trusted without an authenticated/service role.
+  - Storage list with anon key confirms existing files: `report-photos` has 32 top-level report folders and 76 files; `department-photos` has 5 top-level department folders and 50 files.
+  - Sample public object URLs from both buckets returned HTTP 200 with `image/jpeg`.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.

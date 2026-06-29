@@ -127,6 +127,7 @@ export default function PhotosClient() {
         })
 
         if (dbError) {
+          await supabase.storage.from('department-photos').remove([fileName])
           errors.push(`DB: ${dbError.message}`)
           continue
         }
@@ -143,7 +144,7 @@ export default function PhotosClient() {
       setUploadFiles([])
       setUploadPreviews([])
       setUploadForm(prev => ({ ...prev, title: '', description: '' }))
-      setError(null)
+      setError(errors.length > 0 ? `Some photos failed to upload: ${errors.join(' | ')}` : null)
       // TanStack Query 캐시 무효화 → 자동 리페치
       queryClient.invalidateQueries({ queryKey: ['photos'] })
     } catch (err: unknown) {
@@ -162,10 +163,12 @@ export default function PhotosClient() {
     try {
       const path = photo.photo_url.split('/department-photos/')[1]?.split('?')[0]
       if (path) {
-        await supabase.storage.from('department-photos').remove([path])
+        const { error: storageError } = await supabase.storage.from('department-photos').remove([path])
+        if (storageError) throw storageError
       }
 
-      await supabase.from('department_photos').delete().eq('id', photo.id)
+      const { error: dbError } = await supabase.from('department_photos').delete().eq('id', photo.id)
+      if (dbError) throw dbError
 
       setSelectedPhoto(null)
       setError(null)

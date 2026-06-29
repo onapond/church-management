@@ -269,6 +269,32 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['report_feedback']['Row'], 'id' | 'created_at'>
         Update: Partial<Database['public']['Tables']['report_feedback']['Insert']>
       }
+      report_photos: {
+        Row: {
+          id: string
+          report_id: string
+          photo_url: string
+          order_index: number
+          uploaded_by: string | null
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['report_photos']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['report_photos']['Insert']>
+      }
+      department_photos: {
+        Row: {
+          id: string
+          department_id: string
+          photo_url: string
+          title: string | null
+          description: string | null
+          photo_date: string | null
+          uploaded_by: string | null
+          created_at: string
+        }
+        Insert: Omit<Database['public']['Tables']['department_photos']['Row'], 'id' | 'created_at'>
+        Update: Partial<Database['public']['Tables']['department_photos']['Insert']>
+      }
       report_programs: {
         Row: {
           id: string
@@ -484,6 +510,8 @@ export type Notification = Database['public']['Tables']['notifications']['Row']
 export type ReportProgram = Database['public']['Tables']['report_programs']['Row']
 export type ApprovalHistory = Database['public']['Tables']['approval_history']['Row']
 export type ReportFeedback = Database['public']['Tables']['report_feedback']['Row']
+export type ReportPhoto = Database['public']['Tables']['report_photos']['Row']
+export type DepartmentPhoto = Database['public']['Tables']['department_photos']['Row']
 
 export type Cell = Database['public']['Tables']['cells']['Row']
 

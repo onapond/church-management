@@ -84,16 +84,21 @@ async function uploadPhotos(
   if (photoFiles.length === 0) return
 
   const allowedExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp'])
+  const failures: string[] = []
 
   for (let index = 0; index < photoFiles.length; index += 1) {
     const file = photoFiles[index]
     const fileExt = file.name.split('.').pop()?.toLowerCase() || ''
-    if (!allowedExtensions.has(fileExt)) continue
+    if (!allowedExtensions.has(fileExt)) {
+      failures.push(`${file.name}: unsupported file type`)
+      continue
+    }
 
     const fileName = `${reportId}/${Date.now()}_${index}.${fileExt}`
     const { error: uploadError } = await supabase.storage.from('report-photos').upload(fileName, file)
     if (uploadError) {
       console.error('Photo upload failed:', uploadError)
+      failures.push(`${file.name}: ${uploadError.message || 'upload failed'}`)
       continue
     }
 
@@ -110,7 +115,13 @@ async function uploadPhotos(
 
     if (photoInsertError) {
       console.error('Photo metadata insert failed:', photoInsertError)
+      await supabase.storage.from('report-photos').remove([fileName])
+      failures.push(`${file.name}: ${photoInsertError.message || 'metadata save failed'}`)
     }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`Photo upload failed (${failures.length}/${photoFiles.length}): ${failures.join('; ')}`)
   }
 }
 
@@ -284,7 +295,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
     setIsLoading(true)
     isSubmittingRef.current = true
     setError(null)
-    let createdReportId: string | null = null
+    let savedReportId: string | null = null
 
     try {
       buildReportData({
@@ -300,25 +311,56 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
         enabledSections: enabledSections as never,
       })
 
-      const result = await runExclusive(() => saveReportViaApi(buildSavePayload(isDraft, !editMode ? draftReportId : null)))
+      const saveAndHandleFailure = async (
+        draftMode: boolean,
+        targetReportId?: string | null,
+      ): Promise<ReportSaveResponse | null> => {
+        const saveResult = await runExclusive(() => saveReportViaApi(buildSavePayload(draftMode, targetReportId)))
 
-      if (!result.ok) {
-        if (result.duplicate) {
-          setError(result.message)
-          onDuplicateFound(result.id, result.status)
-          toast.warning(result.message)
-          return
+        if (!saveResult.ok) {
+          if (saveResult.duplicate) {
+            setError(saveResult.message)
+            onDuplicateFound(saveResult.id, saveResult.status)
+            toast.warning(saveResult.message)
+            return null
+          }
+
+          setError(saveResult.message)
+          toast.error(saveResult.message)
+          return null
         }
 
-        setError(result.message)
-        toast.error(result.message)
-        return
+        return saveResult
+      }
+
+      let result: ReportSaveResponse | null
+
+      if (!isDraft && photoFiles.length > 0) {
+        const draftResult = await saveAndHandleFailure(true, !editMode ? draftReportId : null)
+        if (!draftResult?.ok) return
+
+        const draftReportIdForPhotos = draftResult.reportId
+        savedReportId = draftReportIdForPhotos
+
+        await uploadPhotos(supabase, draftReportIdForPhotos, photoFiles, authorId)
+
+        result = await saveAndHandleFailure(false, !editMode ? draftReportIdForPhotos : null)
+        if (!result?.ok) {
+          await handlePartialSaveFailure(
+            draftReportIdForPhotos,
+            'The base report and photos were saved as a draft, but final submission failed.',
+          )
+          return
+        }
+      } else {
+        result = await saveAndHandleFailure(isDraft, !editMode ? draftReportId : null)
+        if (!result?.ok) return
+
+        await uploadPhotos(supabase, result.reportId, photoFiles, authorId)
       }
 
       const { reportId } = result
-      createdReportId = result.createdReportId
-
-      await uploadPhotos(supabase, reportId, photoFiles, authorId)
+      savedReportId = reportId
 
       if (result.warnings?.length) {
         toast.warning(result.warnings.join(' '))
@@ -328,6 +370,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
       await queryClient.invalidateQueries({ queryKey: ['reports'] })
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       await queryClient.invalidateQueries({ queryKey: ['attendance'] })
+      await queryClient.invalidateQueries({ queryKey: ['reports', 'photos', reportId] })
 
       setTimeout(() => {
         if (!editMode && isDraft) {
@@ -340,10 +383,10 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
     } catch (submitError) {
       console.error('useReportSubmit error:', submitError)
 
-      if (createdReportId) {
+      if (savedReportId) {
         const message = submitError instanceof Error ? submitError.message : 'Unknown error'
         await handlePartialSaveFailure(
-          createdReportId,
+          savedReportId,
           `The base report was saved, but a later step failed: ${message}`,
         )
         return
@@ -383,4 +426,3 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
 }
 
 export { saveReportViaApi }
-

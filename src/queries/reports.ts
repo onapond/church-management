@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { WeeklyReport, ReportProgram, Newcomer, ApprovalHistory, ReportFeedback } from '@/types/database'
+import type { WeeklyReport, ReportProgram, Newcomer, ApprovalHistory, ReportFeedback, ReportPhoto } from '@/types/database'
 import { getWeekBounds } from '@/lib/utils'
 
 const supabase = createClient()
@@ -142,6 +142,26 @@ export function useReportFeedback(reportId: string | undefined) {
 
       if (error) throw error
       return (data || []) as ReportFeedbackWithUser[]
+    },
+    enabled: !!reportId,
+    staleTime: 30_000,
+  })
+}
+
+/** 보고서 첨부 사진 조회 */
+export function useReportPhotos(reportId: string | undefined) {
+  return useQuery({
+    queryKey: ['reports', 'photos', reportId],
+    queryFn: async (): Promise<ReportPhoto[]> => {
+      const { data, error } = await supabase
+        .from('report_photos')
+        .select('*')
+        .eq('report_id', reportId!)
+        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      return (data || []) as ReportPhoto[]
     },
     enabled: !!reportId,
     staleTime: 30_000,

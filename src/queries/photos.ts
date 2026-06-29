@@ -2,16 +2,11 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import type { DepartmentPhoto } from '@/types/database'
 
 const supabase = createClient()
 
-export interface Photo {
-  id: string
-  photo_url: string
-  title: string | null
-  description: string | null
-  photo_date: string | null
-  created_at: string
+export interface Photo extends DepartmentPhoto {
   departments: { name: string } | null
   users: { name: string } | null
 }

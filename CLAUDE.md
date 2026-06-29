@@ -238,3 +238,19 @@ pm run build.
 - Agenda item edit fields appear directly near the item header, autofocus the title, use larger dynamic textareas, and support Ctrl/Cmd+Enter save.
 - Comment edit fields use the same autofocus/dynamic textarea/Ctrl-Cmd-Enter pattern.
 - This is UI-only and keeps existing update mutations, RLS, auth, attendance, report, accounting, meeting minutes, and feedback behavior unchanged.
+
+## 2026-06-24 Notes - Report Title And Agenda Comment UX
+- `src/app/(dashboard)/reports/new/page.tsx` keeps report creation labels and the page title in readable Korean to avoid mojibake in the report creation header.
+- `src/components/meetings/MeetingAgendaBoard.tsx` now groups comment `수정` and `삭제` actions together on the right side of the comment header.
+- `src/queries/meetings/useMeetings.ts` now applies immediate TanStack Query cache updates for agenda comment create/update/delete before invalidating the agenda query.
+- Scope is limited to display text, comment row layout, and client cache freshness; no auth, RLS, DB schema, attendance, report save, or accounting flow changes.
+
+## 2026-06-29 Notes - Report Photo Visibility And Submit Guard
+- `src/queries/reports.ts` now includes `useReportPhotos`, reading `report_photos` for the report detail view.
+- `src/components/reports/ReportDetail.tsx` displays attached report photos in a dedicated section before the approval status section.
+- `src/components/reports/hooks/useReportSubmit.ts` now treats report photo upload or metadata insert failures as visible submit failures instead of silently logging them.
+- `src/components/reports/ReportForm.tsx` blocks implicit Enter-key form submission and requires the explicit submit button for report submission.
+- `src/components/photos/PhotosClient.tsx` now cleans up newly uploaded Storage files if `department_photos` metadata insert fails, and checks delete errors instead of ignoring them.
+- `scripts/audit-photo-integrity.sql` can be run from Supabase SQL Editor to compare photo table rows with Storage objects.
+- Remote Storage inspection confirmed existing files in both photo buckets, but table row verification needs authenticated/service-role access.
+- No auth, RLS, database schema, attendance, accounting, or approval workflow changes were introduced.

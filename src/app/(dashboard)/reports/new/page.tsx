@@ -12,12 +12,12 @@ import type { UserDepartment } from '@/types/shared'
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 
 const REPORT_TYPE_CONFIG: Record<ReportType, { label: string; icon: string }> = {
-  weekly: { label: '二쇱감 蹂닿퀬??', icon: '?뱥' },
-  meeting: { label: '紐⑥엫 蹂닿퀬??', icon: '?뫁' },
-  education: { label: '援먯쑁 蹂닿퀬??', icon: '?뱴' },
-  cell_leader: { label: '???蹂닿퀬??', icon: '?룧' },
-  project: { label: '?꾨줈?앺듃 怨꾪쉷', icon: '?뱫' },
-  visitation: { label: '?щ갑 蹂닿퀬??', icon: '?솋' },
+  weekly: { label: '주차 보고서', icon: '📋' },
+  meeting: { label: '모임 보고서', icon: '👥' },
+  education: { label: '교육 보고서', icon: '📚' },
+  cell_leader: { label: '셀장 보고서', icon: '🏠' },
+  project: { label: '프로젝트 계획', icon: '📝' },
+  visitation: { label: '심방 보고서', icon: '🙏' },
 }
 
 export default function NewReportPage() {
@@ -77,7 +77,7 @@ export default function NewReportPage() {
   if (!canWrite) {
     return (
       <div className="py-12 text-center">
-        <p className="text-gray-500">蹂닿퀬???묒꽦 沅뚰븳???놁뒿?덈떎.</p>
+        <p className="text-gray-500">보고서 작성 권한이 없습니다.</p>
       </div>
     )
   }
@@ -89,11 +89,11 @@ export default function NewReportPage() {
       <div>
         <div className="flex items-center gap-2">
           <span className="text-2xl">{config.icon}</span>
-          <h1 className="text-lg font-bold text-gray-900 lg:text-xl">{config.label} ?묒꽦</h1>
+          <h1 className="text-lg font-bold text-gray-900 lg:text-xl">{config.label} 작성</h1>
         </div>
         {reportType === 'weekly' ? (
           <p className="mt-0.5 text-sm text-gray-500">
-            {now.getFullYear()}??{weekNumber}二쇱감 蹂닿퀬??
+            {now.getFullYear()}년 {weekNumber}주차 보고서
           </p>
         ) : null}
       </div>

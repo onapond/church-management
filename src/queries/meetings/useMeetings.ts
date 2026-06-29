@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { createClient } from '@/lib/supabase/client'
 import type {
   Database,
+  MeetingAgendaCommentWithDetails,
   MeetingAgendaItemWithDetails,
   MeetingAgendaStatus,
   MeetingFeedbackWithDetails,
@@ -44,6 +45,14 @@ type MeetingAgendaUpdate = Database['public']['Tables']['meeting_agenda_items'][
 type MeetingAgendaCommentInsert = Database['public']['Tables']['meeting_agenda_comments']['Insert']
 type MeetingAgendaCommentUpdate = Database['public']['Tables']['meeting_agenda_comments']['Update']
 type MeetingUpdate = Database['public']['Tables']['meetings']['Update']
+
+function agendaQueryKey(meetingId: string) {
+  return ['meetings', 'agenda', meetingId] as const
+}
+
+function sortAgendaComments(comments: MeetingAgendaCommentWithDetails[]) {
+  return [...comments].sort((first, second) => first.created_at.localeCompare(second.created_at))
+}
 
 export function useMeetings() {
   return useQuery({
@@ -187,9 +196,7 @@ export function useMeetingAgendaItems(meetingId: string | undefined) {
 
       return ((data || []) as MeetingAgendaItemWithDetails[]).map((item) => ({
         ...item,
-        meeting_agenda_comments: [...(item.meeting_agenda_comments || [])].sort((first, second) =>
-          first.created_at.localeCompare(second.created_at)
-        ),
+        meeting_agenda_comments: sortAgendaComments(item.meeting_agenda_comments || []),
       }))
     },
     enabled: !!meetingId,
@@ -213,7 +220,7 @@ export function useCreateMeetingAgendaItem(meetingId: string) {
       return data as MeetingAgendaItemWithDetails
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+      queryClient.invalidateQueries({ queryKey: agendaQueryKey(meetingId) })
     },
   })
 }
@@ -230,10 +237,22 @@ export function useCreateMeetingAgendaComment(meetingId: string) {
         .single()
 
       if (error) throw error
-      return data
+      return data as MeetingAgendaCommentWithDetails
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    onSuccess: (comment) => {
+      queryClient.setQueryData<MeetingAgendaItemWithDetails[]>(agendaQueryKey(meetingId), (items) => {
+        if (!items) return items
+
+        return items.map((item) => {
+          if (item.id !== comment.agenda_item_id) return item
+
+          return {
+            ...item,
+            meeting_agenda_comments: sortAgendaComments([...(item.meeting_agenda_comments || []), comment]),
+          }
+        })
+      })
+      queryClient.invalidateQueries({ queryKey: agendaQueryKey(meetingId) })
     },
   })
 }
@@ -254,7 +273,7 @@ export function useUpdateMeetingAgendaStatus(meetingId: string) {
       return data as MeetingAgendaItemWithDetails
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+      queryClient.invalidateQueries({ queryKey: agendaQueryKey(meetingId) })
     },
   })
 }
@@ -275,7 +294,7 @@ export function useUpdateMeetingAgendaItem(meetingId: string) {
       return data as MeetingAgendaItemWithDetails
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+      queryClient.invalidateQueries({ queryKey: agendaQueryKey(meetingId) })
     },
   })
 }
@@ -293,10 +312,22 @@ export function useUpdateMeetingAgendaComment(meetingId: string) {
         .single()
 
       if (error) throw error
-      return data
+      return data as MeetingAgendaCommentWithDetails
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    onSuccess: (comment) => {
+      queryClient.setQueryData<MeetingAgendaItemWithDetails[]>(agendaQueryKey(meetingId), (items) => {
+        if (!items) return items
+
+        return items.map((item) => ({
+          ...item,
+          meeting_agenda_comments: sortAgendaComments(
+            (item.meeting_agenda_comments || []).map((currentComment) =>
+              currentComment.id === comment.id ? comment : currentComment
+            )
+          ),
+        }))
+      })
+      queryClient.invalidateQueries({ queryKey: agendaQueryKey(meetingId) })
     },
   })
 }
@@ -310,7 +341,7 @@ export function useDeleteMeetingAgendaItem(meetingId: string) {
       if (error) throw error
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+      queryClient.invalidateQueries({ queryKey: agendaQueryKey(meetingId) })
     },
   })
 }
@@ -323,8 +354,16 @@ export function useDeleteMeetingAgendaComment(meetingId: string) {
       const { error } = await supabase.from('meeting_agenda_comments').delete().eq('id', commentId)
       if (error) throw error
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['meetings', 'agenda', meetingId] })
+    onSuccess: (_result, commentId) => {
+      queryClient.setQueryData<MeetingAgendaItemWithDetails[]>(agendaQueryKey(meetingId), (items) => {
+        if (!items) return items
+
+        return items.map((item) => ({
+          ...item,
+          meeting_agenda_comments: (item.meeting_agenda_comments || []).filter((comment) => comment.id !== commentId),
+        }))
+      })
+      queryClient.invalidateQueries({ queryKey: agendaQueryKey(meetingId) })
     },
   })
 }

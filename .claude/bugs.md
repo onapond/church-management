@@ -134,3 +134,42 @@
   - `src/components/meetings/MeetingAgendaBoard.tsx`
   - `src/queries/meetings/useMeetings.ts`
   - `supabase/migrations/017_add_meeting_agenda_edit_policies.sql`
+
+## 2026-06-29 Resolved - Report Photos Missing And Implicit Submit
+
+#### Submitted report detail did not show attached photos
+- **Symptom**: Users attached photos while submitting a report, but the submitted report detail page showed no photos.
+- **Root cause**: The submit flow inserted `report_photos` metadata, but report detail never queried or rendered `report_photos`.
+- **Fix**:
+  - Added `report_photos` typing in `src/types/database.ts`.
+  - Added `useReportPhotos` in `src/queries/reports.ts`.
+  - Rendered attached photos in `src/components/reports/ReportDetail.tsx`.
+- **Related files**:
+  - `src/types/database.ts`
+  - `src/queries/reports.ts`
+  - `src/components/reports/ReportDetail.tsx`
+
+#### Report form could submit while typing
+- **Symptom**: A report could move to submitted while the user was still writing.
+- **Root cause**: Native form behavior can submit when Enter is pressed in normal inputs, using the default submit button.
+- **Fix**:
+  - `src/components/reports/ReportForm.tsx` now blocks implicit Enter-key submits and accepts submission only from the explicit submit button.
+  - Photo upload failures in `src/components/reports/hooks/useReportSubmit.ts` now surface instead of silently completing the success path.
+  - Existing-draft submit recovery now tracks the saved report id when photo upload fails after the base report save.
+  - Photo-bearing final submissions now save as draft first, upload photos, then submit the same report so upload failure remains recoverable from the edit page.
+- **Related files**:
+  - `src/components/reports/ReportForm.tsx`
+  - `src/components/reports/hooks/useReportSubmit.ts`
+
+#### Activity photo gallery could leave orphan Storage files
+- **Symptom**: If `department_photos` metadata insert failed after Storage upload, the image file could remain in `department-photos` without a gallery row.
+- **Root cause**: `PhotosClient` continued after DB insert failure without removing the just-uploaded Storage object.
+- **Fix**:
+  - Remove the Storage object when `department_photos` insert fails.
+  - Check Storage and DB delete errors explicitly.
+  - Add `scripts/audit-photo-integrity.sql` for read-only table/storage consistency checks.
+- **Related files**:
+  - `src/components/photos/PhotosClient.tsx`
+  - `src/types/database.ts`
+  - `src/queries/photos.ts`
+  - `scripts/audit-photo-integrity.sql`

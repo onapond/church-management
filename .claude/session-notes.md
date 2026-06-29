@@ -163,6 +163,8 @@
   - `scripts/ops-2026-06-11-cu1-request.sql` contains the data-only SQL for member cell assignment and CU1 cell-leader pending-report final approval.
 - Verification:
   - `npx tsc --noEmit` passed.
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.
   - `npm test` passed, 153 tests.
   - `npm run lint` passed.
   - `npm run build` passed.
@@ -279,3 +281,62 @@
   - `npm run build` passed.
 - Open item:
   - Remote Supabase migration application was not executed because no Supabase MCP resources are available in this session.
+
+## 2026-06-24 Report Title And Agenda Comment UX
+- Request: fix broken report creation title text, tighten the spacing between agenda comment `수정` and `삭제`, and make newly written comments appear immediately.
+- Impact scope:
+  - attendance/report/accounting flows: no behavioral impact.
+  - additive change: yes, a narrow display/layout/client-cache refinement.
+  - auth/RLS scope: unchanged; existing agenda comment insert/update/delete policies are reused.
+- Files in scope:
+  - `src/app/(dashboard)/reports/new/page.tsx`
+  - `src/components/meetings/MeetingAgendaBoard.tsx`
+  - `src/queries/meetings/useMeetings.ts`
+  - required docs and session notes.
+- Change:
+  - Report creation page labels/title are readable Korean.
+  - Agenda comment action buttons are grouped on the right instead of being spread across the row.
+  - Agenda comment create/update/delete mutations update the local TanStack Query agenda cache immediately, then invalidate for server reconciliation.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.
+
+## 2026-06-29 Report Photo Visibility And Submit Guard
+- Request: investigate report complaints that a report could submit while writing and attached photos did not appear after submission.
+- Impact scope:
+  - attendance/report/accounting flows: attendance and accounting unchanged; report UI/save feedback hardened only.
+  - additive change: yes, report photo display query/section and submit guard.
+  - auth/RLS scope: unchanged; existing `report_photos` and `report-photos` policies remain authoritative.
+- Files in scope:
+  - `src/types/database.ts`
+  - `src/queries/reports.ts`
+  - `src/components/reports/ReportDetail.tsx`
+  - `src/components/reports/hooks/useReportSubmit.ts`
+  - `src/components/reports/ReportForm.tsx`
+  - required docs and session notes.
+- Root cause:
+  - Report detail did not query or render `report_photos`, so uploaded photo metadata had no visible UI on submitted reports.
+  - Photo upload and metadata insert failures were logged but did not block the success path.
+  - The report form allowed browser implicit submit behavior, so pressing Enter in normal inputs could trigger the submit button.
+- Change:
+  - Added `report_photos` typing and `useReportPhotos`.
+  - Report detail renders attached photos before approval status.
+  - Photo upload failures now surface through submit error handling.
+  - Photo-bearing final submissions now stage as draft, upload photos, then promote the same report to submitted so upload failure leaves an editable draft instead of a submitted report missing photos.
+  - Enter-key implicit form submit is blocked; explicit submit still works.
+  - Follow-up review hardened the existing draft submit recovery path to use the saved report id for photo failures.
+  - Activity photo upload now removes the Storage object when `department_photos` insert fails, and delete now checks Storage/DB errors.
+  - Added `scripts/audit-photo-integrity.sql` as a read-only privileged SQL audit for table/storage consistency.
+- Remote evidence:
+  - Anon REST could not verify table row counts because `weekly_reports`, `report_photos`, and `department_photos` all returned `Content-Range: */0`.
+  - Storage API confirmed existing uploaded files: `report-photos` has 32 top-level folders and 76 files; `department-photos` has 5 top-level folders and 50 files.
+  - One sample public image from each bucket returned HTTP 200 and `image/jpeg`.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.
+
+## Account Notes
+- The user's GitHub/Supabase-related account name to remember is `tlsdygks1992-dotcom`.
+- Current church Supabase project evidence: project ref `zikneyjidzovvkmflibo`, project name `church_cont_project`, organization title `tlsdygks1992-dotcom's Org`.

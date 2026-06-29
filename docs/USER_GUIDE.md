@@ -545,3 +545,15 @@
 - The edit fields appear directly under the agenda item header, with focus placed in the title field.
 - Larger edit boxes are used for multi-line agenda/comment text, and Ctrl/Cmd+Enter saves the edit.
 - This only changes the editing experience for pre-meeting agenda discussion.
+
+## Report Title And Agenda Comment UX (2026-06-24)
+- Report creation pages now show readable Korean report titles, such as `셀장 보고서 작성`.
+- In pre-meeting agenda comments, `수정` and `삭제` appear together on the right side of the comment row.
+- New, edited, and deleted agenda comments are reflected on the screen immediately after the action succeeds, with the server state checked again in the background.
+
+## Report Photo Visibility And Submit Guard (2026-06-29)
+- Photos attached while saving or submitting a report now appear on the submitted report detail page.
+- If photo upload fails after the report content is saved, the screen shows a failure instead of silently finishing as if the photos were uploaded.
+- Pressing Enter while typing in normal report fields no longer submits the report by itself. Use the explicit `제출` button to submit.
+- Draft autosave remains available for report content, but attached photo files are uploaded only through an explicit save/submit action.
+- Activity photo gallery uploads keep using the separate photo gallery page. If a gallery photo metadata save fails, the uploaded file is cleaned up instead of being left in Storage without a gallery row.

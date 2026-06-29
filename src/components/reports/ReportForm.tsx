@@ -390,10 +390,32 @@ export default function ReportForm({
   ])
 
 
-  const handleSubmit = (e: React.FormEvent, isDraft = false) => {
+  const handleSubmit = useCallback((e: React.FormEvent, isDraft = false) => {
     e.preventDefault()
     submit(isDraft)
-  }
+  }, [submit])
+
+  const handleFormKeyDown = useCallback((e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return
+
+    const target = e.target as HTMLElement
+    if (target.isContentEditable || target instanceof HTMLTextAreaElement) return
+    if (target instanceof HTMLInputElement && ['button', 'submit', 'reset'].includes(target.type)) return
+
+    e.preventDefault()
+  }, [])
+
+  const handleFormSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
+    const nativeEvent = e.nativeEvent as SubmitEvent
+    const submitter = nativeEvent.submitter as HTMLElement | null
+
+    if (submitter?.dataset.submitIntent !== 'submit') {
+      e.preventDefault()
+      return
+    }
+
+    handleSubmit(e, false)
+  }, [handleSubmit])
 
   // 현재 보고서 유형에 맞는 섹션 필터링
   const visibleSections = useMemo(() => {
@@ -424,7 +446,7 @@ export default function ReportForm({
   }, [])
 
   return (
-    <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-4 md:space-y-6">
+    <form onSubmit={handleFormSubmit} onKeyDown={handleFormKeyDown} className="space-y-4 md:space-y-6">
       {/* 스티키 섹션 네비게이션 (모바일만) */}
       <div className="sticky top-16 z-10 -mx-4 px-4 py-2 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200 md:hidden">
         <div className="flex gap-1.5 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
@@ -977,6 +999,7 @@ export default function ReportForm({
         </button>
         <button
           type="submit"
+          data-submit-intent="submit"
           disabled={loading}
           className="sm:flex-1 px-4 py-2.5 md:py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm md:text-base order-1 sm:order-3"
         >

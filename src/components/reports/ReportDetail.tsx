@@ -11,7 +11,7 @@ import { useAuth } from '@/providers/AuthProvider'
 import DOMPurify from 'dompurify'
 import { canAccessAllDepartments, canViewReport, canDeleteReport, canEditReport } from '@/lib/permissions'
 import type { UserDepartment } from '@/types/shared'
-import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useReportFeedback, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems, useChangeReportType } from '@/queries/reports'
+import { useReportDetail, useReportPrograms, useReportNewcomers, useApprovalHistory, useReportFeedback, useReportPhotos, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems, useChangeReportType } from '@/queries/reports'
 import { useCellMembers, useCellAttendanceRecords } from '@/queries/attendance'
 import { escapeHtml, printHtmlInIframe } from '@/lib/utils'
 import { deleteReportBundle } from '@/components/reports/utils/reportDeletion'
@@ -101,6 +101,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   const { data: newcomers = [] } = useReportNewcomers(reportId)
   const { data: history = [] } = useApprovalHistory(reportId)
   const { data: feedbackItems = [] } = useReportFeedback(reportId)
+  const { data: reportPhotos = [] } = useReportPhotos(reportId)
   const { data: projectContentItems = [] } = useProjectContentItems(reportId)
   const { data: projectScheduleItems = [] } = useProjectScheduleItems(reportId)
   const { data: projectBudgetItems = [] } = useProjectBudgetItems(reportId)
@@ -522,6 +523,35 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
             {(reportType === 'education' || reportType === 'cell_leader' || reportType === 'visitation') && report.application_notes && (<div><p className="text-xs font-medium text-gray-500 mb-1">{reportType === 'cell_leader' || reportType === 'visitation' ? '기도제목' : '적용점'}</p><div className="bg-gray-50 p-3 rounded-xl"><div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.application_notes) }} /></div></div>)}
             {hasProjSection('discussion') && parsedNotes.discussion_notes && (<div><p className="text-xs font-medium text-gray-500 mb-1">논의사항</p><div className="bg-gray-50 p-3 rounded-xl"><div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parsedNotes.discussion_notes) }} /></div></div>)}
             {hasProjSection('other') && parsedNotes.other_notes && (<div><p className="text-xs font-medium text-gray-500 mb-1">기타사항</p><div className="bg-gray-50 p-3 rounded-xl"><div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parsedNotes.other_notes) }} /></div></div>)}
+          </div>
+        </div>
+      )}
+
+      {/* 첨부 사진 */}
+      {reportPhotos.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="font-semibold text-gray-900 text-sm lg:text-base">첨부 사진</h2>
+            <span className="text-xs text-gray-400">{reportPhotos.length}장</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 md:gap-3">
+            {reportPhotos.map((photo, index) => (
+              <a
+                key={photo.id}
+                href={photo.photo_url}
+                target="_blank"
+                rel="noreferrer"
+                className="group relative aspect-square overflow-hidden rounded-xl bg-gray-100"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photo.photo_url}
+                  alt={`첨부 사진 ${index + 1}`}
+                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                  loading="lazy"
+                />
+              </a>
+            ))}
           </div>
         </div>
       )}
