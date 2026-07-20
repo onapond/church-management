@@ -15,6 +15,7 @@ import {
   isTeamLeader,
   getAccessibleDepartmentIds,
   getTeamLeaderDepartments,
+  canViewAllReports,
   canViewReport,
   canManageReport,
 } from './permissions'
@@ -191,7 +192,7 @@ describe('canLeaveMeetingFeedback', () => {
       user_departments: [{
         department_id: 'dept-1',
         is_team_leader: true,
-        departments: { id: 'dept-1', name: 'CU1遺', code: 'cu1' },
+        departments: { id: 'dept-1', name: 'CU1부', code: 'cu1' },
       }],
     })
 
@@ -285,6 +286,36 @@ describe('getTeamLeaderDepartments', () => {
   })
 })
 
+describe('canViewAllReports', () => {
+  it('관리자 역할만 전체 보고서 전역 열람 권한을 가진다', () => {
+    expect(canViewAllReports(createUser({ role: 'super_admin' }))).toBe(true)
+    expect(canViewAllReports(createUser({ role: 'president' }))).toBe(true)
+    expect(canViewAllReports(createUser({ role: 'accountant' }))).toBe(true)
+  })
+
+  it('부서 팀장과 일반 셀장은 전역 전체 보고서 열람 권한이 없다', () => {
+    const departmentLeader = createUser({
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-1',
+        is_team_leader: true,
+        departments: { id: 'dept-1', name: '1청년', code: 'cu1' },
+      }],
+    })
+    const cellLeader = createUser({
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-1',
+        is_team_leader: false,
+        departments: { id: 'dept-1', name: '1청년', code: 'cu1' },
+      }],
+    })
+
+    expect(canViewAllReports(departmentLeader)).toBe(false)
+    expect(canViewAllReports(cellLeader)).toBe(false)
+  })
+})
+
 describe('canViewReport', () => {
   const report = { author_id: 'author-1', department_id: 'dept-1', status: 'submitted' }
 
@@ -338,7 +369,7 @@ describe('canViewReport', () => {
     expect(canViewReport(user, report, false)).toBe(false)
   })
 
-  it('부서 팀장(is_team_leader=true)은 부서 전체 보고서 열람', () => {
+  it('부서 팀장(is_team_leader=true)은 담당 부서의 제출된 보고서를 열람할 수 있다', () => {
     const user = createUser({
       id: 'leader',
       role: 'team_leader',
@@ -352,7 +383,7 @@ describe('canViewReport', () => {
     expect(canViewReport(user, report, false)).toBe(true)
   })
 
-  it('셀장(is_team_leader=false)은 소속 부서 보고서만 열람', () => {
+  it('일반 셀장(is_team_leader=false)은 같은 부서의 다른 셀장 보고서를 열람할 수 없다', () => {
     const user = createUser({
       id: 'cell-leader',
       role: 'team_leader',
@@ -362,8 +393,8 @@ describe('canViewReport', () => {
         departments: { id: 'dept-1', name: '1청년', code: 'cu1' },
       }],
     })
-    expect(canViewReport(user, report, false)).toBe(true)
-    expect(canViewReport(user, report, true)).toBe(true)
+    expect(canViewReport(user, report, false)).toBe(false)
+    expect(canViewReport(user, report, true)).toBe(false)
     const otherDeptReport = { author_id: 'other', department_id: 'dept-2', status: 'submitted' }
     expect(canViewReport(user, otherDeptReport)).toBe(false)
   })
@@ -381,7 +412,7 @@ describe('canViewReport', () => {
     expect(canViewReport(user, report, false)).toBe(false)
   })
 
-  it('같은 부서 팀장끼리 서로 열람 가능 (youth 시나리오)', () => {
+  it('같은 부서 일반 셀장끼리도 서로의 보고서를 열람할 수 없다', () => {
     const teamLeaderA = createUser({
       id: 'tl-a',
       role: 'team_leader',
@@ -392,6 +423,6 @@ describe('canViewReport', () => {
       }],
     })
     const reportByB = { author_id: 'tl-b', department_id: 'dept-youth', status: 'submitted' }
-    expect(canViewReport(teamLeaderA, reportByB, false)).toBe(true)
+    expect(canViewReport(teamLeaderA, reportByB, false)).toBe(false)
   })
 })

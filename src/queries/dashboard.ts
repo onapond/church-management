@@ -3,7 +3,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toLocalDateString } from '@/lib/utils'
-import type { ReportSummary, UserDepartment } from '@/types/shared'
+import { canAccessAllDepartments } from '@/lib/permissions'
+import type { ReportSummary, UserData, UserDepartment } from '@/types/shared'
 
 function getThisSunday(): string {
   const today = new Date()
@@ -12,20 +13,36 @@ function getThisSunday(): string {
   return toLocalDateString(sunday)
 }
 
-export function useRecentReports() {
+export function useRecentReports(user: UserData | null | undefined) {
   return useQuery({
-    queryKey: ['dashboard', 'recentReports'],
+    queryKey: ['dashboard', 'recentReports', user?.id, user?.role, user?.user_departments],
     queryFn: async (): Promise<ReportSummary[]> => {
+      if (!user) return []
+
       const supabase = createClient()
-      const { data, error } = await supabase
+      let query = supabase
         .from('weekly_reports')
         .select('*, departments(name), users!weekly_reports_author_id_fkey(name)')
         .order('created_at', { ascending: false })
         .limit(5)
 
+      if (!canAccessAllDepartments(user.role)) {
+        const leaderDepartmentIds = user.user_departments
+          ?.filter((department) => department.is_team_leader)
+          .map((department) => department.department_id) || []
+
+        if (leaderDepartmentIds.length > 0) {
+          query = query.or(`author_id.eq.${user.id},department_id.in.(${leaderDepartmentIds.join(',')})`)
+        } else {
+          query = query.eq('author_id', user.id)
+        }
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return (data || []) as ReportSummary[]
     },
+    enabled: !!user,
     staleTime: 30 * 1000,
   })
 }

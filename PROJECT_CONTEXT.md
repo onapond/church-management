@@ -294,3 +294,35 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - `scripts/audit-photo-integrity.sql` was added as a read-only privileged audit to compare `report_photos`/`department_photos` rows with Storage objects.
 - Remote Storage inspection confirmed existing uploaded files in both `report-photos` and `department-photos`; DB row count verification still requires authenticated/service-role access because anon REST is RLS-limited.
 - This is a narrow report UI/client persistence hardening change. It does not change attendance, accounting, approval status rules, auth flow, RLS policies, or database schema.
+
+## 2026-07-01 Update - CU1 Sungmo Cell Rename
+- Prepared `scripts/ops-2026-07-01-rename-sungmo-cell-to-sunwoong.sql` for the requested CU1 data operation.
+- The operation renames the active CU1 `성모셀` row to `선웅셀` after verifying Kim Sunwoong remains the active CU1 team leader, assigning Kim Sunwoong's member row to the renamed cell, and confirming Jung Sungmo is no longer assigned to that cell.
+- This is data-only and does not change attendance, report, accounting, auth, RLS policies, or database schema.
+- Remote Supabase execution completed through the Supabase Management API on project `zikneyjidzovvkmflibo`; final verification shows active CU1 `성모셀` count 0, active CU1 `선웅셀` count 1, Kim Sunwoong still active CU1 team leader, and Jung Sungmo not assigned to `선웅셀`.
+
+## 2026-07-01 Update - Cell Leader Report Privacy
+- Ordinary cell leaders can no longer read other cell leaders' reports through the report list, dashboard recent reports, or report detail permission helper.
+- Department/team leaders with `user_departments.is_team_leader = true` keep department-level visibility for reports they are responsible for approving.
+- Added migration `018_restrict_peer_cell_leader_report_visibility.sql` to replace the broad non-draft report SELECT policy with admin/author/department-leader visibility.
+- This is a report privacy/RLS hardening change and does not change attendance, accounting, report save, or approval status behavior.
+- Remote Supabase execution completed through the Supabase Management API on project `zikneyjidzovvkmflibo`; `weekly_reports` now uses admin/author/department-leader SELECT policies, and existing child report tables follow parent report visibility.
+
+## 2026-07-02 Update - Han Suyeon B Cell Assignment
+- Prepared `scripts/ops-2026-07-02-assign-hansuyeonb-to-taehee-cell.sql` for the requested CU1 data operation.
+- The operation assigns active CU1 member Han Suyeon B to Taehee cell, resolving Taehee cell by Lee Taehee's current CU1 cell and failing if the target member or cell is ambiguous.
+- This is data-only and does not change attendance, report, accounting, auth, RLS policies, or database schema.
+- Remote Supabase execution completed through the Supabase Management API; final verification shows Han Suyeon B and Lee Taehee are both assigned to the active CU1 Taehee cell with `is_primary = true`.
+
+## 2026-07-14 Update - README And App Information
+- Refreshed the root README and status README so the onapond GitHub repository describes the current app surface: attendance, reports, report photos, members, meetings, meeting PDFs, pre-meeting agenda discussion, accounting, visitations, photos, statistics, notifications, and report privacy hardening.
+- Updated the app metadata description in `src/app/layout.tsx` to include meeting and pre-meeting agenda management.
+- Standardized current documentation references to the production alias `https://church-opal.vercel.app`.
+- This is documentation/metadata only and does not change attendance, report, accounting, auth, RLS, or database behavior.
+
+## 2026-07-20 Update - Report Photo Storage Permission
+- Added migration `019_fix_report_photo_storage_policies.sql` to explicitly align `report-photos` Storage policies with the report id path used by the app: `{reportId}/...`.
+- The prior 2026-06-29 report-photo fix was a shared report UI/persistence hardening pass, not a department-specific youth-only patch, but it did not replace the Storage upload policies.
+- Report photo upload/delete is now intended to be authorized for the active report author or global admin roles (`super_admin`, `president`, `accountant`) regardless of department, including youth and CU2.
+- Remote Supabase project `zikneyjidzovvkmflibo` now has the `report-photos` bucket plus report photo Storage SELECT/INSERT/UPDATE/DELETE policies and `report_photos` table SELECT/ALL policies verified.
+- This is a narrow report photo RLS/Storage policy fix. It does not change attendance, accounting, report save bundle logic, approval status transitions, or auth flow.

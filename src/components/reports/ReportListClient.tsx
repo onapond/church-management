@@ -43,6 +43,10 @@ export default function ReportListClient() {
   const canViewAll = canViewAllReports(user)
   const canWriteReport = checkCanWriteReport(user)
   const userDepartmentIds = useMemo(() => getAccessibleDepartmentIds(user), [user])
+  const leaderDepartmentIds = useMemo(
+    () => user?.user_departments?.filter((ud: UserDepartment) => ud.is_team_leader).map((ud) => ud.department_id) || [],
+    [user]
+  )
 
   const canAggregate = useMemo(() => {
     if (!user) return false
@@ -61,7 +65,8 @@ export default function ReportListClient() {
   const { data: reports = [], isLoading, isFetching } = useReports({
     reportType: selectedType,
     departmentId: selectedDept !== 'all' ? selectedDept : undefined,
-    departmentIds: selectedDept === 'all' && !canViewAll ? userDepartmentIds : undefined,
+    authorId: !canViewAll && user ? user.id : undefined,
+    visibleDepartmentIds: !canViewAll ? leaderDepartmentIds : undefined,
   })
 
   const filteredReports = useMemo(() => {

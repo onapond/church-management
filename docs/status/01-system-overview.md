@@ -9,7 +9,7 @@
 | 항목 | 내용 |
 |------|------|
 | 앱 이름 | 청파중앙교회 교육위원회 관리 시스템 |
-| 프로덕션 URL | https://church-eight-delta.vercel.app |
+| 프로덕션 URL | https://church-opal.vercel.app |
 | GitHub | https://github.com/onapond/church-management |
 | 호스팅 | Vercel |
 

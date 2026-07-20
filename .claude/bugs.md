@@ -173,3 +173,37 @@
   - `src/types/database.ts`
   - `src/queries/photos.ts`
   - `scripts/audit-photo-integrity.sql`
+## 2026-07-01 Resolved - Peer Cell-Leader Report Visibility
+
+#### Ordinary cell leaders could read peer cell-leader reports
+- **Symptom**: Cell leaders could open other cell leaders' reports, exposing private sharing/prayer content.
+- **Root cause**:
+  - `canViewReport` allowed any `role = team_leader` user to read submitted reports in their linked department.
+  - The `reports_select_all` RLS policy from migration 003 allowed any authenticated user to select non-draft reports.
+- **Fix**:
+  - Ordinary cell leaders (`role = team_leader`, `is_team_leader = false`) can now read only their own reports.
+  - Department/team leaders (`is_team_leader = true`) retain department-level visibility.
+  - Report list and dashboard recent-report queries now scope fetches by author and led departments.
+  - Added migration `018_restrict_peer_cell_leader_report_visibility.sql` to tighten report and child-table SELECT policies.
+- **Related files**:
+  - `src/lib/permissions.ts`
+  - `src/lib/permissions.test.ts`
+  - `src/queries/reports.ts`
+  - `src/queries/dashboard.ts`
+  - `src/components/reports/ReportListClient.tsx`
+  - `src/components/dashboard/DashboardContent.tsx`
+  - `supabase/migrations/018_restrict_peer_cell_leader_report_visibility.sql`
+
+## 2026-07-20 Resolved - Report Photo Storage Permission Coverage
+
+#### Report photo uploads could fail outside the previously tested department
+- **Symptom**: CU2 report photo upload was reported as failing after a prior report-photo fix.
+- **Root cause**:
+  - The 2026-06-29 fix was global report UI/persistence hardening, not youth-only, but it did not replace the `report-photos` Storage upload policies.
+  - Report photo object paths are department-neutral (`{reportId}/...`), so upload authorization must resolve the parent report from the path instead of relying on department-specific assumptions.
+- **Fix**:
+  - Added migration `019_fix_report_photo_storage_policies.sql`.
+  - The migration creates/updates the `report-photos` bucket and adds Storage object select/insert/update/delete policies keyed by the report id in the object path.
+  - `report_photos` metadata policies are restated with the same active author/admin write rule and parent-report-based read rule.
+- **Related files**:
+  - `supabase/migrations/019_fix_report_photo_storage_policies.sql`

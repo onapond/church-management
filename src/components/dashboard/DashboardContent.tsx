@@ -29,7 +29,7 @@ export default function DashboardContent() {
   const isDeptHead = user?.user_departments?.some((ud) => ud.is_team_leader)
   const defaultReportType = isDeptHead ? 'weekly' : 'cell_leader'
 
-  const { data: recentReports = [] } = useRecentReports()
+  const { data: recentReports = [] } = useRecentReports(user)
   const { data: thisWeekReport } = useThisWeekReport(user?.id)
   const { data: pendingReports = [] } = useDashboardPending(userRole, user?.user_departments)
   const { data: thisWeekStats = { total: 0, worship: 0, meeting: 0 } } = useThisWeekStats(userDeptIds)

@@ -254,3 +254,33 @@ pm run build.
 - `scripts/audit-photo-integrity.sql` can be run from Supabase SQL Editor to compare photo table rows with Storage objects.
 - Remote Storage inspection confirmed existing files in both photo buckets, but table row verification needs authenticated/service-role access.
 - No auth, RLS, database schema, attendance, accounting, or approval workflow changes were introduced.
+## 2026-07-01 CU1 Sungmo Cell Rename
+- Prepared `scripts/ops-2026-07-01-rename-sungmo-cell-to-sunwoong.sql`.
+- The data-only operation renames active CU1 `성모셀` to `선웅셀`.
+- The script keeps Kim Sunwoong as the active CU1 team leader, assigns his member row to `선웅셀`, and verifies Jung Sungmo is no longer assigned to the old cell before applying the rename.
+- No attendance, report, accounting, auth, RLS, or schema behavior changes.
+
+## 2026-07-01 Cell Leader Report Privacy
+- Ordinary cell leaders (`role = team_leader`, `is_team_leader = false`) are limited to their own reports.
+- Department/team leaders (`is_team_leader = true`) keep department-level visibility for reports they approve.
+- Added migration `018_restrict_peer_cell_leader_report_visibility.sql` to remove broad non-draft report SELECT access and align child report tables with parent report visibility.
+- Report save, approval transitions, attendance, accounting, and auth flow are unchanged.
+
+## 2026-07-02 Notes - Han Suyeon B Cell Assignment
+- Added data-only operational SQL: `scripts/ops-2026-07-02-assign-hansuyeonb-to-taehee-cell.sql`.
+- The script assigns Han Suyeon B to Taehee cell in CU1 by resolving Taehee cell from Lee Taehee's current CU1 cell.
+- Remote verification shows Han Suyeon B and Lee Taehee are both assigned to the active CU1 Taehee cell with `is_primary = true`.
+- No schema, RLS, auth, attendance, report, accounting, or approval workflow logic changed.
+
+## 2026-07-14 Notes - README And App Information
+- Root `README.md` and `docs/status/README.md` now summarize the current production app, including meeting PDFs, pre-meeting agenda discussion, report photos, and report privacy hardening.
+- `src/app/layout.tsx` metadata now describes attendance, report approval, members, accounting, meetings, and agenda management.
+- Production URL references in current docs were aligned to `https://church-opal.vercel.app`.
+- No runtime business logic, schema, RLS, auth, attendance, report, or accounting behavior changed.
+
+## 2026-07-20 Notes - Report Photo Storage Permission
+- `supabase/migrations/019_fix_report_photo_storage_policies.sql` explicitly creates/updates the public `report-photos` bucket and defines Storage object policies for report photo paths.
+- Report photo paths remain `{reportId}/{timestamp}_{index}.{ext}`; policies resolve the report id from the first path segment and allow the active report author or global admin roles to upload, update, and delete.
+- `report_photos` metadata policies are restated so metadata writes use the same author/admin rule and reads follow visible parent reports.
+- Remote Supabase verification confirmed the public `report-photos` bucket, four `storage.objects` policies, and two `report_photos` table policies.
+- This fixes the permission layer globally for report photos instead of patching a single department. Attendance, accounting, report save RPC, approval status transitions, and auth behavior are unchanged.

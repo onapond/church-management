@@ -190,6 +190,8 @@ export function useTeamLeaderIds(departmentId: string | undefined) {
 export function useReports(options?: {
   departmentId?: string
   departmentIds?: string[]
+  authorId?: string
+  visibleDepartmentIds?: string[]
   status?: string
   reportType?: string
   limit?: number
@@ -205,6 +207,12 @@ export function useReports(options?: {
       if (options?.reportType) {
         query = query.eq('report_type', options.reportType)
       }
+      if (options?.authorId && options?.visibleDepartmentIds && options.visibleDepartmentIds.length > 0) {
+        query = query.or(`author_id.eq.${options.authorId},department_id.in.(${options.visibleDepartmentIds.join(',')})`)
+      } else if (options?.authorId) {
+        query = query.eq('author_id', options.authorId)
+      }
+
       if (options?.departmentId && options.departmentId !== 'all') {
         query = query.eq('department_id', options.departmentId)
       } else if (options?.departmentIds && options.departmentIds.length > 0) {

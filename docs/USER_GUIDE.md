@@ -9,7 +9,7 @@
 
 ### 접속 주소
 
-**https://church-eight-delta.vercel.app**
+**https://church-opal.vercel.app**
 
 휴대폰, 태블릿, PC 모두 사용 가능합니다.
 
@@ -557,3 +557,26 @@
 - Pressing Enter while typing in normal report fields no longer submits the report by itself. Use the explicit `제출` button to submit.
 - Draft autosave remains available for report content, but attached photo files are uploaded only through an explicit save/submit action.
 - Activity photo gallery uploads keep using the separate photo gallery page. If a gallery photo metadata save fails, the uploaded file is cleaned up instead of being left in Storage without a gallery row.
+# 2026-07-01 CU1 Cell Rename Prepared
+- A data-only SQL script is ready to rename CU1 `성모셀` to `선웅셀`.
+- The script checks that Kim Sunwoong remains the active CU1 team leader, assigns him to `선웅셀`, and confirms Jung Sungmo is no longer assigned to the old cell before renaming.
+- This does not change attendance, reports, accounting, login rules, or approval workflows.
+# 2026-07-01 Cell Leader Report Privacy
+- Ordinary cell leaders can see their own reports only.
+- Department/team leaders who are responsible for a department can still review that department's submitted cell-leader reports.
+- This protects private sharing and prayer content in cell-leader reports from being visible to peer cell leaders.
+
+# 2026-07-02 CU1 Cell Assignment
+- Han Suyeon B has been assigned to Taehee cell through a data-only admin operation.
+- This does not change how attendance, reports, accounting, login, or approvals work.
+
+# 2026-07-14 README And App Information
+- The GitHub README and app description now reflect the current production features, including meeting PDFs, pre-meeting agenda discussion, report photos, and report privacy protection.
+- The documented access URL is now `https://church-opal.vercel.app`.
+- This does not change how users perform attendance, reports, accounting, login, approvals, meetings, or agenda work.
+
+# 2026-07-20 Report Photo Upload Permission
+- Report photo upload permission has been aligned globally for all departments.
+- Photos attached to reports are still uploaded only during an explicit save or submit action.
+- If a photo upload fails, the screen should show the failure so the saved draft/report can be reviewed and retried.
+- This does not change attendance, accounting, login, or report approval steps.

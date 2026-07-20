@@ -133,8 +133,7 @@ export function getTeamLeaderDepartments(user: UserData | null): Array<{ id: str
 
 export function canViewAllReports(user: UserData | null): boolean {
   if (!user) return false
-  if (canAccessAllDepartments(user.role)) return true
-  return user.user_departments?.some((ud) => ud.is_team_leader) ?? false
+  return canAccessAllDepartments(user.role)
 }
 
 export function canViewReport(
@@ -147,12 +146,11 @@ export function canViewReport(
   if (user.id === report.author_id) return true
   if (report.status === 'draft') return false
   if (canAccessAllDepartments(user.role)) return true
-  if (user.user_departments?.some((ud) => ud.is_team_leader)) return true
 
-  if (user.role === 'team_leader') {
-    const departmentIds = user.user_departments?.map((ud) => ud.department_id) || []
-    return departmentIds.includes(report.department_id)
-  }
+  const isDepartmentLeaderForReport = user.user_departments?.some(
+    (userDepartment) => userDepartment.department_id === report.department_id && userDepartment.is_team_leader
+  ) ?? false
+  if (isDepartmentLeaderForReport) return true
 
   return false
 }

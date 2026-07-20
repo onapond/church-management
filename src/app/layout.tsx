@@ -20,7 +20,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "청파중앙교회 교육위원회",
-  description: "교육위원회 통합 관리 시스템 - 출결 관리, 주차 보고서, 전자 결재",
+  description:
+    "교육위원회 통합 관리 시스템 - 출결, 보고서 결재, 교인, 회계, 회의, 사전 안건 관리",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

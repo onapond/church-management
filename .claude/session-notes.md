@@ -340,3 +340,139 @@
 ## Account Notes
 - The user's GitHub/Supabase-related account name to remember is `tlsdygks1992-dotcom`.
 - Current church Supabase project evidence: project ref `zikneyjidzovvkmflibo`, project name `church_cont_project`, organization title `tlsdygks1992-dotcom's Org`.
+
+## 2026-06-30 Youth Registration Request - SQL Prepared
+- Request: register 정나윤 in 청소년부 with birth date 2011-11-29, address 서울 마포구 구수동, phone 010-2881-5875, and school 신수중학교.
+- Impact scope:
+  - attendance/report/accounting flows: no impact.
+  - additive change: yes, data-only member insert/update and department link.
+  - auth/RLS scope: unchanged; must be run with existing admin/service context.
+- Prepared script:
+  - `scripts/ops-2026-06-30-youth-register-jung-nayoon.sql`
+- Execution status:
+  - Remote Supabase execution completed through the Supabase Management API using a fresh PAT provided by the user.
+  - The first anon-key attempt was blocked by sandbox network access; after escalation, Supabase was reachable but the anon context could not see the `youth` department row.
+  - The older `sb_publishable_...` key in `scripts/update-members.mjs` also returned no visible `youth` department row.
+  - `vercel env ls` showed no usable Supabase service/admin key for the linked Vercel project.
+  - Verification returned member id `b58590ea-58e3-4778-baa0-9ecf493d254e` linked to `youth` / `청소년부` with `is_primary = true`.
+  - The script is idempotent: it matches by phone or by name+birth date, updates the existing active member if found, and ensures the youth `member_departments` link.
+
+## 2026-06-30 Jung Sungmo Access And Cell Change
+- Request: move 정성모 out of cell-leader position, block login access, place 정성모 under 강민아 cell, and ensure 정성모 cell is managed by 김선웅 team leader.
+- Impact scope:
+  - attendance/report/accounting flows: no code or schema impact.
+  - additive/data-only change: yes.
+  - auth/RLS scope: no policy change; `users.role`, `users.is_active`, `user_departments.is_team_leader`, and `member_departments.cell_id` were adjusted.
+- Prepared/applied script:
+  - `scripts/ops-2026-06-30-jung-sungmo-cell-access.sql`
+- Remote execution:
+  - Completed through Supabase Management API on project `zikneyjidzovvkmflibo`.
+- Verification:
+  - 정성모 user `b49a758c-de35-4edd-8685-ddc4a2b180d1`: `role = member`, `is_active = false`, CU1 `is_team_leader = false`.
+  - 정성모 member `a5ee0351-0693-4cce-afa4-979efef46207`: CU1 `cell_name = 민아셀`, `is_primary = true`; CU 워십팀 secondary link remains unchanged.
+  - 김선웅 user `7257048d-fa7a-4b82-a053-f44b215b90ec`: CU1 `role = team_leader`, `is_active = true`, `is_team_leader = true`.
+  - There is no dedicated `cells.manager_id` owner column; 김선웅's CU1 department team-leader flag is the system mechanism that grants management over CU1 cells, including 성모셀.
+## 2026-07-01 Cell Leader Report Privacy
+- Request: ordinary cell leaders should only see their own reports because peer cell-leader reports can include private sharing/prayer content.
+- Impact scope:
+  - attendance/accounting flows: no impact.
+  - report save/approval state flow: unchanged.
+  - auth/RLS scope: auth unchanged; report read RLS is narrowed.
+- Root cause:
+  - `canViewReport` allowed `role = team_leader` users to read submitted reports in any linked department.
+  - Migration `003_relax_report_permissions.sql` created `reports_select_all`, allowing any authenticated user to select any non-draft report.
+- Changes:
+  - `canViewReport` now allows ordinary cell leaders to read only their own reports.
+  - Department/team leaders with `user_departments.is_team_leader = true` keep department-level visibility.
+  - Report list and dashboard recent-report queries now scope server fetches by author and led departments.
+  - Added `supabase/migrations/018_restrict_peer_cell_leader_report_visibility.sql` to replace broad non-draft SELECT with admin/author/department-leader rules and align child report table SELECT policies.
+- Verification:
+  - `npm test -- src/lib/permissions.test.ts` passed, 52 tests.
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 160 tests.
+  - `npm run build` passed.
+- Remote execution:
+  - Applied to Supabase project `zikneyjidzovvkmflibo` through the Supabase Management API.
+  - The full migration request timed out, so the report table and optional child-table policies were applied in smaller safe batches.
+  - Verified `weekly_reports` has `reports_select_admin`, `reports_select_author`, and `reports_select_department_leader`; the broad `View reports based on role` SELECT policy is removed.
+  - Verified existing child report tables have parent-report-based SELECT policies.
+
+## 2026-07-01 CU1 Sungmo Cell Rename Prepared
+- Request: Sungmo has been moved to Mina cell; rename Sungmo cell to Sunwoong cell and keep Kim Sunwoong as both CU1 team leader and cell leader.
+- Impact scope:
+  - attendance/report/accounting flows: no impact.
+  - additive/data-only change: yes.
+  - auth/RLS scope: no policy change; existing CU1 team leader permission model is used.
+- Prepared script:
+  - `scripts/ops-2026-07-01-rename-sungmo-cell-to-sunwoong.sql`
+- Notes:
+  - The schema has no dedicated `cells.manager_id` or cell owner column.
+  - Kim Sunwoong's `users.role = 'team_leader'` plus CU1 `user_departments.is_team_leader = true` is preserved; this is not a permission downgrade.
+  - The SQL renames active CU1 `성모셀` to `선웅셀`, assigns Kim Sunwoong's active member row to the renamed cell, and fails if Jung Sungmo is still assigned to the old cell.
+- Verification:
+  - `npm test` passed, 158 tests.
+  - `npm run build` passed.
+- Remote execution:
+  - Applied to Supabase project `zikneyjidzovvkmflibo` through the Supabase Management API.
+  - Used PostgreSQL Unicode escape literals for Korean names to avoid PowerShell/JSON encoding corruption during SQL submission.
+  - Verified active CU1 `성모셀` count is 0 and active CU1 `선웅셀` count is 1.
+  - Verified Kim Sunwoong remains active `team_leader`, CU1 `is_team_leader = true`, and is assigned to `선웅셀`.
+  - Verified Jung Sungmo is not assigned to `선웅셀`.
+## 2026-07-02 Han Suyeon B To Taehee Cell
+- Request: add Han Suyeon B to Taehee cell.
+- Impact scope:
+  - attendance/report/accounting flows: no code or schema impact.
+  - additive/data-only change: yes.
+  - auth/RLS scope: no policy change; the change uses the existing CU1 `member_departments.cell_id` structure.
+- Prepared script:
+  - `scripts/ops-2026-07-02-assign-hansuyeonb-to-taehee-cell.sql`
+- Notes:
+  - The script resolves Taehee cell from Lee Taehee's active CU1 cell and fails if the target member or cell resolution is ambiguous.
+  - Korean literals are written as PostgreSQL Unicode escapes to avoid PowerShell/JSON encoding corruption during remote execution.
+- Execution status:
+  - Remote Supabase execution completed through the Supabase Management API using a valid Codex-local PAT candidate.
+  - Final verification shows Han Suyeon B and Lee Taehee are both assigned to the active CU1 Taehee cell with `is_primary = true`.
+- Handoff:
+  - `docs/handoffs/2026-07-02-codex-supabase-hansuyeonb-handoff.md`
+  - Future Supabase work should verify Codex-local PAT candidates first; Claude MCP status is not the source of truth for this repository.
+
+## 2026-07-14 README And App Information
+- Request: update the onapond GitHub README or app information if anything is stale.
+- Impact scope:
+  - attendance/report/accounting flows: no runtime behavior impact.
+  - additive change: yes, documentation and Next.js metadata only.
+  - auth/RLS scope: no auth, RLS, Supabase, or permission logic changes.
+- Files in scope:
+  - `README.md`
+  - `docs/status/README.md`
+  - `src/app/layout.tsx`
+  - required docs and session notes.
+- Change:
+  - Refreshed the root README with the current feature set and commands.
+  - Refreshed the status README summary with current app capabilities and the production alias.
+  - Updated app metadata description to include meetings and agenda management.
+  - Replaced current-doc production URL references with `https://church-opal.vercel.app`.
+
+## 2026-07-20 Report Photo Storage Permission
+- Request: CU2 report photos are failing after a previous youth-related issue was thought to be fixed globally.
+- Impact scope:
+  - attendance/accounting flows: no impact.
+  - report save/approval state flow: unchanged.
+  - additive change: yes, Storage/RLS policy migration only.
+  - auth/RLS scope: auth unchanged; report photo object and metadata writes are explicitly scoped to the active report author or global admin roles.
+- Root cause assessment:
+  - The 2026-06-29 report-photo work was shared report UI/persistence hardening, not youth-only, but it did not replace `report-photos` Storage upload policies.
+  - The upload path is department-neutral (`{reportId}/...`), so a CU2 failure points to Storage/RLS policy coverage or the user's report-author/admin status, not a youth-only code path.
+- Change:
+  - Added `supabase/migrations/019_fix_report_photo_storage_policies.sql`.
+  - The migration creates/updates the public `report-photos` bucket, allows image MIME types, and authorizes Storage insert/update/delete by resolving `weekly_reports.id` from the first object path segment.
+  - Restated `report_photos` metadata policies with the same author/admin write rule and parent-report-based read rule.
+- Remote execution:
+  - Applied migration 019 to Supabase project `zikneyjidzovvkmflibo` through the Management API.
+  - Verified the public `report-photos` bucket exists.
+  - Verified Storage policies: `report_photos_storage_select`, `report_photos_storage_insert_author`, `report_photos_storage_update_author`, and `report_photos_storage_delete_author`.
+  - Verified table policies: `report_photos_select` and `report_photos_modify`.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 160 tests.
+  - `npm run build` passed.

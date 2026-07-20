@@ -10,7 +10,7 @@
 |------|------|
 | ???�름 | �?��중앙교회 교육?�원??관�??�스??|
 | 목적 | 교회 교육부?�의 출결 관�? 보고???�성/결재, 교인 관�? ?�계 관�?|
-| ?�로?�션 URL | https://church-eight-delta.vercel.app |
+| ?�로?�션 URL | https://church-opal.vercel.app |
 | GitHub | https://github.com/onapond/church-management |
 | ?�스??| Vercel (?�동 배포) |
 
@@ -286,3 +286,48 @@ WHERE year = 2026 AND report_type = 'weekly';
 - `scripts/audit-photo-integrity.sql` provides a read-only privileged Supabase audit for comparing photo table rows with `storage.objects`.
 - Remote Storage evidence from the anon key confirmed existing objects in both photo buckets, but table row counts require an authenticated/service role because anon REST sees RLS-limited `*/0` results.
 - No database migration, RLS policy, auth flow, attendance flow, accounting flow, or approval status model changed.
+
+## 2026-07-01 CU1 Sungmo Cell Rename
+- Added data-only operational SQL: `scripts/ops-2026-07-01-rename-sungmo-cell-to-sunwoong.sql`.
+- The script updates `public.cells.name` from `성모셀` to `선웅셀` for the active CU1 cell.
+- The script preserves Kim Sunwoong's CU1 team-leader authority and assigns his active member row to `선웅셀` through `member_departments.cell_id`.
+- Guard checks:
+  - CU1 department exists.
+  - exactly one active `김선웅` user has `role = 'team_leader'`.
+  - `김선웅` has a CU1 `user_departments` row with `is_team_leader = true`.
+  - exactly one active `김선웅` member row exists.
+  - exactly one active CU1 `성모셀` exists and no active CU1 `선웅셀` already exists.
+  - `정성모` is not still assigned to the old `성모셀`.
+- No schema, RLS, auth, attendance, report, accounting, or approval workflow logic changed.
+
+## 2026-07-01 Cell Leader Report Privacy
+- `canViewReport` now limits ordinary cell leaders (`role = 'team_leader'`, `user_departments.is_team_leader = false`) to their own reports.
+- Department/team leaders (`user_departments.is_team_leader = true`) can still read submitted/non-draft reports for the departments they lead.
+- `canViewAllReports` now returns true only for global roles: `super_admin`, `president`, and `accountant`.
+- Report list and dashboard recent-report queries now include author/led-department scoping so peer reports are not fetched for ordinary cell leaders before client filtering.
+- Added migration `018_restrict_peer_cell_leader_report_visibility.sql`:
+  - drops the broad `reports_select_all` policy from migration 003.
+  - recreates report SELECT access for admins, authors, and department leaders only.
+  - ties report child table SELECT policies (`report_feedback`, `report_photos`, `report_programs`, `newcomers`, and project child tables) back to visible parent reports.
+- Attendance, accounting, report persistence, and approval status transitions are unchanged.
+
+## 2026-07-02 Han Suyeon B Cell Assignment
+- Added data-only operational SQL: `scripts/ops-2026-07-02-assign-hansuyeonb-to-taehee-cell.sql`.
+- The script updates the CU1 `member_departments.cell_id` for active member Han Suyeon B.
+- Taehee cell is resolved from Lee Taehee's current CU1 `member_departments.cell_id`; optional active cell names Taehee/Taehee cell must not conflict.
+- Remote verification shows Han Suyeon B and Lee Taehee are both assigned to the active CU1 Taehee cell with `is_primary = true`.
+- No table, column, index, RLS policy, auth flow, attendance flow, report flow, or accounting flow changed.
+
+## 2026-07-14 README And App Information
+- Updated root and status README files to reflect the current feature set: attendance, report approval and photos, member/cell management, meeting minutes/PDFs, pre-meeting agenda discussion with comments/PDFs, accounting, visitations, activity photos, statistics, notifications, and report privacy hardening.
+- Updated app metadata description in `src/app/layout.tsx`.
+- Current docs now reference the production alias `https://church-opal.vercel.app`.
+- This is a documentation/metadata update only. There are no DB schema, RLS policy, auth flow, attendance flow, report persistence, approval status, or accounting behavior changes.
+
+## 2026-07-20 Report Photo Storage Permission
+- Added migration `019_fix_report_photo_storage_policies.sql`.
+- The `report-photos` Storage bucket is public for image delivery and accepts JPEG, PNG, GIF, and WebP objects.
+- Report photo object paths are resolved as `{reportId}/...`; Storage insert/update/delete policies authorize active report authors and global admin roles (`super_admin`, `president`, `accountant`) by looking up `weekly_reports.id`.
+- `report_photos` table policies are restated so metadata writes use the same author/admin rule and SELECT follows the visible parent report.
+- Remote verification on project `zikneyjidzovvkmflibo` confirmed `report_photos_storage_select`, `report_photos_storage_insert_author`, `report_photos_storage_update_author`, `report_photos_storage_delete_author`, `report_photos_select`, and `report_photos_modify`.
+- This is a global report-photo permission fix and is not scoped to one department. Attendance, accounting, report save RPC, approval status transitions, and auth flow are unchanged.
