@@ -337,3 +337,10 @@ WHERE year = 2026 AND report_type = 'weekly';
 - The file read path falls back to `FileReader` when `File.arrayBuffer()` is not available.
 - The report persistence sequence is unchanged: save the report row first, upload photos, write `report_photos` metadata, then continue final submission when applicable.
 - This is client upload hardening only. It does not add migrations and does not change RLS, auth, attendance, accounting, or approval status logic.
+
+## 2026-07-20 Report Save Permission Validation
+- `POST /api/reports/save` still rejects requests that provide both `editReportId` and `targetReportId`.
+- For a single managed report id, the route now reads `weekly_reports.author_id/status` first.
+- Authors can continue saving/finalizing their own `draft` or `rejected` report without a separate role profile lookup.
+- Admin/global management still uses `users.role` and `canManageReport`.
+- This is route-level validation hardening only. It does not alter RLS policies, RPC write behavior, auth flow, attendance, accounting, or approval status transitions.

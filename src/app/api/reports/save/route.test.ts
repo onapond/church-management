@@ -21,6 +21,10 @@ function createQueryChain(result: { data?: unknown; error?: unknown }) {
       data: result.data ?? null,
       error: result.error ?? null,
     }),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: result.data ?? null,
+      error: result.error ?? null,
+    }),
   }
 
   return chain
@@ -197,6 +201,35 @@ describe('POST /api/reports/save', () => {
       warnings: [],
     })
     expect(mockPersistReportBundle).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ targetReportId: 'draft-1' }), 'author-1')
+  })
+
+  it('allows draft author to submit a photo-backed draft without a user role lookup', async () => {
+    const supabase = createSupabase({
+      user: { id: 'author-1' },
+      report: { author_id: 'author-1', status: 'draft' },
+    })
+    mockCreateClient.mockResolvedValue(supabase)
+    mockPersistReportBundle.mockResolvedValue({
+      reportId: 'draft-1',
+      createdReportId: null,
+      warnings: [],
+    })
+
+    const response = await POST(makeRequest({ ...validBody, isDraft: false, targetReportId: 'draft-1' }))
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      reportId: 'draft-1',
+      createdReportId: null,
+      warnings: [],
+    })
+    expect(supabase.from).toHaveBeenCalledWith('weekly_reports')
+    expect(supabase.from).not.toHaveBeenCalledWith('users')
+    expect(mockPersistReportBundle).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      isDraft: false,
+      targetReportId: 'draft-1',
+    }), 'author-1')
   })
 
   it('returns 409 when persistence reports a duplicate', async () => {

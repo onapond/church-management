@@ -585,3 +585,8 @@
 - Report photo uploads now check that the selected image content is readable before sending it to Storage.
 - If the report text saves but photo upload fails, the user is still sent back to the saved report edit page so the photos can be reattached and retried.
 - This does not change how reports are written, submitted, approved, or viewed.
+
+# 2026-07-20 Report Submit Reliability
+- When a report with photos is submitted, the system may save the report first and then finish photo upload/final submission.
+- The permission check for that saved draft has been tightened so the original author can continue the submit process without a false edit-permission error.
+- This does not change who is allowed to write, edit, or approve reports.

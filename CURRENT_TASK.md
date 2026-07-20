@@ -195,6 +195,27 @@
   - `npm test` passed, 162 tests.
   - `npm run build` passed.
 
+## 2026-07-20 Follow-up - Report Save Permission Validation
+- Request: after the photo upload fix, report submit showed `Failed to validate report edit permission`.
+- Impact scope:
+  - attendance/accounting flows: no impact.
+  - report flow: route-level edit target validation only; report save RPC and approval state flow are unchanged.
+  - additive change: yes, narrower validation order and focused route test.
+  - auth/RLS scope: no policy change; the route now avoids an unnecessary user role lookup for authors managing their own draft/rejected report.
+- Files in scope:
+  - `src/app/api/reports/save/route.ts`
+  - `src/app/api/reports/save/route.test.ts`
+  - required docs and session notes.
+- Change:
+  - `POST /api/reports/save` reads the target report first.
+  - Active author management of `draft`/`rejected` reports is allowed without depending on `users.role`.
+  - Admin/global management still uses `canManageReport`.
+- Verification:
+  - `npm test -- src/app/api/reports/save/route.test.ts` passed, 9 tests.
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 163 tests.
+  - `npm run build` passed.
+
 ## 2026-06-19 Follow-up - Meeting Agenda Participant Leader Permission
 - Request: leader-meeting participants should be able to post pre-meeting agenda items and exchange comment feedback before the in-person meeting.
 - Impact scope:

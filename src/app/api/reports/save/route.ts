@@ -48,23 +48,49 @@ export async function POST(request: Request) {
     const managedReportId = body.editReportId ?? body.targetReportId
 
     if (managedReportId) {
-      const [{ data: userProfile, error: userError }, { data: report, error: reportError }] = await Promise.all([
-        supabase.from('users').select('role').eq('id', user.id).single(),
-        supabase.from('weekly_reports').select('author_id, status').eq('id', managedReportId).single(),
-      ])
+      const { data: report, error: reportError } = await supabase
+        .from('weekly_reports')
+        .select('author_id, status')
+        .eq('id', managedReportId)
+        .maybeSingle()
 
-      if (userError || reportError || !report) {
+      if (reportError) {
+        console.error('Report edit target lookup failed:', reportError)
         return NextResponse.json<ReportSaveResponse>(
           { ok: false, message: 'Failed to validate report edit permission' },
           { status: 403 },
         )
       }
 
-      if (!canManageReport(userProfile?.role, user.id, report)) {
+      if (!report) {
         return NextResponse.json<ReportSaveResponse>(
           { ok: false, message: 'Forbidden' },
           { status: 403 },
         )
+      }
+
+      const authorCanManage = user.id === report.author_id && ['draft', 'rejected'].includes(report.status)
+      if (!authorCanManage) {
+        const { data: userProfile, error: userError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (userError) {
+          console.error('Report edit user role lookup failed:', userError)
+          return NextResponse.json<ReportSaveResponse>(
+            { ok: false, message: 'Failed to validate report edit permission' },
+            { status: 403 },
+          )
+        }
+
+        if (!canManageReport(userProfile?.role, user.id, report)) {
+          return NextResponse.json<ReportSaveResponse>(
+            { ok: false, message: 'Forbidden' },
+            { status: 403 },
+          )
+        }
       }
     }
 

@@ -332,3 +332,9 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - This targets `No content provided` upload failures seen after the base report row was saved, where the selected image preview existed but the Storage request could be sent without a readable body.
 - Empty or unreadable files now fail before Storage upload with a clearer per-file error, preserving the existing partial-save recovery path to the report edit page.
 - This is a narrow client-side report upload hardening change. It does not change attendance, accounting, auth, RLS, database schema, report save RPC, or approval status transitions.
+
+## 2026-07-20 Update - Report Save Permission Validation
+- `POST /api/reports/save` now validates the target report first and allows the active author to manage their own `draft` or `rejected` report without depending on a separate `users` role lookup.
+- Admin role lookup still runs when needed for non-author management, but author draft finalization no longer fails because a profile role query is blocked or unavailable.
+- This targets `Failed to validate report edit permission` during the photo-backed submit path: save draft, upload photos, then finalize the same report.
+- This is a narrow report API validation fix. It does not change attendance, accounting, auth, RLS policies, database schema, report save RPC, or approval status rules.

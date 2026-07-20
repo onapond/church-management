@@ -218,3 +218,14 @@
 - **Related files**:
   - `src/components/reports/hooks/useReportSubmit.ts`
   - `src/components/reports/hooks/useReportSubmit.test.ts`
+
+#### Photo-backed report submit could fail route edit validation
+- **Symptom**: After saving the base report and uploading photos, final submission could show `Failed to validate report edit permission`.
+- **Root cause**: The save route validated managed reports by fetching both `users.role` and the target report up front. A valid author draft submit could fail at the role lookup stage even though author ownership of a draft/rejected report is sufficient for management.
+- **Fix**:
+  - Read the target report first.
+  - Allow the report author to manage their own `draft` or `rejected` report without a role lookup.
+  - Keep role lookup and `canManageReport` for admin/global management cases.
+- **Related files**:
+  - `src/app/api/reports/save/route.ts`
+  - `src/app/api/reports/save/route.test.ts`
