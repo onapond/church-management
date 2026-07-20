@@ -331,3 +331,9 @@ WHERE year = 2026 AND report_type = 'weekly';
 - `report_photos` table policies are restated so metadata writes use the same author/admin rule and SELECT follows the visible parent report.
 - Remote verification on project `zikneyjidzovvkmflibo` confirmed `report_photos_storage_select`, `report_photos_storage_insert_author`, `report_photos_storage_update_author`, `report_photos_storage_delete_author`, `report_photos_select`, and `report_photos_modify`.
 - This is a global report-photo permission fix and is not scoped to one department. Attendance, accounting, report save RPC, approval status transitions, and auth flow are unchanged.
+
+## 2026-07-20 Report Photo Upload Body Preservation
+- Report photo uploads in `useReportSubmit` now convert each selected image `File` to an `ArrayBuffer`, validate that bytes exist, and upload a new `Blob` to the `report-photos` bucket with an explicit content type.
+- The file read path falls back to `FileReader` when `File.arrayBuffer()` is not available.
+- The report persistence sequence is unchanged: save the report row first, upload photos, write `report_photos` metadata, then continue final submission when applicable.
+- This is client upload hardening only. It does not add migrations and does not change RLS, auth, attendance, accounting, or approval status logic.

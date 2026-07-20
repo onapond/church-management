@@ -172,6 +172,29 @@
   - `npm test` passed, 160 tests.
   - `npm run build` passed.
 
+## 2026-07-20 Follow-up - Report Photo Upload Body Preservation
+- Request: screenshot shows report content saved, but photo upload failed for all selected images with `No content provided`.
+- Impact scope:
+  - attendance/accounting flows: no impact.
+  - report flow: photo upload body handling only; report save RPC and approval state flow are unchanged.
+  - additive change: yes, narrow client upload hardening and focused tests.
+  - auth/RLS scope: unchanged; existing `report-photos` Storage policies and `report_photos` metadata policies remain authoritative.
+- Root cause assessment:
+  - The error is not a department permission message. It indicates Supabase Storage received no upload content.
+  - The form preview can exist while the later async Storage upload still receives an unreadable/empty `File` body, especially after saving the base report first.
+- Files in scope:
+  - `src/components/reports/hooks/useReportSubmit.ts`
+  - `src/components/reports/hooks/useReportSubmit.test.ts`
+  - required docs and session notes.
+- Change:
+  - `uploadPhotos` now reads each selected `File` into bytes, rejects empty/unreadable content before Storage upload, and uploads a fresh `Blob` with explicit `contentType`.
+  - A `FileReader` fallback covers environments without `File.arrayBuffer()`.
+- Verification:
+  - `npm test -- src/components/reports/hooks/useReportSubmit.test.ts` passed, 5 tests.
+  - `npx tsc --noEmit` passed.
+  - `npm test` passed, 162 tests.
+  - `npm run build` passed.
+
 ## 2026-06-19 Follow-up - Meeting Agenda Participant Leader Permission
 - Request: leader-meeting participants should be able to post pre-meeting agenda items and exchange comment feedback before the in-person meeting.
 - Impact scope:

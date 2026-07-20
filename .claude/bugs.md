@@ -207,3 +207,14 @@
   - `report_photos` metadata policies are restated with the same active author/admin write rule and parent-report-based read rule.
 - **Related files**:
   - `supabase/migrations/019_fix_report_photo_storage_policies.sql`
+
+#### Report photo Storage upload could receive no file body
+- **Symptom**: After the base report was saved, photo upload failed with `No content provided` for every attached image.
+- **Root cause**: The upload path passed the selected `File` object directly to Supabase Storage after asynchronous report persistence. In some environments this can produce an upload request without readable content even though the preview had rendered.
+- **Fix**:
+  - Materialize each selected image into bytes before upload.
+  - Upload a fresh `Blob` with explicit `contentType`.
+  - Fail empty or unreadable files before the Storage request and keep the saved-report recovery path.
+- **Related files**:
+  - `src/components/reports/hooks/useReportSubmit.ts`
+  - `src/components/reports/hooks/useReportSubmit.test.ts`

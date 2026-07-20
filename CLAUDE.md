@@ -284,3 +284,9 @@ pm run build.
 - `report_photos` metadata policies are restated so metadata writes use the same author/admin rule and reads follow visible parent reports.
 - Remote Supabase verification confirmed the public `report-photos` bucket, four `storage.objects` policies, and two `report_photos` table policies.
 - This fixes the permission layer globally for report photos instead of patching a single department. Attendance, accounting, report save RPC, approval status transitions, and auth behavior are unchanged.
+
+## 2026-07-20 Notes - Report Photo Upload Body Preservation
+- `src/components/reports/hooks/useReportSubmit.ts` now reads selected report photo `File` objects into bytes before upload and sends a fresh `Blob` with explicit `contentType` to Supabase Storage.
+- A `FileReader` fallback is retained for environments where `File.arrayBuffer()` is unavailable.
+- Empty or unreadable file content is reported before the Storage request, which keeps the existing saved-report recovery behavior and avoids vague Supabase `No content provided` failures.
+- No auth, RLS, schema, attendance, accounting, or report approval workflow changes were introduced.

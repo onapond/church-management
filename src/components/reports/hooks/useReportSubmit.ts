@@ -75,6 +75,26 @@ export type AutosaveResult =
   | { status: 'skipped' }
   | { status: 'failed' }
 
+async function readFileBytes(file: File): Promise<ArrayBuffer> {
+  if (typeof file.arrayBuffer === 'function') {
+    return file.arrayBuffer()
+  }
+
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error || new Error('Unable to read file content.'))
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error('Unable to read file content.'))
+    }
+    reader.readAsArrayBuffer(file)
+  })
+}
+
 async function uploadPhotos(
   supabase: SupabaseClient,
   reportId: string,
@@ -95,7 +115,23 @@ async function uploadPhotos(
     }
 
     const fileName = `${reportId}/${Date.now()}_${index}.${fileExt}`
-    const { error: uploadError } = await supabase.storage.from('report-photos').upload(fileName, file)
+    let uploadBody: Blob
+    try {
+      const fileBytes = await readFileBytes(file)
+      if (fileBytes.byteLength === 0) {
+        failures.push(`${file.name}: file content is empty or unavailable`)
+        continue
+      }
+      uploadBody = new Blob([fileBytes], { type: file.type || 'application/octet-stream' })
+    } catch (fileReadError) {
+      console.error('Photo file read failed:', fileReadError)
+      failures.push(`${file.name}: file content could not be read`)
+      continue
+    }
+
+    const { error: uploadError } = await supabase.storage.from('report-photos').upload(fileName, uploadBody, {
+      contentType: uploadBody.type,
+    })
     if (uploadError) {
       console.error('Photo upload failed:', uploadError)
       failures.push(`${file.name}: ${uploadError.message || 'upload failed'}`)
@@ -425,4 +461,4 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
   return { submit, saveDraftSnapshot, isLoading, error, clearError }
 }
 
-export { saveReportViaApi }
+export { saveReportViaApi, uploadPhotos }

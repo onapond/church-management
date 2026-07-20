@@ -326,3 +326,9 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Report photo upload/delete is now intended to be authorized for the active report author or global admin roles (`super_admin`, `president`, `accountant`) regardless of department, including youth and CU2.
 - Remote Supabase project `zikneyjidzovvkmflibo` now has the `report-photos` bucket plus report photo Storage SELECT/INSERT/UPDATE/DELETE policies and `report_photos` table SELECT/ALL policies verified.
 - This is a narrow report photo RLS/Storage policy fix. It does not change attendance, accounting, report save bundle logic, approval status transitions, or auth flow.
+
+## 2026-07-20 Update - Report Photo Upload Body Preservation
+- Report photo upload now materializes each selected `File` into an `ArrayBuffer`/`Blob` before calling Supabase Storage upload, with a `FileReader` fallback for browser/test environments without `File.arrayBuffer()`.
+- This targets `No content provided` upload failures seen after the base report row was saved, where the selected image preview existed but the Storage request could be sent without a readable body.
+- Empty or unreadable files now fail before Storage upload with a clearer per-file error, preserving the existing partial-save recovery path to the report edit page.
+- This is a narrow client-side report upload hardening change. It does not change attendance, accounting, auth, RLS, database schema, report save RPC, or approval status transitions.

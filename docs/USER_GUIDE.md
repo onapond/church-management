@@ -580,3 +580,8 @@
 - Photos attached to reports are still uploaded only during an explicit save or submit action.
 - If a photo upload fails, the screen should show the failure so the saved draft/report can be reviewed and retried.
 - This does not change attendance, accounting, login, or report approval steps.
+
+# 2026-07-20 Report Photo Upload Reliability
+- Report photo uploads now check that the selected image content is readable before sending it to Storage.
+- If the report text saves but photo upload fails, the user is still sent back to the saved report edit page so the photos can be reattached and retried.
+- This does not change how reports are written, submitted, approved, or viewed.
