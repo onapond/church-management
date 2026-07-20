@@ -589,5 +589,5 @@
 # 2026-07-20 Report Submit Reliability
 - When a report with photos is submitted, the system may save the report first and then finish photo upload/final submission.
 - The permission check for that saved draft has been tightened so the original author can continue the submit process without a false edit-permission error.
-- If the same final submit request is repeated after the report is already submitted, the system treats it as already complete.
+- After final submission succeeds, the local writing backup for that report is cleared so a later report does not accidentally reuse the old submitted report.
 - This does not change who is allowed to write, edit, or approve reports.

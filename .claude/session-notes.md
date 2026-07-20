@@ -510,10 +510,10 @@
 - Change:
   - `POST /api/reports/save` reads the target report first.
   - Active author management of `draft`/`rejected` reports is allowed without depending on `users.role`.
-  - Repeated final-submit calls for an author-owned already-`submitted` target report return success without rewriting the report.
+  - Report form local draft backups are versioned and cleared after successful final submission so stale submitted report ids are not reused.
   - Admin/global management still uses `canManageReport`.
 - Verification:
-  - `npm test -- src/app/api/reports/save/route.test.ts` passed, 10 tests.
+  - `npm test -- src/components/reports/utils/reportDraftBackup.test.ts src/app/api/reports/save/route.test.ts` passed, 14 tests.
   - `npx tsc --noEmit` passed.
-  - `npm test` passed, 164 tests.
+  - `npm test` passed, 168 tests.
   - `npm run build` passed.

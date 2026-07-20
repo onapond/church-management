@@ -295,5 +295,5 @@ pm run build.
 - `src/app/api/reports/save/route.ts` now validates `editReportId`/`targetReportId` by reading the report first.
 - If the current user is the report author and the report is still `draft` or `rejected`, the route proceeds without requiring a `users` role lookup.
 - Role lookup remains only for admin/global management checks.
-- Repeated final-submit calls for an author-owned report that is already `submitted` return success without rewriting the report.
+- Report form local draft backups are versioned and cleared after successful final submission so stale submitted report ids are not reused.
 - This keeps the existing permission model but avoids blocking a valid author submit after the photo-backed draft-save step.

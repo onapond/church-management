@@ -15,6 +15,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useReportSubmit } from './hooks/useReportSubmit'
 import { useReportForm } from './hooks/useReportForm'
 import type { ReportFormFields } from './utils/reportDataBuilder'
+import {
+  clearReportDraftBackup,
+  readReportDraftBackup,
+  REPORT_DRAFT_BACKUP_VERSION,
+  writeReportDraftBackup,
+} from './utils/reportDraftBackup'
 import type { MemberAttendanceItem } from './CellMemberAttendance'
 
 // 클라이언트 전용 컴포넌트로 동적 import
@@ -107,7 +113,7 @@ interface ReportFormProps {
 }
 
 interface ReportDraftBackup {
-  version: 1
+  version: 2
   updatedAt: number
   draftReportId: string | null
   data: {
@@ -193,6 +199,7 @@ export default function ReportForm({
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'local' | 'saving' | 'saved' | 'error'>('idle')
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
   const hasRestoredBackupRef = useRef(false)
+  const hasFinalSubmittedRef = useRef(false)
   const lastAutosavedSnapshotRef = useRef('')
 
   const backupKey = useMemo(() => {
@@ -201,7 +208,7 @@ export default function ReportForm({
   }, [authorId, defaultDate, existingReport?.id, reportType])
 
   const serializableSnapshot = useMemo<ReportDraftBackup>(() => ({
-    version: 1,
+    version: REPORT_DRAFT_BACKUP_VERSION,
     updatedAt: 0,
     draftReportId,
     data: {
@@ -268,6 +275,23 @@ export default function ReportForm({
     }
   }, [])
 
+  const handleReportSubmitSuccess = useCallback(({ reportId, isDraft }: { reportId: string; isDraft: boolean }) => {
+    if (isDraft) {
+      hasFinalSubmittedRef.current = false
+      setDraftReportId(reportId)
+      writeReportDraftBackup(window.localStorage, backupKey, {
+        ...serializableSnapshot,
+        draftReportId: reportId,
+        updatedAt: Date.now(),
+      })
+      return
+    }
+
+    hasFinalSubmittedRef.current = true
+    setDraftReportId(null)
+    clearReportDraftBackup(window.localStorage, backupKey)
+  }, [backupKey, serializableSnapshot])
+
   // 제출 (useReportSubmit 훅에 로직 위임)
   const { submit, saveDraftSnapshot, isLoading: loading, error } = useReportSubmit({
     supabase,
@@ -297,19 +321,17 @@ export default function ReportForm({
       setExistingReportId(id)
       setExistingReportStatus(status)
     },
+    onSubmitSuccess: handleReportSubmitSuccess,
   })
 
   useEffect(() => {
     if (hasRestoredBackupRef.current) return
     hasRestoredBackupRef.current = true
 
-    const raw = window.localStorage.getItem(backupKey)
-    if (!raw) return
+    const backup = readReportDraftBackup<ReportDraftBackup>(window.localStorage, backupKey)
+    if (!backup) return
 
     try {
-      const backup = JSON.parse(raw) as ReportDraftBackup
-      if (backup.version !== 1) return
-
       setForm(backup.data.form)
       setPrograms(backup.data.programs)
       setCellAttendance(backup.data.cellAttendance)
@@ -343,11 +365,13 @@ export default function ReportForm({
   ])
 
   useEffect(() => {
+    if (hasFinalSubmittedRef.current) return
+
     const timer = window.setTimeout(() => {
-      window.localStorage.setItem(backupKey, JSON.stringify({
+      writeReportDraftBackup(window.localStorage, backupKey, {
         ...serializableSnapshot,
         updatedAt: Date.now(),
-      }))
+      })
       setAutosaveStatus(prev => (prev === 'idle' ? 'local' : prev))
     }, 400)
 
@@ -356,6 +380,7 @@ export default function ReportForm({
 
   useEffect(() => {
     if (!hasRestoredBackupRef.current) return
+    if (hasFinalSubmittedRef.current) return
     if (!form.department_id || !form.report_date || loading) return
     if (snapshotString === lastAutosavedSnapshotRef.current) return
 
@@ -366,10 +391,10 @@ export default function ReportForm({
         setDraftReportId(autosaveResult.reportId)
         lastAutosavedSnapshotRef.current = snapshotString
         setAutosaveStatus('saved')
-        window.localStorage.setItem(backupKey, JSON.stringify({
+        writeReportDraftBackup(window.localStorage, backupKey, {
           ...serializableSnapshot,
           draftReportId: autosaveResult.reportId,
-        }))
+        })
       } else if (autosaveResult.status === 'failed') {
         setAutosaveStatus('error')
       } else {

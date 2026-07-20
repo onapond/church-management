@@ -232,24 +232,20 @@ describe('POST /api/reports/save', () => {
     }), 'author-1')
   })
 
-  it('treats an already-submitted author target as an idempotent final submit', async () => {
+  it('rejects an already-submitted author target instead of rewriting it', async () => {
     const supabase = createSupabase({
       user: { id: 'author-1' },
+      role: 'member',
       report: { author_id: 'author-1', status: 'submitted' },
     })
     mockCreateClient.mockResolvedValue(supabase)
 
     const response = await POST(makeRequest({ ...validBody, isDraft: false, targetReportId: 'draft-1' }))
 
-    expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      ok: true,
-      reportId: 'draft-1',
-      createdReportId: null,
-      warnings: [],
-    })
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toEqual({ ok: false, message: 'Forbidden' })
     expect(supabase.from).toHaveBeenCalledWith('weekly_reports')
-    expect(supabase.from).not.toHaveBeenCalledWith('users')
+    expect(supabase.from).toHaveBeenCalledWith('users')
     expect(mockPersistReportBundle).not.toHaveBeenCalled()
   })
 

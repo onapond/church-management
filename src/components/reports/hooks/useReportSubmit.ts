@@ -59,6 +59,7 @@ export interface UseReportSubmitOptions {
   queryClient: QueryClient
   router: ReturnType<typeof useRouter>
   onDuplicateFound: (id: string, status: string) => void
+  onSubmitSuccess?: (result: { reportId: string; isDraft: boolean }) => void
   draftReportId?: string | null
 }
 
@@ -217,6 +218,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
     queryClient,
     router,
     onDuplicateFound,
+    onSubmitSuccess,
     draftReportId,
   } = options
 
@@ -403,6 +405,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
       }
 
       toast.success(isDraft ? 'Draft saved.' : 'Report submitted.')
+      onSubmitSuccess?.({ reportId, isDraft })
       await queryClient.invalidateQueries({ queryKey: ['reports'] })
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       await queryClient.invalidateQueries({ queryKey: ['attendance'] })
@@ -447,6 +450,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
     handlePartialSaveFailure,
     memberAttendance,
     onDuplicateFound,
+    onSubmitSuccess,
     photoFiles,
     queryClient,
     reportType,

@@ -225,8 +225,11 @@
 - **Fix**:
   - Read the target report first.
   - Allow the report author to manage their own `draft` or `rejected` report without a role lookup.
-  - Treat repeated final submit for the same author-owned already-`submitted` target report as idempotent success.
+  - Version and clear report form local draft backups so stale submitted report ids are not reused as `targetReportId`.
   - Keep role lookup and `canManageReport` for admin/global management cases.
 - **Related files**:
   - `src/app/api/reports/save/route.ts`
   - `src/app/api/reports/save/route.test.ts`
+  - `src/components/reports/ReportForm.tsx`
+  - `src/components/reports/utils/reportDraftBackup.ts`
+  - `src/components/reports/utils/reportDraftBackup.test.ts`
