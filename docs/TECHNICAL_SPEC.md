@@ -342,5 +342,6 @@ WHERE year = 2026 AND report_type = 'weekly';
 - `POST /api/reports/save` still rejects requests that provide both `editReportId` and `targetReportId`.
 - For a single managed report id, the route now reads `weekly_reports.author_id/status` first.
 - Authors can continue saving/finalizing their own `draft` or `rejected` report without a separate role profile lookup.
+- A repeated final-submit call for the same author-owned `submitted` target report is treated as idempotent success and does not rewrite the row.
 - Admin/global management still uses `users.role` and `canManageReport`.
 - This is route-level validation hardening only. It does not alter RLS policies, RPC write behavior, auth flow, attendance, accounting, or approval status transitions.

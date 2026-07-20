@@ -510,9 +510,10 @@
 - Change:
   - `POST /api/reports/save` reads the target report first.
   - Active author management of `draft`/`rejected` reports is allowed without depending on `users.role`.
+  - Repeated final-submit calls for an author-owned already-`submitted` target report return success without rewriting the report.
   - Admin/global management still uses `canManageReport`.
 - Verification:
-  - `npm test -- src/app/api/reports/save/route.test.ts` passed, 9 tests.
+  - `npm test -- src/app/api/reports/save/route.test.ts` passed, 10 tests.
   - `npx tsc --noEmit` passed.
-  - `npm test` passed, 163 tests.
+  - `npm test` passed, 164 tests.
   - `npm run build` passed.

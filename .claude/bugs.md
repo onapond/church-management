@@ -225,6 +225,7 @@
 - **Fix**:
   - Read the target report first.
   - Allow the report author to manage their own `draft` or `rejected` report without a role lookup.
+  - Treat repeated final submit for the same author-owned already-`submitted` target report as idempotent success.
   - Keep role lookup and `canManageReport` for admin/global management cases.
 - **Related files**:
   - `src/app/api/reports/save/route.ts`

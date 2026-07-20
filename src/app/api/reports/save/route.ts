@@ -69,6 +69,20 @@ export async function POST(request: Request) {
         )
       }
 
+      if (
+        body.targetReportId
+        && !body.isDraft
+        && user.id === report.author_id
+        && report.status === 'submitted'
+      ) {
+        return NextResponse.json<ReportSaveResponse>({
+          ok: true,
+          reportId: body.targetReportId,
+          createdReportId: null,
+          warnings: [],
+        })
+      }
+
       const authorCanManage = user.id === report.author_id && ['draft', 'rejected'].includes(report.status)
       if (!authorCanManage) {
         const { data: userProfile, error: userError } = await supabase

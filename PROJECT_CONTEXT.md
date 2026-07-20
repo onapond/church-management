@@ -337,4 +337,5 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - `POST /api/reports/save` now validates the target report first and allows the active author to manage their own `draft` or `rejected` report without depending on a separate `users` role lookup.
 - Admin role lookup still runs when needed for non-author management, but author draft finalization no longer fails because a profile role query is blocked or unavailable.
 - This targets `Failed to validate report edit permission` during the photo-backed submit path: save draft, upload photos, then finalize the same report.
+- Repeated final-submit requests for the same author-owned already-`submitted` target report are treated as idempotent success to avoid a false `Forbidden` after a prior submit completed.
 - This is a narrow report API validation fix. It does not change attendance, accounting, auth, RLS policies, database schema, report save RPC, or approval status rules.
