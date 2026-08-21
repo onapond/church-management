@@ -1,3 +1,108 @@
+# CURRENT_TASK.md
+
+이 파일은 "이번 작업"의 단일 기준 문서다. 작업을 시작하기 전에 최신 상태로 갱신하고, 구현 중 범위가 바뀌면 즉시 업데이트한다.
+
+---
+
+## 1. Task Summary
+- 요청 제목: 아키텍처·코드 품질 감사 P0 항목 차단 (Phase 0)
+- 요청 목적: 2026-08-21 감사에서 확인된 P0 8건 중 **외부인 접근 / 개인정보 노출 / 복구 불가 데이터 파괴**에 해당하는 항목을 먼저 막는다.
+- 요청 원문 요약: "코드 수정은 하지말고 아키텍처 및 코드 품질 검증하고. 수정 필요한 부분 정리해줘" → 감사 완료. "다음 세션에서 진행하자. 문서 남기고" → 이번 세션은 문서화만, 실제 수정은 다음 세션.
+- 감사 결과 문서: `docs/03-analysis/2026-08-21-architecture-audit.analysis.md`
+- 시각화 보고서: https://claude.ai/code/artifact/22532bab-104f-40a3-8416-e8ee56b959d3
+
+### 감사 세션 상태 (2026-08-21)
+- **소스 코드는 수정하지 않았다.** 이번 세션 산출물은 문서 4건뿐이다.
+- 검증 통과 지적사항 169건 → P0 8 / P1 17 / P2 8 / P3 7로 통합 정리 완료.
+- 실행 검증: `npx tsc --noEmit` 통과 / `npm test` **168개 통과** / `npm run lint` 통과 /
+  `npm run build`는 `.env.local` 부재로 `/pending` prerender에서 실패(코드 회귀 아님, 상세는 분석 문서 §0).
+
+## 2. Scope
+- 이번 작업에 포함 (P0 8건):
+  - P0-1 자가 가입 승인 게이트 복구 (`handle_new_user` 트리거 `is_active = FALSE`)
+  - P0-2 mojibake 3파일 복구 (`CellManager.tsx`, `members/bulk-photos/page.tsx`, `members/[id]/edit/page.tsx`)
+  - P0-3 `visitations` SELECT RLS 축소 (기도제목·심방내용 보호)
+  - P0-4 보고서 인쇄 경로 저장형 XSS 차단 (`ReportDetail.tsx:742,745,749`)
+  - P0-5 서비스워커의 Supabase REST 응답 캐싱 전면 제외 (`public/sw.js`)
+  - P0-6 교인 삭제 순서 반전 + 에러 검사 (`queries/members.ts`)
+  - P0-7 `meeting-pdfs` Storage 정책 `else true` 교체 + UUID 정규식 수정
+  - P0-8 `report-photos` 등 3개 버킷 private 전환 + 서명 URL 전환
+- 이번 작업에서 제외:
+  - P1~P3 전체 (로드맵 Phase 1 이후)
+  - 결재 상태 모델 변경, 대형 컴포넌트 분해, 타입 생성기 도입
+  - 스키마 baseline 추출(P1-5)은 Phase 3에서 별도 진행
+
+## 3. Impact Check
+- attendance 흐름 영향: 없음. P0 항목 중 출결 읽기/쓰기 경로를 건드리는 것은 없다.
+- report 흐름 영향: 있음. 단 **표시/인쇄와 사진 스토리지 접근 경로만** 바뀐다.
+  P0-4는 인쇄 HTML 생성 시 escape만 추가하고, P0-8은 사진 URL을 공개 URL에서 서명 URL로 바꾼다.
+  보고서 저장 RPC(`save_report_bundle`)와 결재 상태 전이는 이번 범위에서 변경하지 않는다.
+- accounting 흐름 영향: 없음.
+- 권한/RLS/auth 영향: 있음. 이번 작업의 본체다.
+  - auth: `handle_new_user` 트리거가 신규 가입자를 비활성으로 생성하도록 변경(P0-1).
+  - RLS: `visitations` SELECT 축소(P0-3), `meeting-pdfs` Storage 정책 `else true` 제거(P0-7),
+    `members` DELETE 권한 규칙 확정(P0-6), 3개 버킷 `public = false` 전환(P0-8).
+  - 기존 보고서 결재 RLS(007/018)와 안건 RLS(016/017)는 이번 범위에서 변경하지 않는다.
+
+## 4. Files In Scope
+- 예상 수정 파일:
+  - `supabase/migrations/020_audit_p0_security_fixes.sql` (신규 — P0-1/3/6/7/8 통합)
+  - `src/components/settings/CellManager.tsx`
+  - `src/app/(dashboard)/members/bulk-photos/page.tsx`
+  - `src/app/(dashboard)/members/[id]/edit/page.tsx`
+  - `src/components/reports/ReportDetail.tsx`
+  - `src/lib/utils.ts`
+  - `public/sw.js`
+  - `src/queries/members.ts`
+  - `src/components/reports/hooks/useReportSubmit.ts`
+  - `src/lib/permissions.ts` + `src/lib/permissions.test.ts` (P0-6 `canDeleteMembers` 규칙 확정 시)
+  - `next.config.ts` (P0-8 `remotePatterns`)
+  - `.gitattributes` (신규 — P0-2 재발 방지)
+  - `scripts/check-required-docs.mjs` (P0-2 mojibake 검사 추가)
+  - 필수 문서 및 session notes
+
+## 5. Implementation Plan
+0. **선행: 프로덕션 현재 상태 확인** — 분석 문서 §6의 SQL을 Supabase SQL Editor에서 실행한다.
+   특히 P0-1의 "승인 없이 들어온 계정 탐지" 쿼리를 **수정 전에** 돌려 침입 계정 유무를 확인한다.
+   저장소의 RLS 파일은 프로덕션 상태의 근거가 아니다(RC2/RC3).
+1. **P0-2 mojibake 복구** — 의존성 없고 위험도 0. 여기서 시작해 워밍업한다.
+2. **P0-4 인쇄 XSS** — `escapeHtml()` 3곳 적용 + `iframe.srcdoc` + `sandbox` 전환.
+3. **P0-5 서비스워커** — supabase 호스트 전면 캐시 제외.
+4. **P0-1 승인 게이트** — 트리거/기본값 변경. 배포 즉시 신규 가입 차단 효과.
+5. **P0-3 · P0-7 · P0-8 RLS/Storage** — `020_audit_p0_security_fixes.sql` 하나로 묶어 작성.
+   P0-8은 앱 코드(서명 URL) 변경이 함께 가야 하므로 마이그레이션과 코드를 같은 커밋으로.
+6. **P0-6 교인 삭제** — 규칙 결정(팀장 삭제 허용 여부) → RLS + `useDeleteMember` 순서 반전.
+7. 필수 문서 업데이트 → `npm run verify`로 검증.
+
+## 6. Risks And Guardrails
+- **DB 변경은 migration 파일로만 작성한다.** 직접 SQL 실행 후 마이그레이션 미기록이 RC3의 원인이었다.
+- P0-8(버킷 private 전환)은 **기존 `photo_url` 데이터 마이그레이션이 함께 필요**하다.
+  공개 URL이 저장된 기존 행을 상대 경로로 정규화하지 않으면 기존 사진이 전부 깨진다. 순서 주의.
+- P0-1 적용 후 **정상 사용자가 로그인 불가가 되지 않는지** 확인한다.
+  기존 `is_active = true` 계정은 건드리지 않고 신규 가입에만 적용되어야 한다.
+- P0-7 수정 시 **기존에 업로드된 회의록 PDF 접근이 끊기지 않는지** 확인한다.
+- 결재 상태 모델, `save_report_bundle` RPC, 안건 RLS는 이번 범위 밖이다. 건드리지 않는다.
+- `npm run build`는 `.env.local`이 있어야 통과한다. 검증 전에 환경변수를 먼저 준비한다.
+
+## 7. Verification Plan
+- `npx tsc --noEmit`
+- `npm test`
+- `npm run lint`
+- `npm run build` (`.env.local` 필요)
+- 또는 위 전체를 `npm run verify`로 한 번에
+- 원격: 마이그레이션 적용 후 분석 문서 §6의 `pg_policies` / `storage.buckets` 쿼리로 재확인
+
+## 8. Execution Notes
+- (다음 세션에서 작성)
+
+## 9. Completion Record
+- (다음 세션에서 작성)
+
+---
+---
+
+# 이전 작업 기록 (아카이브)
+
 ## 2026-07-01 Follow-up - Restrict Peer Cell-Leader Report Visibility
 - Request: cell leaders must only see their own reports because other cell leaders' reports can contain private sharing content.
 - Impact scope:

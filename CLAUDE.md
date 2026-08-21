@@ -297,3 +297,21 @@ pm run build.
 - Role lookup remains only for admin/global management checks.
 - Report form local draft backups are versioned and cleared after successful final submission so stale submitted report ids are not reused.
 - This keeps the existing permission model but avoids blocking a valid author submit after the photo-backed draft-save step.
+
+## 2026-08-21 Notes - Architecture And Code Quality Audit (Read-Only)
+- Read-only audit only; no source code was changed in this session.
+- Authoritative result document: `docs/03-analysis/2026-08-21-architecture-audit.analysis.md`.
+- Next actionable work is tracked in `CURRENT_TASK.md` as Phase 0 (P0, 8 items).
+- 169 verified findings across 9 dimensions, consolidated into P0 8 / P1 17 / P2 8 / P3 7.
+- Core structural weakness: there is no server write boundary. Nearly all mutations go
+  browser -> PostgREST directly, and RLS (the only real defense) is not reproducible from the
+  repository, is open in several places via `USING (true)`, and diverges from `src/lib/permissions.ts`.
+- Confirmed correct and should not be "fixed": `save_report_bundle` is `security invoker` with
+  `set search_path = public`, so RLS does apply inside the RPC.
+- Test count in existing docs was stale: the suite is **168 tests**, not 93.
+- `npm run build` fails without `.env.local` because the Supabase factories use
+  `process.env.NEXT_PUBLIC_SUPABASE_URL!.trim()`; the missing-env failure surfaces as an opaque
+  `TypeError ... reading 'trim'` during `/pending` prerender. Replace the `!` assertions with
+  explicit validation when touching those files.
+- Before fixing P0-1 / P0-8 / P1-3, first inspect production state (pg_policies, storage.buckets,
+  unapproved active accounts). Repository RLS files are not evidence of production policy state.

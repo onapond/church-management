@@ -517,3 +517,50 @@
   - `npx tsc --noEmit` passed.
   - `npm test` passed, 168 tests.
   - `npm run build` passed.
+
+## 2026-08-21 Session - 아키텍처 · 코드 품질 감사 (읽기 전용)
+
+### 이번 세션에서 한 일
+- 사용자 요청: "코드 수정은 하지말고 아키텍처 및 코드 품질 검증하고. 수정 필요한 부분 정리해줘"
+- **소스 코드는 수정하지 않았다.** 산출물은 문서 4건뿐이다.
+- 9개 영역 병렬 감사(인증·권한 경계 / RLS·마이그레이션 / API 라우트 / 데이터 접근 계층 /
+  React·Next.js / 모듈 구조 / 타입 안정성 / 보안 / 운영 품질) 후 영역별 반박 검증 →
+  살아남은 169건을 P0 8 / P1 17 / P2 8 / P3 7로 통합 정리.
+
+### 산출물
+- `docs/03-analysis/2026-08-21-architecture-audit.analysis.md` — 전체 감사 결과 (권위 문서)
+- `CURRENT_TASK.md` — Phase 0(P0 8건) 작업 계약서로 갱신, 이전 기록은 하단 아카이브로 이동
+- `CLAUDE.md` — 2026-08-21 Notes 섹션 추가
+- 시각화 보고서: https://claude.ai/code/artifact/22532bab-104f-40a3-8416-e8ee56b959d3
+
+### 실행 검증 (직접 실행한 실제 결과)
+- `npx tsc --noEmit` 통과 (exit 0)
+- `npm test` 통과 — **168개** (문서에 적힌 "93개"는 오래된 수치)
+- `npm run lint` 통과 (`--max-warnings=0`)
+- `npm run build` **실패** — `.env.local` 부재로 `/pending` prerender 중단.
+  코드 회귀가 아니다. 다만 `process.env.NEXT_PUBLIC_SUPABASE_URL!.trim()`의 `!` 단언 때문에
+  환경변수 누락이 `TypeError: Cannot read properties of undefined (reading 'trim')`이라는
+  쓸모없는 메시지로 나타난다는 점 자체가 발견이다.
+
+### 핵심 결론
+- 구조적 약점 한 문장: **이 앱에는 서버 쓰기 경계가 없다.**
+  거의 모든 mutation이 브라우저 → PostgREST 직접 호출이고, 유일한 방어선인 RLS가
+  저장소에서 재현 불가능하며 여러 곳에서 `USING (true)`로 열려 있다.
+- 잘 되어 있는 것도 분명히 있다: `save_report_bundle`의 `security invoker` 선택,
+  `@supabase/ssr` 쿠키 처리, 오픈 리다이렉트 방어, 번들 분리, `npm run verify` 정의.
+  문제는 보안 개념 부재가 아니라 **일관성 부재**다.
+
+### 다음 세션에서 할 일
+1. **먼저 프로덕션 상태 확인** (수정보다 먼저) — 분석 문서 §6의 SQL 실행.
+   특히 P0-1의 "승인 없이 들어온 계정 탐지" 쿼리로 침입 계정 유무 확인.
+   저장소의 RLS 파일은 프로덕션 상태의 근거가 아니다.
+2. `CURRENT_TASK.md`의 §5 Implementation Plan 순서대로 P0 8건 진행
+   (P0-2 mojibake → P0-4 인쇄 XSS → P0-5 sw.js → P0-1 승인 게이트 → P0-3/7/8 RLS → P0-6 교인 삭제)
+3. Phase 1(P1-6 CI + Sentry)을 다른 P1보다 먼저 세울 것 — 이후 모든 수정의 회귀를 잡는다.
+
+### 주의사항 (다음 세션이 실수하기 쉬운 지점)
+- P0-8 버킷 private 전환은 **기존 `photo_url` 데이터 마이그레이션이 함께** 가야 한다.
+  순서를 틀리면 기존 사진이 전부 깨진다.
+- P0-1은 **신규 가입에만** 적용되어야 한다. 기존 활성 계정을 비활성화하면 안 된다.
+- DB 변경은 반드시 migration 파일로. 직접 SQL 실행 후 미기록이 현재 RC3(스키마 재현 불가)의 원인이다.
+- `npm run build` 검증에는 `.env.local`이 필요하다.
