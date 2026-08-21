@@ -1,8 +1,7 @@
 // Service Worker for 청파중앙교회 교육위원회 관리 시스템
-const CACHE_VERSION = 'v1.2.0'
+const CACHE_VERSION = 'v1.3.0'
 const CACHE_NAME = `church-app-${CACHE_VERSION}`
 const STATIC_CACHE = `church-static-${CACHE_VERSION}`
-const API_CACHE = `church-api-${CACHE_VERSION}`
 
 // 캐시할 정적 자산
 const STATIC_ASSETS = [
@@ -45,8 +44,7 @@ self.addEventListener('activate', (event) => {
             .filter((name) => {
               return name.startsWith('church-') &&
                      name !== CACHE_NAME &&
-                     name !== STATIC_CACHE &&
-                     name !== API_CACHE
+                     name !== STATIC_CACHE
             })
             .map((name) => {
               console.log('[SW] Deleting old cache:', name)
@@ -78,25 +76,16 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Supabase auth 요청은 캐시하지 않음
-  if (url.hostname.includes('supabase') && url.pathname.includes('/auth/')) {
+  // 인증된 데이터 요청은 캐시하지 않음.
+  // 캐시 키는 URL뿐이고 JWT는 Authorization 헤더로 전송되므로, 공용 PC에서
+  // 다른 사용자의 응답이 그대로 재사용될 수 있다. RLS는 서버에서만 적용되며
+  // 서비스워커 캐시는 그 경계를 우회한다.
+  if (url.hostname.includes('supabase') || url.pathname.startsWith('/api/')) {
     return
   }
 
   // GET 이외의 요청은 캐시하지 않음
   if (request.method !== 'GET') {
-    return
-  }
-
-  // Supabase API - Stale While Revalidate
-  if (url.hostname.includes('supabase')) {
-    event.respondWith(staleWhileRevalidate(request, API_CACHE))
-    return
-  }
-
-  // 내부 API - Stale While Revalidate
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(staleWhileRevalidate(request, API_CACHE))
     return
   }
 
@@ -154,38 +143,6 @@ async function cacheFirst(request, cacheName) {
   } catch (error) {
     throw error
   }
-}
-
-// Stale While Revalidate 전략 (API용)
-async function staleWhileRevalidate(request, cacheName) {
-  const cache = await caches.open(cacheName)
-  const cachedResponse = await cache.match(request)
-
-  // 백그라운드에서 새 응답 가져오기
-  const fetchPromise = fetch(request)
-    .then((networkResponse) => {
-      if (networkResponse.ok) {
-        cache.put(request, networkResponse.clone())
-      }
-      return networkResponse
-    })
-    .catch(() => {
-      // 네트워크 오류 무시 - 캐시 응답 사용
-      return null
-    })
-
-  // 캐시가 있으면 즉시 반환, 없으면 네트워크 대기
-  if (cachedResponse) {
-    return cachedResponse
-  }
-
-  const networkResponse = await fetchPromise
-  if (networkResponse) {
-    return networkResponse
-  }
-
-  // 둘 다 실패한 경우
-  throw new Error('No cached or network response available')
 }
 
 // 정적 자산 여부 확인

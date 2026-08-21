@@ -24,9 +24,9 @@ export default async function BulkPhotosPage() {
     <div className="mx-auto max-w-6xl space-y-4 lg:space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-bold text-gray-900 lg:text-xl">援먯씤 ?ъ쭊 ?쇨큵 ?낅줈??</h1>
+          <h1 className="text-lg font-bold text-gray-900 lg:text-xl">교인 사진 일괄 업로드</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            遺?쒕? ?좏깮?섍퀬 ?щ윭 援먯씤???ъ쭊???쒕쾲???낅줈?쒗빀?덈떎
+            부서를 선택하고 여러 교인의 사진을 한번에 업로드합니다
           </p>
         </div>
         <Link
@@ -37,7 +37,7 @@ export default async function BulkPhotosPage() {
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            <span>紐⑸줉</span>
+            <span>목록</span>
           </span>
         </Link>
       </div>

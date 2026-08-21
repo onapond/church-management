@@ -1,0 +1,24 @@
+# Text files are stored and checked out as UTF-8 with LF endings.
+# The 2026-08-21 audit traced the /settings/cells mojibake to a CP949 save on a
+# Windows toolchain; encoding regressions are caught by `npm run docs:check`.
+* text=auto eol=lf
+
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.sql  text eol=lf
+*.md   text eol=lf
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.svg  text eol=lf
+*.pdf  binary
+*.woff binary
+*.woff2 binary

@@ -315,3 +315,27 @@ pm run build.
   explicit validation when touching those files.
 - Before fixing P0-1 / P0-8 / P1-3, first inspect production state (pg_policies, storage.buckets,
   unapproved active accounts). Repository RLS files are not evidence of production policy state.
+
+## 2026-08-21 Notes - Audit Phase 0 Part 1 (P0-2 / P0-4 / P0-5)
+- Completed the three P0 items that needed no production access or pending decision.
+- Mojibake in `CellManager.tsx`, `members/bulk-photos/page.tsx`, and `members/[id]/edit/page.tsx`
+  was restored from the pre-corruption commits (`8c0d68b`, `41ddc20`, `78e1c67`); the corrupting
+  commit was `9a55fa0`, which also carried real refactoring, so only the strings were replaced.
+- `npm run docs:check` now fails on CJK ideographs or `?`+Hangul in `src`/`public` source files.
+  Use this guard instead of `working-tree-encoding`: a mojibake file is still valid UTF-8.
+- `printHtmlInIframe` uses `iframe.srcdoc` + `sandbox="allow-same-origin allow-modals"`.
+  Never add `allow-scripts` there. Print HTML must not rely on inline `<script>` for printing.
+- Rich-text report fields (`discussion_notes`, `other_notes`) go through `DOMPurify.sanitize()`
+  in the print path, not `escapeHtml()`; everything else in the print HTML is escaped.
+- `public/sw.js` must never cache authenticated responses. Both `supabase` hosts and `/api/`
+  paths are excluded before any caching strategy runs, and `staleWhileRevalidate` was removed.
+  Bump `CACHE_VERSION` when cache behavior changes so `activate` purges old caches on clients.
+- Verified with `docs:check`, `lint`, `npm test` (**173 tests**), `tsc --noEmit`, and `npm run build`.
+  The build passes when Supabase env vars are supplied; `.env.local` is still absent from the repo,
+  so pass them inline when verifying.
+- Remaining P0 items (P0-1, P0-3, P0-6, P0-7, P0-8) are blocked on Supabase production access
+  and on deciding whether team leaders may delete members. See `CURRENT_TASK.md` §8.
+- **Decision 2026-08-21 — member deletion is admin-only.** `team_leader` must not delete members.
+  `canDeleteMembers` allows only `super_admin` / `president` / `accountant`, the pending `members`
+  DELETE RLS policy must use the same roles, and `member_departments_modify_teamlead` (`FOR ALL`)
+  must have its DELETE scope narrowed so a team leader cannot strip department links either.

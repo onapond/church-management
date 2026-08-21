@@ -345,3 +345,47 @@ WHERE year = 2026 AND report_type = 'weekly';
 - Report form local draft backups are versioned and cleared after successful final submission, preventing a stale submitted report id from being reused as `targetReportId`.
 - Admin/global management still uses `users.role` and `canManageReport`.
 - This is route-level validation hardening only. It does not alter RLS policies, RPC write behavior, auth flow, attendance, accounting, or approval status transitions.
+
+## 2026-08-21 Audit Phase 0 - Encoding, Print XSS, Service Worker Cache
+
+### Source encoding guard (P0-2)
+- `scripts/check-required-docs.mjs` now fails `npm run docs:check` when a source file under
+  `src/` or `public/` contains a CJK ideograph (`一-鿿`) or a `?` immediately followed by a
+  Hangul syllable. Both patterns are produced by saving UTF-8 Korean text through a CP949 round trip
+  and neither appears in this app's real Korean UI text.
+- `.gitattributes` normalizes text files to LF and marks binary assets.
+  `working-tree-encoding` is intentionally not used: the repository is already UTF-8, and a mojibake
+  file is still valid UTF-8, so that attribute would not catch this class of regression.
+- Restored files: `src/components/settings/CellManager.tsx`,
+  `src/app/(dashboard)/members/bulk-photos/page.tsx`,
+  `src/app/(dashboard)/members/[id]/edit/page.tsx`.
+
+### Report print sandbox (P0-4)
+- `printHtmlInIframe` in `src/lib/utils.ts` renders through `iframe.srcdoc` with
+  `sandbox="allow-same-origin allow-modals"`.
+- `allow-scripts` is deliberately omitted, so injected inline handlers such as
+  `<img src=x onerror=...>` and inline `<script>` blocks cannot execute on the app origin.
+- `allow-same-origin` is required for the parent to call `contentWindow.print()`;
+  `allow-modals` is required for the print dialog itself.
+- Print HTML no longer carries `<script>window.onload=...print()</script>`; the parent
+  `onload` handler is the single print trigger.
+- All interpolations in `generateWeeklyPrintHTML`, `generateMeetingPrintHTML`, and
+  `generateProjectPrintHTML` are escaped with `escapeHtml()`.
+- Exception: `discussion_notes` and `other_notes` are RichTextEditor HTML and are rendered with
+  `DOMPurify.sanitize()`, matching how `ReportDetail` renders them on screen. Escaping them would
+  print raw tags.
+
+### Service worker caching policy (P0-5)
+- `public/sw.js` no longer caches any authenticated response. Both `supabase` hosts and
+  `/api/` paths return from the `fetch` handler without `respondWith`.
+- The `/api/` exclusion is required, not defensive: removing only the stale-while-revalidate branch
+  would let `/api/` fall through to `networkFirst`, which also writes to a URL-keyed cache.
+  `/api/notifications` has a GET handler and was affected.
+- `staleWhileRevalidate` and the `API_CACHE` constant were removed entirely.
+- `CACHE_VERSION` moved to `v1.3.0` so the existing `activate` cleanup deletes the already-populated
+  `church-api-v1.2.0` cache on every client at deploy time.
+- Static asset caching (`/_next/static/`, images, fonts) and HTML `networkFirst` are unchanged.
+
+### Not changed in this phase
+- Database schema, RLS policies, Storage bucket visibility, approval state transitions,
+  `save_report_bundle` RPC, attendance, accounting, and auth flow.

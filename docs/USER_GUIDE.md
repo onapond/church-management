@@ -591,3 +591,20 @@
 - The permission check for that saved draft has been tightened so the original author can continue the submit process without a false edit-permission error.
 - After final submission succeeds, the local writing backup for that report is cleared so a later report does not accidentally reuse the old submitted report.
 - This does not change who is allowed to write, edit, or approve reports.
+
+# 2026-08-21 Cell Management Text And Print Safety
+
+## 셀 관리 화면 한글 표시 복구
+- `설정 > 셀 관리` 페이지의 제목, 버튼, 안내 문구, 알림 메시지가 깨진 글자로 보이던 문제를 고쳤습니다.
+- `교인 정보 수정` 화면과 `교인 사진 일괄 업로드` 화면의 제목/안내 문구도 함께 복구했습니다.
+- 기능 동작은 이전과 동일하며, 표시되는 글자만 정상으로 돌아왔습니다.
+
+## 보고서 인쇄 안전성
+- 보고서 인쇄 미리보기가 스크립트를 실행하지 않는 격리 영역에서 열리도록 바뀌었습니다.
+- 보고서에 입력된 내용은 그대로 인쇄되지만, 내용 안에 숨겨진 코드가 실행될 수 없습니다.
+- 인쇄 버튼 사용 방법은 이전과 같습니다.
+
+## 공용 PC 사용 시 데이터 표시
+- 로그아웃 후 다른 계정으로 로그인했을 때 이전 사용자의 화면 내용이 남아 보일 수 있던 문제를 막았습니다.
+- 결재나 저장 직후에도 항상 최신 상태가 보이도록 바뀌었습니다.
+- 앱을 다시 열면 자동으로 적용됩니다.

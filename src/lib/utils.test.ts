@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatDate, formatPhone, formatCurrency, getWeekNumber, calculateAge, getWeekBounds } from './utils'
+import { formatDate, formatPhone, formatCurrency, getWeekNumber, calculateAge, getWeekBounds, escapeHtml, printHtmlInIframe } from './utils'
 
 describe('formatDate', () => {
   it('formats short date', () => {
@@ -140,3 +140,42 @@ describe('calculateAge', () => {
   })
 })
 
+
+describe('escapeHtml', () => {
+  it('escapes every character that can open a tag or attribute', () => {
+    expect(escapeHtml('<img src=x onerror="alert(1)">')).toBe(
+      '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;'
+    )
+  })
+
+  it('escapes ampersands before other entities', () => {
+    expect(escapeHtml('a & <b>')).toBe('a &amp; &lt;b&gt;')
+  })
+
+  it('escapes single quotes', () => {
+    expect(escapeHtml("it's")).toBe('it&#39;s')
+  })
+
+  it('returns an empty string for nullish input', () => {
+    expect(escapeHtml(null)).toBe('')
+    expect(escapeHtml(undefined)).toBe('')
+  })
+})
+
+describe('printHtmlInIframe', () => {
+  it('renders print content in a sandboxed frame that cannot run scripts', () => {
+    printHtmlInIframe('<h1>주차 보고서</h1>')
+
+    const frame = document.querySelector('iframe')
+    expect(frame).not.toBeNull()
+
+    const sandbox = frame?.getAttribute('sandbox') ?? ''
+    expect(sandbox).toContain('allow-same-origin')
+    expect(sandbox).toContain('allow-modals')
+    expect(sandbox).not.toContain('allow-scripts')
+
+    expect(frame?.getAttribute('srcdoc')).toContain('<h1>주차 보고서</h1>')
+
+    frame?.remove()
+  })
+})

@@ -739,15 +739,15 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
 }
 
 function generateWeeklyPrintHTML(dn: string, rd: Date, pr: string, ar: string, nr: string, pn: ParsedReportNotes) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${dn}</title><style>@page { size: A4; margin: 0; } body { font-family: sans-serif; padding: 15mm; } table { border-collapse: collapse; width: 100%; } .cell { border: 1px solid #000; padding: 6px; text-align: center; } .section-header { background: #eee; font-weight: bold; text-align: center; padding: 8px; border: 1px solid #000; }</style></head><body><div style="text-align:center;"><h1>${dn} 주차 보고서</h1><p>${rd.getFullYear()}년 ${rd.getMonth()+1}월 ${rd.getDate()}일</p></div><table style="margin-top:20px;"><tr><td class="section-header" colspan="4">진행순서</td></tr>${pr}</table><table style="margin-top:20px;"><tr><td class="section-header" colspan="5">출결상황</td></tr>${ar}</table><table style="margin-top:20px;"><tr><td class="section-header" colspan="6">새신자 명단</td></tr>${nr}</table><div style="margin-top:20px;"><h3>논의사항</h3><pre>${pn.discussion_notes||''}</pre><h3>기타사항</h3><pre>${pn.other_notes||''}</pre></div><script>window.onload=function(){window.print();}</script></body></html>`
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(dn)}</title><style>@page { size: A4; margin: 0; } body { font-family: sans-serif; padding: 15mm; } table { border-collapse: collapse; width: 100%; } .cell { border: 1px solid #000; padding: 6px; text-align: center; } .section-header { background: #eee; font-weight: bold; text-align: center; padding: 8px; border: 1px solid #000; }</style></head><body><div style="text-align:center;"><h1>${escapeHtml(dn)} 주차 보고서</h1><p>${rd.getFullYear()}년 ${rd.getMonth()+1}월 ${rd.getDate()}일</p></div><table style="margin-top:20px;"><tr><td class="section-header" colspan="4">진행순서</td></tr>${pr}</table><table style="margin-top:20px;"><tr><td class="section-header" colspan="5">출결상황</td></tr>${ar}</table><table style="margin-top:20px;"><tr><td class="section-header" colspan="6">새신자 명단</td></tr>${nr}</table><div style="margin-top:20px;"><h3>논의사항</h3><pre>${DOMPurify.sanitize(pn.discussion_notes || '')}</pre><h3>기타사항</h3><pre>${DOMPurify.sanitize(pn.other_notes || '')}</pre></div></body></html>`
 }
 
 function generateMeetingPrintHTML(ti: string, rd: Date, pr: string) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ti}</title></head><body><h1>${ti}</h1><p>${rd.toLocaleDateString()}</p><div>${pr}</div><script>window.onload=function(){window.print();}</script></body></html>`
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(ti)}</title></head><body><h1>${escapeHtml(ti)}</h1><p>${escapeHtml(rd.toLocaleDateString())}</p><div>${pr}</div></body></html>`
 }
 
 function generateProjectPrintHTML(ti: string) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${ti}</title></head><body><h1>${ti}</h1><script>window.onload=function(){window.print();}</script></body></html>`
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(ti)}</title></head><body><h1>${escapeHtml(ti)}</h1></body></html>`
 }
 
 function ApprovalStep({ label, status, name, date }: ApprovalStepProps) {

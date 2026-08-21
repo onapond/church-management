@@ -93,28 +93,29 @@ export function printHtmlInIframe(html: string): void {
   printFrame.style.position = 'fixed'
   printFrame.style.width = '0'
   printFrame.style.height = '0'
-  document.body.appendChild(printFrame)
+  // Print content is assembled from user-submitted report text, so the frame must not
+  // execute scripts. `allow-same-origin` keeps contentWindow reachable for print(),
+  // `allow-modals` permits the print dialog, and omitting `allow-scripts` blocks
+  // injected inline handlers such as `<img src=x onerror=...>`.
+  printFrame.setAttribute('sandbox', 'allow-same-origin allow-modals')
 
-  const frameDoc = printFrame.contentWindow?.document
-  if (frameDoc) {
-    frameDoc.open()
-    frameDoc.write(html)
-    frameDoc.close()
-    printFrame.onload = () => {
-      try {
-        printFrame.contentWindow?.focus()
-        printFrame.contentWindow?.print()
-      } catch (e) {
-        console.error('Print error:', e)
-      } finally {
-        setTimeout(() => {
-          if (printFrame.parentNode === document.body) {
-            document.body.removeChild(printFrame)
-          }
-        }, 1000)
-      }
+  printFrame.onload = () => {
+    try {
+      printFrame.contentWindow?.focus()
+      printFrame.contentWindow?.print()
+    } catch (e) {
+      console.error('Print error:', e)
+    } finally {
+      setTimeout(() => {
+        if (printFrame.parentNode === document.body) {
+          document.body.removeChild(printFrame)
+        }
+      }, 1000)
     }
   }
+
+  printFrame.srcdoc = html
+  document.body.appendChild(printFrame)
 }
 
 export function calculateAge(birthDate: string | null): number | null {

@@ -564,3 +564,60 @@
 - P0-1은 **신규 가입에만** 적용되어야 한다. 기존 활성 계정을 비활성화하면 안 된다.
 - DB 변경은 반드시 migration 파일로. 직접 SQL 실행 후 미기록이 현재 RC3(스키마 재현 불가)의 원인이다.
 - `npm run build` 검증에는 `.env.local`이 필요하다.
+
+## 2026-08-21 Session (2차) - 감사 Phase 0 첫 3건 수정
+
+### 이번 세션에서 한 일
+- 사용자 요청: "바로 진행할 수 있는 것부터 해"
+- 프로덕션 접근(Supabase PAT)과 `.env.local`이 모두 없는 상태라,
+  **선행 조건이 없는 코드 전용 P0 3건**만 처리했다: P0-2, P0-4, P0-5.
+
+### P0-2 mojibake 복구
+- 깨진 원인 커밋은 `9a55fa0`. 그 이전 커밋에 정상 한글이 남아 있어 원문을 복원했다.
+- `9a55fa0`에 인코딩 외 리팩터링도 섞여 있어 파일 되돌리기 대신 **문자열만 라인 단위 교체**.
+- `CellManager.tsx` 31곳 / `bulk-photos/page.tsx` 3곳 / `members/[id]/edit/page.tsx` 2곳.
+- 재발 방지 가드를 `scripts/check-required-docs.mjs`에 추가 (CJK 한자 또는 `?`+한글 탐지).
+  일부러 깨진 파일을 넣어 `docs:check`가 실패하는 것까지 확인했다.
+- `.gitattributes` 신규. 감사 문서가 제안한 `working-tree-encoding=UTF-8`은 **의도적으로 뺐다** —
+  저장소가 이미 UTF-8이고 깨진 파일도 유효한 UTF-8이라 이 설정으로는 못 잡는다.
+
+### P0-4 인쇄 XSS
+- 인쇄 HTML 생성 3함수의 모든 보간부에 `escapeHtml()` 적용.
+- **단, `discussion_notes`/`other_notes`는 리치텍스트 HTML이라 `DOMPurify.sanitize()`를 썼다.**
+  상세 화면과 같은 처리다. escape하면 인쇄물에 태그가 그대로 찍히는 회귀가 난다.
+- `printHtmlInIframe`을 `srcdoc` + `sandbox="allow-same-origin allow-modals"`로 전환.
+  `allow-scripts`가 없으므로 주입된 `onerror` 핸들러가 실행되지 않는다.
+- 인쇄 HTML의 인라인 `<script>`는 이제 실행되지 않으므로 제거. 인쇄는 부모 `onload`가 트리거한다.
+- `escapeHtml` 4건 + 샌드박스 1건 테스트 추가.
+
+### P0-5 서비스워커
+- `supabase` 호스트 전면 캐시 제외 + **`/api/`도 함께 제외**.
+  `staleWhileRevalidate` 분기만 지우면 `/api/`가 아래 `networkFirst`로 흘러 계속 캐시된다.
+  `/api/notifications`에 실제 GET 핸들러가 있어 가설이 아닌 실재 누출이었다.
+- `staleWhileRevalidate` 함수와 `API_CACHE` 상수 제거.
+- `CACHE_VERSION` v1.2.0 → v1.3.0. `activate` 정리 로직이 기존에 오염된
+  `church-api-v1.2.0`을 배포 시점에 각 클라이언트에서 삭제한다.
+
+### 검증 (직접 실행한 실제 결과)
+- `npm run docs:check` 통과
+- `npm run lint` 통과
+- `npm test` 통과 — **173개** (168 + 신규 5)
+- `npx tsc --noEmit` 통과
+- `npm run build` **통과** (placeholder 환경변수를 인라인으로 넣어 실행).
+  감사 문서 §0의 "빌드 실패는 환경변수 부재 때문이고 코드 회귀가 아니다"가 확정됐다.
+
+### 실수했다가 되돌린 것
+- `sw.js`에서 `staleWhileRevalidate` 제거 시 파일 뒷부분을 통째로 잘라
+  `isStaticAsset`, push/notificationclick/message 핸들러까지 날렸다.
+  HEAD 기준으로 뒷부분을 복원했고, 최종 diff가 7 insertions / 50 deletions인 것과
+  뒷부분이 HEAD와 바이트 동일한 것을 확인했다.
+
+### 다음 세션에서 할 일
+1. **Supabase PAT 확보** → 감사 문서 §6 SQL 실행 (미승인 활성 계정 탐지 우선)
+2. **P0-6 결정**: 팀장에게 교인 삭제를 허용할지
+3. 위 둘이 풀리면 P0-1 → P0-3/7/8(020 마이그레이션 하나로) → P0-6
+
+### 주의사항
+- 인쇄 샌드박스는 실제 브라우저에서 인쇄 대화상자가 뜨는지 **수동 확인이 남아 있다.**
+  `.env.local`이 없어 앱을 띄우지 못했다.
+- 이번 세션은 커밋하지 않았다. 작업 트리에 변경분이 그대로 있다.

@@ -71,7 +71,7 @@
 4. **P0-1 승인 게이트** — 트리거/기본값 변경. 배포 즉시 신규 가입 차단 효과.
 5. **P0-3 · P0-7 · P0-8 RLS/Storage** — `020_audit_p0_security_fixes.sql` 하나로 묶어 작성.
    P0-8은 앱 코드(서명 URL) 변경이 함께 가야 하므로 마이그레이션과 코드를 같은 커밋으로.
-6. **P0-6 교인 삭제** — 규칙 결정(팀장 삭제 허용 여부) → RLS + `useDeleteMember` 순서 반전.
+6. **P0-6 교인 삭제** — 규칙 확정됨(관리자 전용, 아래 §6 참조) → RLS + `useDeleteMember` 순서 반전.
 7. 필수 문서 업데이트 → `npm run verify`로 검증.
 
 ## 6. Risks And Guardrails
@@ -84,6 +84,15 @@
 - 결재 상태 모델, `save_report_bundle` RPC, 안건 RLS는 이번 범위 밖이다. 건드리지 않는다.
 - `npm run build`는 `.env.local`이 있어야 통과한다. 검증 전에 환경변수를 먼저 준비한다.
 
+### 확정된 결정 사항
+- **2026-08-21 — 교인 삭제 권한 (P0-6)**: **관리자 전용**. `team_leader`는 교인을 삭제할 수 없다.
+  - `src/lib/permissions.ts`의 `canDeleteMembers`는 `super_admin` / `president` / `accountant`만 통과시킨다.
+  - `members` DELETE RLS 정책도 같은 역할로만 허용한다. 현재 `members`에는 DELETE 정책 자체가 없다.
+  - `member_departments_modify_teamlead`가 `FOR ALL`이라 팀장이 부서 연결만 지울 수 있는 것이
+    P0-6의 부분 파괴 원인이므로, 이 정책의 DELETE 범위도 함께 좁혀야 한다.
+  - 클라이언트는 `members` DELETE를 `.select()`와 함께 **먼저** 실행해 실제 삭제 행 수를 확인한 뒤에만
+    사진/부서 연결 정리를 진행한다.
+
 ## 7. Verification Plan
 - `npx tsc --noEmit`
 - `npm test`
@@ -93,10 +102,91 @@
 - 원격: 마이그레이션 적용 후 분석 문서 §6의 `pg_policies` / `storage.buckets` 쿼리로 재확인
 
 ## 8. Execution Notes
-- (다음 세션에서 작성)
+
+### 2026-08-21 (2차 세션) — P0-2 · P0-4 · P0-5 완료
+프로덕션 접근(Supabase PAT)과 `.env.local`이 없는 상태에서 **선행 조건 없이 진행 가능한 코드 전용 3건**을 먼저 처리했다.
+
+**P0-2 mojibake 복구**
+- 깨짐은 커밋 `9a55fa0`("Consolidate accumulated feature cleanup")에서 발생했다.
+  그 이전 커밋(`8c0d68b`, `41ddc20`, `78e1c67`)에는 한글이 정상이라 원문을 그대로 복원할 수 있었다.
+- 다만 `9a55fa0`은 인코딩 외에 실제 리팩터링(변수명 변경, 권한 체크 블록 이동)도 포함해서
+  **파일 통째 되돌리기는 하지 않고 문자열만 라인 단위로 교체**했다.
+- `CellManager.tsx` 31곳, `members/bulk-photos/page.tsx` 3곳, `members/[id]/edit/page.tsx` 2곳.
+- 재발 방지: `scripts/check-required-docs.mjs`에 mojibake 가드 추가.
+  `src`/`public`의 `.ts/.tsx/.js/.mjs`를 훑어 **CJK 한자**(`\u4e00-\u9fff`)나
+  **`?`+한글 음절** 패턴이 있으면 `docs:check`를 실패시킨다. 둘 다 이 앱의 정상 한글 텍스트에는 없다.
+  일부러 깨진 파일을 넣어 실패하는 것까지 역검증했다.
+- `.gitattributes` 신규 추가(LF 정규화 + 바이너리 지정).
+  단, 감사 문서가 제안한 `working-tree-encoding=UTF-8`은 **넣지 않았다.**
+  저장소가 이미 UTF-8이라 no-op이고, 깨진 파일도 "유효한 UTF-8"이라 이 설정으로는 잡히지 않는다.
+  실제 방어선은 위의 `docs:check` 가드다.
+
+**P0-4 인쇄 경로 저장형 XSS**
+- `generateWeeklyPrintHTML` / `generateMeetingPrintHTML` / `generateProjectPrintHTML`의
+  모든 보간부에 `escapeHtml()` 적용.
+- **감사 문서와 다르게 처리한 부분**: `discussion_notes` / `other_notes`는 RichTextEditor가 만든
+  **HTML(리치텍스트)**이고 상세 화면에서도 `DOMPurify.sanitize()` + `dangerouslySetInnerHTML`로 렌더된다.
+  여기에 `escapeHtml()`을 쓰면 인쇄물에 태그가 그대로 찍히는 회귀가 생기므로
+  상세 화면과 동일하게 `DOMPurify.sanitize()`를 적용했다.
+- `printHtmlInIframe`을 `frameDoc.write()` → **`iframe.srcdoc` + `sandbox`**로 전환.
+  `sandbox="allow-same-origin allow-modals"` — `allow-scripts`를 주지 않으므로
+  주입된 `<img src=x onerror=...>`나 인라인 `<script>`가 실행되지 않는다.
+  `allow-same-origin`은 부모가 `contentWindow.print()`를 호출하기 위해, `allow-modals`는 인쇄 대화상자를 위해 필요하다.
+- 스크립트가 더 이상 실행되지 않으므로 인쇄 HTML 안의
+  `<script>window.onload=function(){window.print();}</script>`는 제거했다.
+  인쇄 트리거는 이미 `printHtmlInIframe`의 `onload` 핸들러가 담당한다.
+- `src/lib/utils.test.ts`에 `escapeHtml` 4건 + `printHtmlInIframe` 샌드박스 1건 테스트 추가.
+
+**P0-5 서비스워커 캐시**
+- `supabase` 호스트를 전면 캐시 제외로 바꿨다.
+- **범위를 한 칸 넓혔다**: `/api/`도 함께 제외했다. `staleWhileRevalidate` 분기만 제거하면
+  `/api/`가 아래의 `networkFirst(request, CACHE_NAME)`로 흘러가 **같은 방식으로 계속 캐시된다.**
+  `/api/notifications`에는 실제로 GET 핸들러가 있어 가설이 아니라 실재하는 누출이었다.
+- `staleWhileRevalidate` 함수와 `API_CACHE` 상수를 제거해 같은 실수가 재도입될 여지를 없앴다.
+- `CACHE_VERSION`을 `v1.2.0` → `v1.3.0`으로 올렸다.
+  `activate` 핸들러가 `church-*` 중 현재 캐시가 아닌 것을 지우므로,
+  **이미 오염된 기존 사용자 브라우저의 `church-api-v1.2.0`이 배포와 함께 삭제된다.**
+  로그아웃 시 캐시 삭제 코드를 새로 넣지 않아도 되는 이유가 이것이다.
+
+**검증 (실제 실행 결과)**
+- `npm run docs:check` 통과
+- `npm run lint` 통과 (`--max-warnings=0`)
+- `npm test` 통과 — **173개** (기존 168 + 신규 5)
+- `npx tsc --noEmit` 통과
+- `npm run build` **통과** — 단, `.env.local`이 없어 placeholder 환경변수를 인라인으로 넣어 실행했다:
+  `NEXT_PUBLIC_SUPABASE_URL=... NEXT_PUBLIC_SUPABASE_ANON_KEY=... npm run build`
+  이로써 감사 문서 §0의 "빌드 실패는 코드 회귀가 아니라 환경변수 부재 때문"이 확정 확인됐다.
+
+### 남은 P0 5건과 각각의 차단 사유
+| ID | 상태 | 차단 사유 |
+| --- | --- | --- |
+| P0-1 승인 게이트 | 미착수 | 선행 조치인 **프로덕션 계정 전수 조사**에 Supabase 접근 필요 (캐시된 PAT 401) |
+| P0-3 visitations RLS | 미착수 | 마이그레이션 작성은 가능하나 현재 프로덕션 정책 상태 확인이 선행되어야 함 |
+| P0-6 교인 삭제 | 미착수 (규칙 확정) | 2026-08-21 결정: **관리자 전용, 팀장 불가**. 클라이언트 수정은 바로 가능하나 `members` DELETE RLS 정책 추가는 프로덕션 적용에 Supabase 접근 필요 |
+| P0-7 meeting-pdfs `else true` | 미착수 | 프로덕션 Storage 정책 실물 확인 후 020 마이그레이션에 통합 |
+| P0-8 버킷 private 전환 | 미착수 | 기존 `photo_url` 데이터 정규화가 동반되어야 하며, 순서를 틀리면 기존 사진이 전부 깨짐 |
+
+### 다음 세션이 먼저 할 일
+1. Supabase PAT 확보 → 감사 문서 §6의 SQL 4종 실행 (특히 미승인 활성 계정 탐지)
+2. P0-1 → P0-3/7/8(020 마이그레이션 단일 파일) → P0-6 순서로 진행
+3. P0-6은 규칙이 확정됐으므로(관리자 전용) 마이그레이션 작성과 클라이언트 수정을 바로 시작할 수 있다
 
 ## 9. Completion Record
-- (다음 세션에서 작성)
+- 2026-08-21 (2차 세션): P0 8건 중 **3건 완료** (P0-2, P0-4, P0-5). 5건은 위 표의 사유로 미착수.
+- 변경 파일:
+  - `src/components/settings/CellManager.tsx`
+  - `src/app/(dashboard)/members/bulk-photos/page.tsx`
+  - `src/app/(dashboard)/members/[id]/edit/page.tsx`
+  - `src/components/reports/ReportDetail.tsx`
+  - `src/lib/utils.ts`
+  - `src/lib/utils.test.ts`
+  - `public/sw.js`
+  - `scripts/check-required-docs.mjs`
+  - `.gitattributes` (신규)
+- 이번 세션에서 **건드리지 않은 것**: DB 스키마/마이그레이션, RLS 정책, 결재 상태 전이,
+  `save_report_bundle` RPC, 출결·회계 흐름, 인증 흐름.
+- 인쇄 샌드박스 전환은 실제 브라우저 인쇄 동작 확인이 필요하다.
+  `.env.local`이 없어 이번 세션에서는 앱을 띄운 수동 인쇄 테스트를 하지 못했다.
 
 ---
 ---

@@ -84,11 +84,11 @@ export default async function MemberEditPage({
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          ?뚯븘媛湲?
+          돌아가기
         </Link>
       </div>
 
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">援먯씤 ?뺣낫 ?섏젙</h1>
+      <h1 className="mb-6 text-2xl font-bold text-gray-900">교인 정보 수정</h1>
 
       <MemberForm departments={(deptData || []) as Department[]} member={memberData as Member} />
     </div>
