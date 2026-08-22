@@ -621,3 +621,22 @@
 - 인쇄 샌드박스는 실제 브라우저에서 인쇄 대화상자가 뜨는지 **수동 확인이 남아 있다.**
   `.env.local`이 없어 앱을 띄우지 못했다.
 - 이번 세션은 커밋하지 않았다. 작업 트리에 변경분이 그대로 있다.
+
+## 2026-08-22 Youth Report Forbidden Recovery
+- Request: resolve the `Forbidden` error shown while Park Youngmin submitted a youth report.
+- Production read-only evidence:
+  - Park Youngmin is active, has `role = team_leader`, and is linked to the youth department.
+  - No youth report by Park Youngmin existed for 2026-08-10 through 2026-08-22, confirming the browser was carrying an obsolete autosave target rather than editing a current server draft.
+- Root cause:
+  - a restored local draft backup could retain a `targetReportId` that no longer resolved to an editable report.
+  - the route returned generic `Forbidden`, so the client could not safely recover.
+- Change:
+  - the save route returns HTTP 409 with `staleTarget: true` only for obsolete new-form autosave targets.
+  - the client retries once with `targetReportId = null`, preserving the current report fields.
+  - true edit-mode authorization failures remain HTTP 403 and are not retried.
+- Verification:
+  - focused report route/client tests passed, 18 tests.
+  - `npx tsc --noEmit` passed.
+  - latest merged `npm test` passed, 176 tests.
+  - production build passed with the repository's public Supabase URL/publishable key supplied to the build process.
+- No database, migration, RLS, auth, attendance, accounting, or approval workflow changes were required.

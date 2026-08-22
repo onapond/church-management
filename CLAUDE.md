@@ -339,3 +339,9 @@ pm run build.
   `canDeleteMembers` allows only `super_admin` / `president` / `accountant`, the pending `members`
   DELETE RLS policy must use the same roles, and `member_departments_modify_teamlead` (`FOR ALL`)
   must have its DELETE scope narrowed so a team leader cannot strip department links either.
+
+## 2026-08-22 Notes - Stale Report Draft Recovery
+- Treat `targetReportId` as a new-form autosave pointer, not as a general edit authority.
+- If that pointer no longer resolves to an author-owned `draft` or `rejected` report, the save route returns a typed stale-target conflict.
+- The report client retries once with `targetReportId = null`; do not apply this recovery to `editReportId` permission failures.
+- Keep all retried saves behind the existing authenticated route, RLS, and transactional `save_report_bundle` RPC.

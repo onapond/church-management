@@ -233,3 +233,19 @@
   - `src/components/reports/ReportForm.tsx`
   - `src/components/reports/utils/reportDraftBackup.ts`
   - `src/components/reports/utils/reportDraftBackup.test.ts`
+
+## 2026-08-22 Resolved - Stale Report Draft Target
+
+#### Restored youth report form could submit with `Forbidden`
+- **Symptom**: Park Youngmin saw `Forbidden` while submitting a youth report even though the account and department link were active.
+- **Root cause**: The browser's local report backup retained a `targetReportId` that no longer resolved to an editable server draft. The API returned a generic 403, leaving the client unable to distinguish stale autosave state from a real edit denial.
+- **Fix**:
+  - Return HTTP 409 with `staleTarget: true` for invalid new-form autosave targets.
+  - Retry the same form payload once without the obsolete target id.
+  - Preserve strict HTTP 403 behavior for actual `editReportId` permission failures.
+- **Related files**:
+  - `src/app/api/reports/save/route.ts`
+  - `src/app/api/reports/save/route.test.ts`
+  - `src/components/reports/hooks/useReportSubmit.ts`
+  - `src/components/reports/hooks/useReportSubmit.test.ts`
+  - `src/components/reports/utils/reportSavePayload.ts`

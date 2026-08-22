@@ -349,3 +349,9 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - No database schema, RLS policy, Storage bucket, approval state, attendance, accounting, or auth behavior was changed.
 - Still open: **P0-1** (signup approval gate) and **P0-3 / P0-7 / P0-8** (visitation SELECT RLS, `meeting-pdfs` `else true`, bucket privacy) need Supabase production access to inspect current state first; **P0-6** (member delete) needs a decision on whether team leaders may delete members. Details in `CURRENT_TASK.md` §8.
 - The print sandbox change still needs a manual print smoke test in a real browser.
+
+## 2026-08-22 Update - Stale Report Draft Recovery
+- New report forms now recover when a restored local backup points to a draft report id that was deleted, submitted, or is otherwise no longer editable.
+- `POST /api/reports/save` returns a typed stale-target conflict for invalid `targetReportId` values, while real `editReportId` permission failures remain forbidden.
+- The client discards only the obsolete target id and retries the same form payload once as a new save, preserving the user's current input.
+- No database, RLS, auth, attendance, accounting, report approval state, or RPC behavior changed.

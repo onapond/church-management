@@ -628,3 +628,31 @@
   - `npx tsc --noEmit` passed.
   - `npm test` passed, 158 tests.
   - `npm run build` passed.
+# 2026-08-22 Follow-up - Recover Stale Report Draft Targets
+- Request: fix the `Forbidden` error Park Youngmin saw while submitting a youth report.
+- Impact scope:
+  - attendance/accounting flows: no impact.
+  - report flow: API/client handling for stale autosave target ids only; report persistence and approval transitions remain unchanged.
+  - additive change: yes, a typed stale-target response and one safe retry without the obsolete target id.
+  - auth/RLS scope: unchanged; edit-mode permission failures remain forbidden and all retried writes still pass existing RLS/RPC checks.
+- Expected files in scope:
+  - `src/app/api/reports/save/route.ts`
+  - `src/app/api/reports/save/route.test.ts`
+  - `src/components/reports/hooks/useReportSubmit.ts`
+  - `src/components/reports/hooks/useReportSubmit.test.ts`
+  - `src/components/reports/utils/reportSavePayload.ts`
+  - required docs and session notes.
+- Root cause:
+  - the browser restored a local draft backup containing a `targetReportId` that no longer resolves to a manageable draft.
+  - the save route returned a generic 403, so the client could not distinguish the obsolete autosave pointer from a real edit permission denial.
+- Plan:
+  - return a typed stale-target conflict only for new-form `targetReportId` failures.
+  - retry once with `targetReportId = null`, preserving the current form content and keeping edit-mode authorization strict.
+  - add focused route/client regression tests, then run typecheck, tests, and build.
+- Completion:
+  - implemented the typed HTTP 409 stale-target response and one-time client retry.
+  - kept `editReportId` permission failures on the existing HTTP 403 path.
+  - focused tests passed, 18 tests; latest merged full suite passed, 176 tests.
+  - `npx tsc --noEmit` passed.
+  - `npm run build` passed when the repository's public Supabase build variables were supplied.
+  - no DB, migration, RLS, auth, attendance, accounting, or approval changes were made.

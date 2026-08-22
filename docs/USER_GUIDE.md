@@ -608,3 +608,8 @@
 - 로그아웃 후 다른 계정으로 로그인했을 때 이전 사용자의 화면 내용이 남아 보일 수 있던 문제를 막았습니다.
 - 결재나 저장 직후에도 항상 최신 상태가 보이도록 바뀌었습니다.
 - 앱을 다시 열면 자동으로 적용됩니다.
+
+# 2026-08-22 Report Draft Recovery
+- If a browser restores an old local report draft whose server-side draft no longer exists or can no longer be edited, the form now removes only the obsolete draft reference and retries the current content automatically.
+- The text currently entered in the form is preserved during this recovery.
+- Real report edit permission failures are not retried, and report writing, editing, and approval permissions are unchanged.

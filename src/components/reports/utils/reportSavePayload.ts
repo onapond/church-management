@@ -56,14 +56,23 @@ export type ReportSaveSuccessResponse = {
 export type ReportSaveDuplicateResponse = {
   ok: false
   duplicate: true
+  staleTarget?: false
   id: string
   status: string
+  message: string
+}
+
+export type ReportSaveStaleTargetResponse = {
+  ok: false
+  duplicate?: false
+  staleTarget: true
   message: string
 }
 
 export type ReportSaveErrorResponse = {
   ok: false
   duplicate?: false
+  staleTarget?: false
   message: string
   reportId?: string
   createdReportId?: string | null
@@ -72,4 +81,5 @@ export type ReportSaveErrorResponse = {
 export type ReportSaveResponse =
   | ReportSaveSuccessResponse
   | ReportSaveDuplicateResponse
+  | ReportSaveStaleTargetResponse
   | ReportSaveErrorResponse

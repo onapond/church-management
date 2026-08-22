@@ -389,3 +389,10 @@ WHERE year = 2026 AND report_type = 'weekly';
 ### Not changed in this phase
 - Database schema, RLS policies, Storage bucket visibility, approval state transitions,
   `save_report_bundle` RPC, attendance, accounting, and auth flow.
+
+## 2026-08-22 Stale Report Draft Recovery
+- `POST /api/reports/save` distinguishes an invalid new-form `targetReportId` from an actual edit permission denial.
+- Missing, submitted, or otherwise non-editable autosave targets return HTTP 409 with `staleTarget: true`.
+- `useReportSubmit` retries that exact save payload once with `targetReportId: null`; duplicate detection and all existing RLS/RPC checks still apply to the retry.
+- `editReportId` remains strict: unauthorized or missing edit targets continue to return HTTP 403 and are never retried as new reports.
+- Scope is limited to report save recovery. There are no schema, migration, auth, RLS, attendance, accounting, or approval-transition changes.

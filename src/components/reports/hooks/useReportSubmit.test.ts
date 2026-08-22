@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { saveReportViaApi, uploadPhotos } from './useReportSubmit'
+import {
+  saveReportViaApi,
+  saveReportWithStaleTargetRecovery,
+  uploadPhotos,
+} from './useReportSubmit'
 import type { ReportSaveRequest } from '../utils/reportSavePayload'
 
 const basePayload: ReportSaveRequest = {
@@ -90,6 +94,69 @@ describe('saveReportViaApi', () => {
       ok: false,
       message: 'Report save response was malformed.',
     })
+  })
+})
+
+describe('saveReportWithStaleTargetRecovery', () => {
+  it('retries once without an obsolete draft target id', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: false,
+        staleTarget: true,
+        message: 'The saved draft reference is no longer available.',
+      }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ok: true,
+        reportId: 'report-new-1',
+        createdReportId: 'report-new-1',
+        warnings: [],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(saveReportWithStaleTargetRecovery({
+      ...basePayload,
+      targetReportId: 'deleted-draft-1',
+    })).resolves.toEqual({
+      ok: true,
+      reportId: 'report-new-1',
+      createdReportId: 'report-new-1',
+      warnings: [],
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      targetReportId: 'deleted-draft-1',
+    })
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      targetReportId: null,
+    })
+  })
+
+  it('does not retry real permission errors', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ok: false,
+      message: 'Forbidden',
+    }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(saveReportWithStaleTargetRecovery({
+      ...basePayload,
+      editReportId: 'report-edit-1',
+      targetReportId: null,
+    })).resolves.toEqual({
+      ok: false,
+      message: 'Forbidden',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
 

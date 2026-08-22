@@ -193,6 +193,25 @@ async function saveReportViaApi(payload: ReportSaveRequest): Promise<ReportSaveR
   }
 }
 
+async function saveReportWithStaleTargetRecovery(
+  payload: ReportSaveRequest,
+): Promise<ReportSaveResponse> {
+  const result = await saveReportViaApi(payload)
+  if (
+    result.ok
+    || !result.staleTarget
+    || !payload.targetReportId
+    || payload.editReportId
+  ) {
+    return result
+  }
+
+  return saveReportViaApi({
+    ...payload,
+    targetReportId: null,
+  })
+}
+
 export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmitReturn {
   const {
     supabase,
@@ -304,7 +323,9 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
     }
 
     try {
-      const result = await runExclusive(() => saveReportViaApi(buildSavePayload(true, targetReportId)))
+      const result = await runExclusive(() => saveReportWithStaleTargetRecovery(
+        buildSavePayload(true, targetReportId),
+      ))
       if (!result.ok) return { status: 'failed' } as const
 
       await queryClient.invalidateQueries({ queryKey: ['reports'] })
@@ -353,7 +374,9 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
         draftMode: boolean,
         targetReportId?: string | null,
       ): Promise<ReportSaveResponse | null> => {
-        const saveResult = await runExclusive(() => saveReportViaApi(buildSavePayload(draftMode, targetReportId)))
+        const saveResult = await runExclusive(() => saveReportWithStaleTargetRecovery(
+          buildSavePayload(draftMode, targetReportId),
+        ))
 
         if (!saveResult.ok) {
           if (saveResult.duplicate) {
@@ -465,4 +488,4 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
   return { submit, saveDraftSnapshot, isLoading, error, clearError }
 }
 
-export { saveReportViaApi, uploadPhotos }
+export { saveReportViaApi, saveReportWithStaleTargetRecovery, uploadPhotos }

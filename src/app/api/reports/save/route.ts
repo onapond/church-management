@@ -63,6 +63,17 @@ export async function POST(request: Request) {
       }
 
       if (!report) {
+        if (body.targetReportId) {
+          return NextResponse.json<ReportSaveResponse>(
+            {
+              ok: false,
+              staleTarget: true,
+              message: 'The saved draft reference is no longer available.',
+            },
+            { status: 409 },
+          )
+        }
+
         return NextResponse.json<ReportSaveResponse>(
           { ok: false, message: 'Forbidden' },
           { status: 403 },
@@ -71,6 +82,17 @@ export async function POST(request: Request) {
 
       const authorCanManage = user.id === report.author_id && ['draft', 'rejected'].includes(report.status)
       if (!authorCanManage) {
+        if (body.targetReportId) {
+          return NextResponse.json<ReportSaveResponse>(
+            {
+              ok: false,
+              staleTarget: true,
+              message: 'The saved draft reference is no longer editable.',
+            },
+            { status: 409 },
+          )
+        }
+
         const { data: userProfile, error: userError } = await supabase
           .from('users')
           .select('role')
@@ -124,4 +146,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

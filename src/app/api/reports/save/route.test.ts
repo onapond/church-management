@@ -142,7 +142,7 @@ describe('POST /api/reports/save', () => {
     expect(mockPersistReportBundle).not.toHaveBeenCalled()
   })
 
-  it('returns 403 when autosave target requester cannot manage the report', async () => {
+  it('returns a stale-target conflict when autosave target requester cannot manage the report', async () => {
     mockCreateClient.mockResolvedValue(createSupabase({
       role: 'member',
       report: { author_id: 'other-user', status: 'draft' },
@@ -150,8 +150,29 @@ describe('POST /api/reports/save', () => {
 
     const response = await POST(makeRequest({ ...validBody, isDraft: true, targetReportId: 'draft-1' }))
 
-    expect(response.status).toBe(403)
-    await expect(response.json()).resolves.toEqual({ ok: false, message: 'Forbidden' })
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      staleTarget: true,
+      message: 'The saved draft reference is no longer editable.',
+    })
+    expect(mockPersistReportBundle).not.toHaveBeenCalled()
+  })
+
+  it('returns a stale-target conflict when the autosave target no longer exists', async () => {
+    mockCreateClient.mockResolvedValue(createSupabase({
+      role: 'team_leader',
+      report: null,
+    }))
+
+    const response = await POST(makeRequest({ ...validBody, targetReportId: 'deleted-draft-1' }))
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      staleTarget: true,
+      message: 'The saved draft reference is no longer available.',
+    })
     expect(mockPersistReportBundle).not.toHaveBeenCalled()
   })
 
@@ -232,7 +253,7 @@ describe('POST /api/reports/save', () => {
     }), 'author-1')
   })
 
-  it('rejects an already-submitted author target instead of rewriting it', async () => {
+  it('marks an already-submitted author target as stale instead of rewriting it', async () => {
     const supabase = createSupabase({
       user: { id: 'author-1' },
       role: 'member',
@@ -242,10 +263,14 @@ describe('POST /api/reports/save', () => {
 
     const response = await POST(makeRequest({ ...validBody, isDraft: false, targetReportId: 'draft-1' }))
 
-    expect(response.status).toBe(403)
-    await expect(response.json()).resolves.toEqual({ ok: false, message: 'Forbidden' })
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      staleTarget: true,
+      message: 'The saved draft reference is no longer editable.',
+    })
     expect(supabase.from).toHaveBeenCalledWith('weekly_reports')
-    expect(supabase.from).toHaveBeenCalledWith('users')
+    expect(supabase.from).not.toHaveBeenCalledWith('users')
     expect(mockPersistReportBundle).not.toHaveBeenCalled()
   })
 
@@ -270,4 +295,3 @@ describe('POST /api/reports/save', () => {
     })
   })
 })
-
