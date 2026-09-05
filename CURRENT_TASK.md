@@ -205,6 +205,7 @@
 - 원격의 동시 작업(보고서 stale draft 복구) 위로 rebase 후 검증: `npm run lint`, `npm test`(185), `npm run typecheck`, `npm run build` 모두 통과.
 - 출석/회계/보고서 저장 RPC/결재 전이는 변경하지 않았다.
 - 후속 작업: `docs/handoffs/2026-09-05-attendance-report-linkage.md`.
+- Git/배포: 원격 `690ad69` 위로 rebase 후 P0 커밋 `b047f58`을 `origin/main`에 push. Vercel production `dpl_9CY3t4LaD9rHBnLcxJ7sVGofWQQ5` READY 및 `church-opal.vercel.app/login` HTTP 200 확인.
 
 - 2026-08-21 (2차 세션): P0 8건 중 **3건 완료** (P0-2, P0-4, P0-5). 5건은 위 표의 사유로 미착수.
 - 변경 파일:

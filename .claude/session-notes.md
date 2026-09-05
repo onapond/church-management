@@ -664,3 +664,10 @@
 ### 다음 작업
 - `docs/handoffs/2026-09-05-attendance-report-linkage.md`부터 시작해 셀장보고서/주차보고서의 출석 자동연계와 통계 정확성을 수정한다.
 - 인쇄 sandbox 실제 인쇄 대화상자 smoke test는 여전히 수동 확인 필요.
+
+### Git / 배포
+- 원격 동시 커밋 `690ad69 Fix stale report draft recovery` 위로 rebase하고 전체 verify(185 tests)를 다시 통과했다.
+- P0 커밋 `b047f58 Close remaining P0 security gaps`를 `origin/main`에 push했다.
+- Vercel production 배포 `dpl_9CY3t4LaD9rHBnLcxJ7sVGofWQQ5` READY, `https://church-opal.vercel.app` alias 완료.
+- 배포 후 `/login` 스모크 HTTP 200.
+- 최신 CLI 59.11.7 직접 deploy는 인증 오류가 났지만 프로젝트 조회/로그인은 정상. 설치된 58.4.0이 업로드했고 원격 빌드는 59.11.7로 수행됐다. 전역 CLI는 추후 `npm i -g vercel@latest` 권장.
