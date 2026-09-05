@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { useMembers } from '@/queries/members'
-import { canEditMembers, canAccessAllDepartments, getAccessibleDepartmentIds } from '@/lib/permissions'
+import { canEditMembers, canDeleteMembers, canAccessAllDepartments, getAccessibleDepartmentIds } from '@/lib/permissions'
 import { HIDDEN_DEPARTMENT_CODES } from '@/lib/constants'
 import MemberList from './MemberList'
 
@@ -34,6 +34,7 @@ export default function MembersClient() {
   const { data: members = [], isLoading: membersLoading } = useMembers(departmentIds)
 
   const canEdit = canEditMembers(user)
+  const canDelete = canDeleteMembers(user)
 
   if (!user || deptsLoading || membersLoading) {
     return (
@@ -87,7 +88,7 @@ export default function MembersClient() {
       <MemberList
         members={members}
         departments={departments}
-        canEdit={canEdit || false}
+        canDelete={canDelete}
       />
     </div>
   )

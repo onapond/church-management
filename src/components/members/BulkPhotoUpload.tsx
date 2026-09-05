@@ -8,6 +8,7 @@ import { useDepartments } from '@/queries/departments'
 import { useMembers } from '@/queries/members'
 import { MAX_FILE_SIZE, ALLOWED_IMAGE_TYPES } from '@/lib/constants'
 import type { MemberWithDepts } from '@/types/shared'
+import { getStorageObjectPath } from '@/lib/storage'
 
 interface PhotoEntry {
   file: File
@@ -194,7 +195,7 @@ export default function BulkPhotoUpload() {
         const member = allMembers.find((m) => m.id === memberId)
         if (member?.photo_url) {
           try {
-            const oldPath = member.photo_url.split('/member-photos/')[1]?.split('?')[0]
+            const oldPath = getStorageObjectPath(member.photo_url, 'member-photos')
             if (oldPath) {
               await supabase.storage.from('member-photos').remove([oldPath])
             }
@@ -210,18 +211,11 @@ export default function BulkPhotoUpload() {
 
         if (uploadError) throw uploadError
 
-        // public URL 가져오기
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from('member-photos').getPublicUrl(filePath)
-
-        const photoUrl = `${publicUrl}?t=${Date.now()}`
-
         // DB 업데이트
         const { error: dbError } = await supabase
           .from('members')
           .update({
-            photo_url: photoUrl,
+            photo_url: filePath,
             photo_updated_at: new Date().toISOString(),
           })
           .eq('id', memberId)

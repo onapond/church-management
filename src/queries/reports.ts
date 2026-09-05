@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { createClient } from '@/lib/supabase/client'
 import type { WeeklyReport, ReportProgram, Newcomer, ApprovalHistory, ReportFeedback, ReportPhoto } from '@/types/database'
 import { getWeekBounds } from '@/lib/utils'
+import { signPhotoRecords } from '@/lib/storage'
 
 const supabase = createClient()
 
@@ -161,7 +162,8 @@ export function useReportPhotos(reportId: string | undefined) {
         .order('created_at', { ascending: true })
 
       if (error) throw error
-      return (data || []) as ReportPhoto[]
+      const signedPhotos = await signPhotoRecords(supabase, 'report-photos', (data || []) as ReportPhoto[])
+      return signedPhotos.filter((photo) => !!photo.photo_url)
     },
     enabled: !!reportId,
     staleTime: 30_000,

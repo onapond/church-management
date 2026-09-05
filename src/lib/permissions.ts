@@ -83,7 +83,7 @@ export function canEditMembers(user: UserData | null): boolean {
 }
 
 export function canDeleteMembers(user: UserData | null): boolean {
-  return canEditMembers(user)
+  return !!user?.is_active && isAdminRole(user.role)
 }
 
 export function canManageReport(

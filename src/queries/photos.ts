@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { DepartmentPhoto } from '@/types/database'
+import { signPhotoRecords } from '@/lib/storage'
 
 const supabase = createClient()
 
@@ -29,7 +30,8 @@ export function usePhotos(departmentId: string) {
 
       const { data, error } = await query
       if (error) throw error
-      return (data || []) as Photo[]
+      const signedPhotos = await signPhotoRecords(supabase, 'department-photos', (data || []) as Photo[])
+      return signedPhotos.filter((photo) => !!photo.photo_url)
     },
     staleTime: 60_000,
   })

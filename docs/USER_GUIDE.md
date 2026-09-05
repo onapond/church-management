@@ -613,3 +613,11 @@
 - If a browser restores an old local report draft whose server-side draft no longer exists or can no longer be edited, the form now removes only the obsolete draft reference and retries the current content automatically.
 - The text currently entered in the form is preserved during this recovery.
 - Real report edit permission failures are not retried, and report writing, editing, and approval permissions are unchanged.
+
+## 개인정보 및 사진 접근 변경 (2026-09-05)
+
+- 새로 가입한 계정은 관리자가 승인하기 전까지 사용할 수 없습니다.
+- 심방 일정과 기도제목은 작성자, 담당 부서 리더, 관리자만 볼 수 있습니다.
+- 교인 삭제는 관리자만 할 수 있습니다. 셀장·부서 리더는 담당 교인의 기본정보와 사진을 수정할 수 있지만, 기존 소속 부서를 제거할 수는 없습니다.
+- 교인 사진, 활동 사진, 보고서 사진은 로그인하지 않은 외부인에게 공개되지 않습니다. 화면에서는 기존과 동일하게 표시되며, 링크는 일정 시간이 지나면 자동으로 만료됩니다.
+- 사진 업로드 방법과 보고서 작성·결재 방법은 이전과 같습니다.

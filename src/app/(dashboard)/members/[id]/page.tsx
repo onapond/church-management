@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
+import { createSignedStorageUrl, getStorageObjectPath } from '@/lib/storage'
 
 interface MemberDepartmentData {
   department_id: string
@@ -75,7 +76,9 @@ export default function MemberDetailPage() {
       return
     }
 
-    setMember(data as Member)
+    const loadedMember = data as Member
+    loadedMember.photo_url = await createSignedStorageUrl(supabase, 'member-photos', loadedMember.photo_url)
+    setMember(loadedMember)
     setLoading(false)
   }, [params.id, supabase])
 
@@ -110,7 +113,7 @@ export default function MemberDetailPage() {
       // 기존 파일 삭제 (있으면)
       if (member.photo_url) {
         try {
-          const oldPath = member.photo_url.split('/member-photos/')[1]?.split('?')[0]
+          const oldPath = getStorageObjectPath(member.photo_url, 'member-photos')
           if (oldPath) {
             await supabase.storage.from('member-photos').remove([oldPath])
           }
@@ -127,26 +130,19 @@ export default function MemberDetailPage() {
 
       if (uploadError) throw uploadError
 
-      // Public URL 가져오기
-      const { data: urlData } = supabase.storage
-        .from('member-photos')
-        .getPublicUrl(filePath)
-
-      // 캐시 방지를 위한 타임스탬프 추가
-      const photoUrlWithCache = `${urlData.publicUrl}?t=${Date.now()}`
-
       // DB 업데이트
       const { error: updateError } = await supabase
         .from('members')
         .update({
-          photo_url: photoUrlWithCache,
+          photo_url: filePath,
           photo_updated_at: new Date().toISOString()
         })
         .eq('id', member.id)
 
       if (updateError) throw updateError
 
-      setMember({ ...member, photo_url: photoUrlWithCache })
+      const signedUrl = await createSignedStorageUrl(supabase, 'member-photos', filePath)
+      setMember({ ...member, photo_url: signedUrl })
       queryClient.invalidateQueries({ queryKey: ['members'] })
       setMessage('사진이 업로드되었습니다.')
     } catch (error) {

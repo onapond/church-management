@@ -8,6 +8,7 @@ import type { Member } from '@/types/database'
 import PhotoUploader from './PhotoUploader'
 import DepartmentSelector from './DepartmentSelector'
 import { CU1_DEPARTMENT_CODE } from '@/lib/constants'
+import { getStorageObjectPath } from '@/lib/storage'
 
 interface Department {
   id: string
@@ -43,13 +44,14 @@ interface MemberFormProps {
   departments: Department[]
   member?: MemberWithDepartments
   newcomerData?: NewcomerData | null
+  canManageDepartments?: boolean
 }
 
 type MemberWithOptionalGuardian = MemberWithDepartments & {
   guardian?: string | null
 }
 
-export default function MemberForm({ departments, member, newcomerData }: MemberFormProps) {
+export default function MemberForm({ departments, member, newcomerData, canManageDepartments = true }: MemberFormProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const supabase = useMemo(() => createClient(), [])
@@ -141,7 +143,7 @@ export default function MemberForm({ departments, member, newcomerData }: Member
     setError(null)
 
     try {
-      let photo_url = member?.photo_url || null
+      let photo_url = getStorageObjectPath(member?.photo_url, 'member-photos')
 
       // 사진 업로드
       const fileInput = document.getElementById('photo') as HTMLInputElement
@@ -168,7 +170,7 @@ export default function MemberForm({ departments, member, newcomerData }: Member
         // 기존 사진 삭제 (수정 시)
         if (isEdit && member?.photo_url) {
           try {
-            const oldPath = member.photo_url.split('/member-photos/')[1]?.split('?')[0]
+            const oldPath = getStorageObjectPath(member.photo_url, 'member-photos')
             if (oldPath) {
               await supabase.storage.from('member-photos').remove([oldPath])
             }
@@ -186,12 +188,7 @@ export default function MemberForm({ departments, member, newcomerData }: Member
           throw uploadError
         }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('member-photos')
-          .getPublicUrl(filePath)
-
-        // 캐시 방지를 위한 타임스탬프 추가
-        photo_url = `${publicUrl}?t=${Date.now()}`
+        photo_url = filePath
       }
 
       if (isEdit) {
@@ -216,29 +213,31 @@ export default function MemberForm({ departments, member, newcomerData }: Member
           throw new Error(`교인 정보 업데이트 실패: ${memberError.message}`)
         }
 
-        // member_departments 업데이트: 기존 삭제 후 재생성
-        const { error: deleteError } = await supabase
-          .from('member_departments')
-          .delete()
-          .eq('member_id', member.id)
+        if (canManageDepartments) {
+          // 관리자만 기존 부서 연결을 교체한다. 팀장 수정은 기본정보에 한정한다.
+          const { error: deleteError } = await supabase
+            .from('member_departments')
+            .delete()
+            .eq('member_id', member.id)
 
-        if (deleteError) {
-          throw new Error(`부서 연결 삭제 실패: ${deleteError.message}`)
-        }
+          if (deleteError) {
+            throw new Error(`부서 연결 삭제 실패: ${deleteError.message}`)
+          }
 
-        const deptRecords = selectedDeptIds.map(deptId => ({
-          member_id: member.id,
-          department_id: deptId,
-          is_primary: deptId === primaryDeptId,
-          cell_id: (cu1Dept && deptId === cu1Dept.id && selectedCellId) ? selectedCellId : null,
-        }))
+          const deptRecords = selectedDeptIds.map(deptId => ({
+            member_id: member.id,
+            department_id: deptId,
+            is_primary: deptId === primaryDeptId,
+            cell_id: (cu1Dept && deptId === cu1Dept.id && selectedCellId) ? selectedCellId : null,
+          }))
 
-        const { error: deptError } = await supabase
-          .from('member_departments')
-          .insert(deptRecords)
+          const { error: deptError } = await supabase
+            .from('member_departments')
+            .insert(deptRecords)
 
-        if (deptError) {
-          throw new Error(`부서 연결 추가 실패: ${deptError.message}`)
+          if (deptError) {
+            throw new Error(`부서 연결 추가 실패: ${deptError.message}`)
+          }
         }
       } else {
         // 등록: members 테이블에 먼저 삽입
@@ -365,7 +364,13 @@ export default function MemberForm({ departments, member, newcomerData }: Member
           onPrimaryChange={handlePrimaryChange}
           selectedCellId={selectedCellId}
           onCellIdChange={setSelectedCellId}
+          disabled={isEdit && !canManageDepartments}
         />
+        {isEdit && !canManageDepartments && (
+          <p className="sm:col-span-2 -mt-4 text-xs text-amber-700">
+            팀장은 교인 기본정보만 수정할 수 있습니다. 소속 부서 변경은 관리자에게 요청해주세요.
+          </p>
+        )}
 
         {/* 직업/소속 */}
         <div>

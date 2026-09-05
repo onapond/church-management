@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { MemberWithDepts } from '@/types/shared'
+import { getStorageObjectPath, signPhotoRecords } from '@/lib/storage'
 
 const supabase = createClient()
 
@@ -29,7 +30,7 @@ export function useMembers(departmentIds?: string[]) {
           .in('id', memberIds)
           .order('name')
         if (error) throw error
-        return (data || []) as unknown as MemberWithDepts[]
+        return signPhotoRecords(supabase, 'member-photos', (data || []) as unknown as MemberWithDepts[])
       }
 
       // 전체 교인 조회
@@ -38,7 +39,7 @@ export function useMembers(departmentIds?: string[]) {
         .select(MEMBER_SELECT)
         .order('name')
       if (error) throw error
-      return (data || []) as unknown as MemberWithDepts[]
+      return signPhotoRecords(supabase, 'member-photos', (data || []) as unknown as MemberWithDepts[])
     },
     staleTime: 5 * 60_000, // 5분 캐싱
     placeholderData: keepPreviousData,
@@ -51,25 +52,25 @@ export function useDeleteMember() {
 
   return useMutation({
     mutationFn: async (memberId: string) => {
-      // 1. 사진 URL 조회를 위해 교인 정보 가져오기
-      const { data: member } = await supabase
+      // 부모 행 삭제가 실제로 성공한 뒤에만 Storage 정리를 수행한다.
+      // FK cascade/restrict 판단도 DB에 맡겨 부분 삭제를 방지한다.
+      const { data: member, error } = await supabase
         .from('members')
-        .select('photo_url')
+        .delete()
         .eq('id', memberId)
+        .select('photo_url')
         .single()
+      if (error) throw error
 
-      // 2. Storage 사진 삭제
+      let storageWarning: string | undefined
       if (member?.photo_url) {
-        const photoPath = member.photo_url.split('/member-photos/')[1]?.split('?')[0]
+        const photoPath = getStorageObjectPath(member.photo_url, 'member-photos')
         if (photoPath) {
-          await supabase.storage.from('member-photos').remove([photoPath])
+          const { error: storageError } = await supabase.storage.from('member-photos').remove([photoPath])
+          if (storageError) storageWarning = '교인은 삭제되었지만 사진 파일 정리에 실패했습니다.'
         }
       }
-
-      // 3. 관련 데이터 및 교인 삭제
-      await supabase.from('member_departments').delete().eq('member_id', memberId)
-      const { error } = await supabase.from('members').delete().eq('id', memberId)
-      if (error) throw error
+      return { storageWarning }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] })

@@ -164,8 +164,7 @@ describe('uploadPhotos', () => {
   it('materializes file content before uploading to storage', async () => {
     const upload = vi.fn().mockResolvedValue({ error: null })
     const insert = vi.fn().mockResolvedValue({ error: null })
-    const getPublicUrl = vi.fn().mockReturnValue({ data: { publicUrl: 'https://example.com/report.jpg' } })
-    const storageFrom = vi.fn().mockReturnValue({ upload, getPublicUrl })
+    const storageFrom = vi.fn().mockReturnValue({ upload })
     const from = vi.fn().mockReturnValue({ insert })
     const supabase = {
       storage: { from: storageFrom },
@@ -184,7 +183,7 @@ describe('uploadPhotos', () => {
     expect(from).toHaveBeenCalledWith('report_photos')
     expect(insert).toHaveBeenCalledWith({
       report_id: 'report-1',
-      photo_url: 'https://example.com/report.jpg',
+      photo_url: expect.stringMatching(/^report-1\/\d+_0\.jpeg$/),
       order_index: 0,
       uploaded_by: 'user-1',
     })

@@ -11,6 +11,7 @@ import {
   canLeaveMeetingFeedback,
   canViewMeeting,
   canEditMembers,
+  canDeleteMembers,
   canApprove,
   isTeamLeader,
   getAccessibleDepartmentIds,
@@ -74,6 +75,27 @@ describe('canAccessAccounting', () => {
 
   it('member 접근 불가', () => {
     expect(canAccessAccounting('member')).toBe(false)
+  })
+})
+
+describe('canDeleteMembers', () => {
+  it.each(['super_admin', 'president', 'accountant'])('%s can delete members', (role) => {
+    expect(canDeleteMembers(createUser({ role }))).toBe(true)
+  })
+
+  it('team leaders cannot delete members', () => {
+    expect(canDeleteMembers(createUser({
+      role: 'team_leader',
+      user_departments: [{
+        department_id: 'dept-1',
+        is_team_leader: true,
+        departments: { id: 'dept-1', name: 'CU1부', code: 'cu1' },
+      }],
+    }))).toBe(false)
+  })
+
+  it('inactive administrators cannot delete members', () => {
+    expect(canDeleteMembers(createUser({ role: 'super_admin', is_active: false }))).toBe(false)
   })
 })
 

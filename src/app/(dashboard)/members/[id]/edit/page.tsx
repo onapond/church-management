@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import MemberForm from '@/components/members/MemberForm'
+import { createSignedStorageUrl } from '@/lib/storage'
+import { isAdminRole } from '@/lib/permissions'
 
 interface Department {
   id: string
@@ -72,6 +74,8 @@ export default async function MemberEditPage({
     redirect('/members')
   }
 
+  memberData.photo_url = await createSignedStorageUrl(supabase, 'member-photos', memberData.photo_url)
+
   const { data: deptData } = await supabase
     .from('departments')
     .select('id, name, code')
@@ -90,7 +94,11 @@ export default async function MemberEditPage({
 
       <h1 className="mb-6 text-2xl font-bold text-gray-900">교인 정보 수정</h1>
 
-      <MemberForm departments={(deptData || []) as Department[]} member={memberData as Member} />
+      <MemberForm
+        departments={(deptData || []) as Department[]}
+        member={memberData as Member}
+        canManageDepartments={isAdminRole(userData.role)}
+      />
     </div>
   )
 }

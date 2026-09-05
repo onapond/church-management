@@ -14,8 +14,22 @@ RETURNS text
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
+SET search_path = ''
 AS $$
-  SELECT role FROM public.users WHERE id = auth.uid()
+  SELECT role::text FROM public.users WHERE id = auth.uid()
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_current_user_active()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id = auth.uid() AND is_active = true
+  )
 $$;
 
 -- 현재 사용자가 관리자(super_admin, president, accountant)인지
@@ -24,10 +38,12 @@ RETURNS boolean
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
+SET search_path = ''
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.users
     WHERE id = auth.uid()
+    AND is_active = true
     AND role IN ('super_admin', 'president', 'accountant')
   )
 $$;
@@ -38,11 +54,14 @@ RETURNS boolean
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
+SET search_path = ''
 AS $$
   SELECT EXISTS (
-    SELECT 1 FROM public.user_departments
-    WHERE user_id = auth.uid()
-    AND department_id = dept_id
+    SELECT 1 FROM public.user_departments ud
+    JOIN public.users u ON u.id = ud.user_id
+    WHERE ud.user_id = auth.uid()
+    AND ud.department_id = dept_id
+    AND u.is_active = true
   )
 $$;
 
@@ -72,23 +91,20 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "users_select" ON public.users;
 CREATE POLICY "users_select" ON public.users
   FOR SELECT TO authenticated
-  USING (true);
+  USING (id = auth.uid() OR public.is_current_user_active());
 
--- INSERT: 회원가입 시 트리거로 생성 (auth.users → public.users)
--- service_role이 처리하므로 별도 정책 불필요
+-- INSERT: 회원가입 시 SECURITY DEFINER 트리거가 생성하므로 클라이언트 정책 불필요
 DROP POLICY IF EXISTS "users_insert" ON public.users;
-CREATE POLICY "users_insert" ON public.users
-  FOR INSERT TO authenticated
-  WITH CHECK (id = auth.uid());
 
 -- UPDATE: 본인 프로필만 수정 가능, role 변경은 super_admin만
 DROP POLICY IF EXISTS "users_update_self" ON public.users;
 CREATE POLICY "users_update_self" ON public.users
   FOR UPDATE TO authenticated
-  USING (id = auth.uid())
+  USING (id = auth.uid() AND is_active = true)
   -- role 변경 방지: 본인이 수정할 때 role은 변경 불가
   WITH CHECK (
     id = auth.uid()
+    AND is_active = true
     AND (
       role = (SELECT role FROM public.users WHERE id = auth.uid())
       OR public.get_my_role() = 'super_admin'
@@ -99,8 +115,8 @@ CREATE POLICY "users_update_self" ON public.users
 DROP POLICY IF EXISTS "users_update_admin" ON public.users;
 CREATE POLICY "users_update_admin" ON public.users
   FOR UPDATE TO authenticated
-  USING (public.get_my_role() = 'super_admin')
-  WITH CHECK (public.get_my_role() = 'super_admin');
+  USING (public.is_current_user_active() AND public.get_my_role() IN ('super_admin', 'president'))
+  WITH CHECK (public.is_current_user_active() AND public.get_my_role() IN ('super_admin', 'president'));
 
 -- DELETE: super_admin만
 DROP POLICY IF EXISTS "users_delete_admin" ON public.users;
@@ -199,8 +215,21 @@ CREATE POLICY "member_departments_modify_admin" ON public.member_departments
   WITH CHECK (public.is_admin_role());
 
 DROP POLICY IF EXISTS "member_departments_modify_teamlead" ON public.member_departments;
-CREATE POLICY "member_departments_modify_teamlead" ON public.member_departments
-  FOR ALL TO authenticated
+DROP POLICY IF EXISTS "member_departments_insert_teamlead" ON public.member_departments;
+CREATE POLICY "member_departments_insert_teamlead" ON public.member_departments
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.user_departments
+      WHERE user_id = auth.uid()
+      AND is_team_leader = true
+      AND department_id = member_departments.department_id
+    )
+  );
+
+DROP POLICY IF EXISTS "member_departments_update_teamlead" ON public.member_departments;
+CREATE POLICY "member_departments_update_teamlead" ON public.member_departments
+  FOR UPDATE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.user_departments
@@ -214,6 +243,7 @@ CREATE POLICY "member_departments_modify_teamlead" ON public.member_departments
       SELECT 1 FROM public.user_departments
       WHERE user_id = auth.uid()
       AND is_team_leader = true
+      AND department_id = member_departments.department_id
     )
   );
 

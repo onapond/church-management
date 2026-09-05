@@ -18,6 +18,7 @@ interface DepartmentSelectorProps {
   onPrimaryChange: (deptId: string) => void
   selectedCellId: string
   onCellIdChange: (cellId: string) => void
+  disabled?: boolean
 }
 
 const DepartmentSelector = memo(function DepartmentSelector({
@@ -28,6 +29,7 @@ const DepartmentSelector = memo(function DepartmentSelector({
   onPrimaryChange,
   selectedCellId,
   onCellIdChange,
+  disabled = false,
 }: DepartmentSelectorProps) {
   // cu1 부서 찾기
   const cu1Dept = departments.find(d => d.code === CU1_DEPARTMENT_CODE)
@@ -50,6 +52,7 @@ const DepartmentSelector = memo(function DepartmentSelector({
                 id={`dept-${dept.id}`}
                 checked={isSelected}
                 onChange={() => onToggle(dept.id)}
+                disabled={disabled}
                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
               <label
@@ -62,6 +65,7 @@ const DepartmentSelector = memo(function DepartmentSelector({
                 <button
                   type="button"
                   onClick={() => onPrimaryChange(dept.id)}
+                  disabled={disabled}
                   className={`text-xs px-2 py-1 rounded-full transition-colors ${
                     isPrimary
                       ? 'bg-blue-500 text-white'
@@ -88,6 +92,7 @@ const DepartmentSelector = memo(function DepartmentSelector({
           <select
             value={selectedCellId}
             onChange={(e) => onCellIdChange(e.target.value)}
+            disabled={disabled}
             className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
           >
             <option value="">선택 안함</option>

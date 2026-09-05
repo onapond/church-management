@@ -347,7 +347,7 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - **P0-5 (service worker)**: `public/sw.js` no longer caches any authenticated response. Both Supabase hosts and `/api/` paths bypass the service worker entirely, `staleWhileRevalidate` and `API_CACHE` were removed, and `CACHE_VERSION` moved to `v1.3.0` so the existing activate cleanup purges already-poisoned `church-api-v1.2.0` caches on each client at deploy time. `/api/` had to be included because `/api/notifications` has a GET handler that would otherwise fall through to `networkFirst` and keep caching.
 - Verification run in this session: `docs:check`, `lint`, `npm test` (**173 tests**, up from 168), `tsc --noEmit`, and `npm run build` all passed. The build was run with Supabase env vars supplied inline because `.env.local` is not present; this confirms the audit's finding that the build failure was environment-related, not a code regression.
 - No database schema, RLS policy, Storage bucket, approval state, attendance, accounting, or auth behavior was changed.
-- Still open: **P0-1** (signup approval gate) and **P0-3 / P0-7 / P0-8** (visitation SELECT RLS, `meeting-pdfs` `else true`, bucket privacy) need Supabase production access to inspect current state first; **P0-6** (member delete) needs a decision on whether team leaders may delete members. Details in `CURRENT_TASK.md` §8.
+- Historical 2026-08-21 state: **P0-1**, **P0-3 / P0-7 / P0-8**, and **P0-6** were still open pending production access and a member-delete decision. They were completed on 2026-09-05 below.
 - The print sandbox change still needs a manual print smoke test in a real browser.
 
 ## 2026-08-22 Update - Stale Report Draft Recovery
@@ -355,3 +355,14 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - `POST /api/reports/save` returns a typed stale-target conflict for invalid `targetReportId` values, while real `editReportId` permission failures remain forbidden.
 - The client discards only the obsolete target id and retries the same form payload once as a new save, preserving the user's current input.
 - No database, RLS, auth, attendance, accounting, report approval state, or RPC behavior changed.
+
+## 2026-09-05 Update - Audit Phase 0 Complete (P0-1 / P0-3 / P0-6 / P0-7 / P0-8)
+- Added and applied `020_close_p0_security_gaps.sql` to production Supabase project `zikneyjidzovvkmflibo`.
+- New accounts now have `users.is_active = false`; the obsolete `is_approved` column and its dependent legacy update policy were replaced. Anonymous users table read/insert policies were removed, and self-service updates cannot change role or activate a pending account.
+- Visitation reads are limited to the creator, global admins, and the responsible department leader.
+- Member deletion is global-admin-only. The client deletes the parent member row first, verifies the returned row, then removes the Storage photo; the production FK is `ON DELETE CASCADE` for `member_departments`.
+- Team leaders retain member basic-information editing, but existing department-link removal is administrator-only.
+- `meeting-pdfs` write policies now validate both supported object path shapes and have no permissive fallback. The same production audit found and corrected a `report-photos` object-name shadowing bug.
+- `member-photos`, `department-photos`, and `report-photos` are private. DB rows store object paths and clients create one-hour signed URLs at read time. Production verification found zero remaining HTTP photo URLs.
+- Attendance, accounting, report save RPC, and approval transitions were not changed. The separate attendance/report-linkage investigation is handed off in `docs/handoffs/2026-09-05-attendance-report-linkage.md`.
+- Verification after rebasing the concurrent stale-draft recovery: lint passed, 185 tests passed, TypeScript passed, and production build passed. `/pending` now creates its browser Supabase client only when logout is clicked so local prerender does not require client env at render time.

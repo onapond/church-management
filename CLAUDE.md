@@ -333,7 +333,7 @@ pm run build.
 - Verified with `docs:check`, `lint`, `npm test` (**173 tests**), `tsc --noEmit`, and `npm run build`.
   The build passes when Supabase env vars are supplied; `.env.local` is still absent from the repo,
   so pass them inline when verifying.
-- Remaining P0 items (P0-1, P0-3, P0-6, P0-7, P0-8) are blocked on Supabase production access
+- Historical 2026-08-21 state: P0-1, P0-3, P0-6, P0-7, and P0-8 were blocked on Supabase production access
   and on deciding whether team leaders may delete members. See `CURRENT_TASK.md` §8.
 - **Decision 2026-08-21 — member deletion is admin-only.** `team_leader` must not delete members.
   `canDeleteMembers` allows only `super_admin` / `president` / `accountant`, the pending `members`
@@ -345,3 +345,11 @@ pm run build.
 - If that pointer no longer resolves to an author-owned `draft` or `rejected` report, the save route returns a typed stale-target conflict.
 - The report client retries once with `targetReportId = null`; do not apply this recovery to `editReportId` permission failures.
 - Keep all retried saves behind the existing authenticated route, RLS, and transactional `save_report_bundle` RPC.
+
+## 2026-09-05 P0 Security Baseline
+- Production migration `020_close_p0_security_gaps.sql` is applied to Supabase project `zikneyjidzovvkmflibo`.
+- `users.is_active` is the only approval gate; new users default to inactive, `is_approved` no longer exists, and users table access is authenticated-only. Shared RLS helpers reject inactive accounts.
+- Member deletion is restricted to `super_admin`, `president`, and `accountant`. Team leaders may edit basic member data but cannot remove an existing department link.
+- `member-photos`, `department-photos`, `report-photos`, and `meeting-pdfs` are private. Persist Storage object paths only; generate signed URLs with `src/lib/storage.ts` for display.
+- Always qualify `storage.objects.name` inside Storage policy subqueries. Unqualified `name` may resolve to `users.name` and silently invalidate path checks.
+- The next scoped task is attendance/report automatic linkage and statistics; use `docs/handoffs/2026-09-05-attendance-report-linkage.md` as the starting evidence.

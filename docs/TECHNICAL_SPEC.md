@@ -396,3 +396,16 @@ WHERE year = 2026 AND report_type = 'weekly';
 - `useReportSubmit` retries that exact save payload once with `targetReportId: null`; duplicate detection and all existing RLS/RPC checks still apply to the retry.
 - `editReportId` remains strict: unauthorized or missing edit targets continue to return HTTP 403 and are never retried as new reports.
 - Scope is limited to report save recovery. There are no schema, migration, auth, RLS, attendance, accounting, or approval-transition changes.
+
+## 2026-09-05 P0 Security And Private Photo Storage
+
+- Migration: `supabase/migrations/020_close_p0_security_gaps.sql` (applied to production).
+- Approval source of truth: `public.users.is_active`. Default is `false`; `public.handle_new_user()` inserts `role = member`, `is_active = false`, and uses an empty `search_path` as a security-definer function. `is_approved` was removed.
+- Anonymous users table SELECT/INSERT policies were removed. An authenticated pending user can read only their own row; active users can read the user directory. Self-updates require an already-active account and preserve both role and active state. Active `super_admin` and `president` retain approval/role administration.
+- `get_my_role()`, `is_current_user_active()`, and `is_admin_role()` are security-definer helpers with an empty `search_path`; administrator checks include `is_active = true`.
+- `visitations` SELECT permits active global admins, the creator, or a department leader for the row's department.
+- `members` DELETE is provided only by the existing admin policy. The team-leader DELETE policy was removed. Team-leader `member_departments` policies now cover INSERT/UPDATE only.
+- `public.can_manage_meeting_pdf(text)` validates exactly `agenda/{meetingId}/{departmentId}/...` or `{meetingId}/...`; invalid or unknown paths return false.
+- Photo buckets `member-photos`, `department-photos`, and `report-photos` are private. Persist object paths in `photo_url`; `src/lib/storage.ts` normalizes legacy URLs and creates one-hour signed URLs. `next/image` accepts the Supabase signed-object path.
+- Storage policies must reference `storage.objects.name` explicitly inside nested queries. Migration 020 also repaired the report-photo policy that had resolved unqualified `name` as `users.name`.
+- No attendance record, report save bundle, report approval transition, or accounting behavior changed in this migration.

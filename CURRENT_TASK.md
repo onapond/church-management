@@ -5,6 +5,7 @@
 ---
 
 ## 1. Task Summary
+- 상태: **완료 (2026-09-05)**. 출석 자동연계/통계 복구는 `docs/handoffs/2026-09-05-attendance-report-linkage.md`로 분리했다.
 - 요청 제목: 아키텍처·코드 품질 감사 P0 항목 차단 (Phase 0)
 - 요청 목적: 2026-08-21 감사에서 확인된 P0 8건 중 **외부인 접근 / 개인정보 노출 / 복구 불가 데이터 파괴**에 해당하는 항목을 먼저 막는다.
 - 요청 원문 요약: "코드 수정은 하지말고 아키텍처 및 코드 품질 검증하고. 수정 필요한 부분 정리해줘" → 감사 완료. "다음 세션에서 진행하자. 문서 남기고" → 이번 세션은 문서화만, 실제 수정은 다음 세션.
@@ -46,7 +47,7 @@
 
 ## 4. Files In Scope
 - 예상 수정 파일:
-  - `supabase/migrations/020_audit_p0_security_fixes.sql` (신규 — P0-1/3/6/7/8 통합)
+  - `supabase/migrations/020_close_p0_security_gaps.sql` (신규 — P0-1/3/6/7/8 통합)
   - `src/components/settings/CellManager.tsx`
   - `src/app/(dashboard)/members/bulk-photos/page.tsx`
   - `src/app/(dashboard)/members/[id]/edit/page.tsx`
@@ -69,7 +70,7 @@
 2. **P0-4 인쇄 XSS** — `escapeHtml()` 3곳 적용 + `iframe.srcdoc` + `sandbox` 전환.
 3. **P0-5 서비스워커** — supabase 호스트 전면 캐시 제외.
 4. **P0-1 승인 게이트** — 트리거/기본값 변경. 배포 즉시 신규 가입 차단 효과.
-5. **P0-3 · P0-7 · P0-8 RLS/Storage** — `020_audit_p0_security_fixes.sql` 하나로 묶어 작성.
+5. **P0-3 · P0-7 · P0-8 RLS/Storage** — `020_close_p0_security_gaps.sql` 하나로 묶어 작성.
    P0-8은 앱 코드(서명 URL) 변경이 함께 가야 하므로 마이그레이션과 코드를 같은 커밋으로.
 6. **P0-6 교인 삭제** — 규칙 확정됨(관리자 전용, 아래 §6 참조) → RLS + `useDeleteMember` 순서 반전.
 7. 필수 문서 업데이트 → `npm run verify`로 검증.
@@ -102,6 +103,30 @@
 - 원격: 마이그레이션 적용 후 분석 문서 §6의 `pg_policies` / `storage.buckets` 쿼리로 재확인
 
 ## 8. Execution Notes
+
+### 2026-09-04 재개 — 프로덕션 선행 감사 완료
+- 사용자 요청: 중단된 작업을 먼저 마무리하고, 출석·보고서 연계 작업은 다음 세션으로 핸드오프한다.
+- 프로덕션 Supabase를 읽기 전용으로 확인했다.
+  - P0-1: `handle_new_user()`는 이미 신규 사용자를 `is_active = false`로 생성한다. 다만 이를 재현하는 `020` migration은 저장소에 없어 migration으로 동기화가 필요하다.
+  - P0-3: `visitations_select_authenticated USING (true)`가 실제 프로덕션에 남아 있다.
+  - P0-6: `members_delete_teamlead`와 `member_departments_modify_teamlead`가 실제 프로덕션에 남아 있어 문서에서 확정한 관리자 전용 삭제 규칙과 불일치한다.
+  - P0-7: `meeting-pdfs` INSERT/UPDATE/DELETE 정책에 `ELSE true`와 잘못된 UUID 정규식이 실제 프로덕션에 남아 있다.
+  - P0-8: `member-photos`, `department-photos`, `report-photos`는 실제 프로덕션에서 모두 public이다.
+- 이번 재개 세션 구현 범위:
+  - attendance/accounting 흐름은 변경하지 않는다.
+  - 보고서 저장 RPC와 결재 상태 전이는 변경하지 않는다.
+  - `020_close_p0_security_gaps.sql`로 auth/RLS/Storage 상태를 재현 가능하게 만들고, private 버킷에 맞게 앱 사진 경로를 상대 경로 저장 + 서명 URL 조회 방식으로 전환한다.
+  - 교인 삭제는 관리자 전용으로 제한하고 부모 행 삭제 성공을 확인한 뒤 Storage 정리를 수행한다.
+- 예상 수정 파일:
+  - `supabase/migrations/020_close_p0_security_gaps.sql`
+  - `src/lib/storage.ts` 및 테스트
+  - `src/lib/permissions.ts` 및 테스트
+  - `src/queries/members.ts`, `src/queries/attendance.ts`, `src/queries/photos.ts`, `src/queries/reports.ts`
+  - `src/components/members/MemberForm.tsx`, `src/components/members/BulkPhotoUpload.tsx`
+  - `src/app/(dashboard)/members/[id]/page.tsx`
+  - `src/components/photos/PhotosClient.tsx`
+  - `src/components/reports/hooks/useReportSubmit.ts` 및 테스트
+  - `next.config.ts`, 필수 문서, session notes, handoff 문서
 
 ### 2026-08-21 (2차 세션) — P0-2 · P0-4 · P0-5 완료
 프로덕션 접근(Supabase PAT)과 `.env.local`이 없는 상태에서 **선행 조건 없이 진행 가능한 코드 전용 3건**을 먼저 처리했다.
@@ -172,6 +197,15 @@
 3. P0-6은 규칙이 확정됐으므로(관리자 전용) 마이그레이션 작성과 클라이언트 수정을 바로 시작할 수 있다
 
 ## 9. Completion Record
+- 2026-09-05: 남은 P0-1/3/6/7/8 완료. `020_close_p0_security_gaps.sql`을 프로덕션에 적용하고 원격 재검증했다. 적용 과정에서 확인된 익명 users SELECT/INSERT 정책과 비활성 관리자 RLS 헬퍼 우회도 함께 제거했다.
+- 프로덕션 결과: `is_active` 기본값 false, `is_approved` 0개, 심방/교인/회의 PDF/사진 정책 교체, 사진 4개 버킷 private, 기존 HTTP photo URL 0개.
+- 실제 저장 사진의 익명 public URL 요청도 3개 사진 버킷 모두 HTTP 400으로 거부됨을 확인했다.
+- 추가 발견/수정: `report-photos` 정책의 unqualified `name`이 `users.name`으로 해석되던 결함과 익명 Storage 중복 정책을 제거했다.
+- 앱 결과: 사진 객체 경로 저장 + signed URL 조회, 관리자 전용 교인 삭제, 팀장의 기존 부서연결 삭제 차단, `/pending` prerender 복구.
+- 원격의 동시 작업(보고서 stale draft 복구) 위로 rebase 후 검증: `npm run lint`, `npm test`(185), `npm run typecheck`, `npm run build` 모두 통과.
+- 출석/회계/보고서 저장 RPC/결재 전이는 변경하지 않았다.
+- 후속 작업: `docs/handoffs/2026-09-05-attendance-report-linkage.md`.
+
 - 2026-08-21 (2차 세션): P0 8건 중 **3건 완료** (P0-2, P0-4, P0-5). 5건은 위 표의 사유로 미착수.
 - 변경 파일:
   - `src/components/settings/CellManager.tsx`

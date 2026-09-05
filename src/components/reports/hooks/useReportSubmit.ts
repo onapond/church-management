@@ -139,13 +139,9 @@ async function uploadPhotos(
       continue
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('report-photos').getPublicUrl(fileName)
-
     const { error: photoInsertError } = await supabase.from('report_photos').insert({
       report_id: reportId,
-      photo_url: publicUrl,
+      photo_url: fileName,
       order_index: index,
       uploaded_by: authorId,
     })

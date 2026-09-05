@@ -640,3 +640,27 @@
   - latest merged `npm test` passed, 176 tests.
   - production build passed with the repository's public Supabase URL/publishable key supplied to the build process.
 - No database, migration, RLS, auth, attendance, accounting, or approval workflow changes were required.
+
+## 2026-09-05 — P0 보안 작업 완료 및 출석 연계 핸드오프
+
+### 완료
+- 중단된 P0-1/3/6/7/8을 구현하고 `020_close_p0_security_gaps.sql`을 프로덕션 `zikneyjidzovvkmflibo`에 적용했다.
+- 신규 사용자는 `is_active=false`; `is_approved` 제거. 익명 users SELECT/INSERT 정책과 레거시 UPDATE 정책을 교체해 users 목록 노출, 임의 행 삽입, 본인 role/승인상태 변경을 막았다. 공용 RLS 헬퍼도 비활성 계정을 거부한다.
+- 심방 SELECT 축소, 팀장 교인 삭제/부서연결 DELETE 제거, 회의 PDF 경로 검증 정책 적용.
+- 프로덕션 감사 중 발견한 `report-photos`의 `users.name` shadowing과 익명 Storage 중복 정책도 함께 제거했다.
+- 3개 사진 버킷을 private으로 전환하고 기존 DB URL을 상대 객체 경로로 정규화했다. 검증 결과 HTTP URL 0건.
+- 앱은 `src/lib/storage.ts`에서 signed URL을 생성한다. 신규 업로드는 URL이 아닌 상대 경로만 저장한다.
+- 교인 삭제는 부모 행을 먼저 삭제하고 반환 행을 확인한 후 사진을 정리한다. `member_departments_member_id_fkey`가 CASCADE임을 원격 확인했다.
+- `/pending` 페이지의 Supabase 클라이언트 생성을 로그아웃 클릭 시점으로 늦춰 로컬 prerender 실패를 해결했다.
+
+### 검증
+- `npm run lint` 통과
+- 원격 stale-draft 복구 커밋 위로 rebase 후 `npm test` 통과 — 12 files / 185 tests
+- `npm run typecheck` 통과
+- `npm run build` 통과 (Google Fonts 다운로드를 위해 네트워크 허용)
+- 원격 검증: 사진 4개 버킷 모두 private, 레거시 `is_approved` 0, 기존 photo_url HTTP 값 0, 새 RLS 정책 확인.
+- 익명 public URL 스모크: 실제 저장 객체 기준 `member-photos`, `department-photos`, `report-photos` 모두 HTTP 400으로 접근 거부.
+
+### 다음 작업
+- `docs/handoffs/2026-09-05-attendance-report-linkage.md`부터 시작해 셀장보고서/주차보고서의 출석 자동연계와 통계 정확성을 수정한다.
+- 인쇄 sandbox 실제 인쇄 대화상자 smoke test는 여전히 수동 확인 필요.

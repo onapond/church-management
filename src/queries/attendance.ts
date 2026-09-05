@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { AttendanceRecord } from '@/types/database'
+import { signPhotoRecords } from '@/lib/storage'
 
 const supabase = createClient()
 
@@ -39,7 +40,7 @@ export function useAttendanceMembers(departmentId: string | undefined) {
         .eq('is_active', true)
         .order('name')
       if (error) throw error
-      return (data || []) as MemberBasic[]
+      return signPhotoRecords(supabase, 'member-photos', (data || []) as MemberBasic[])
     },
     enabled: !!departmentId,
     staleTime: 5 * 60_000, // 5분 캐싱
@@ -100,7 +101,7 @@ export function useCellMembers(cellId: string | undefined) {
         .eq('is_active', true)
         .order('name')
       if (error) throw error
-      return (data || []) as MemberBasic[]
+      return signPhotoRecords(supabase, 'member-photos', (data || []) as MemberBasic[])
     },
     enabled: !!cellId,
     staleTime: 5 * 60_000,

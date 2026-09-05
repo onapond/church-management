@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { exportAttendanceToExcel } from '@/lib/excel'
 import CellFilter from '@/components/ui/CellFilter'
 import { useToastContext } from '@/providers/ToastProvider'
+import { signPhotoRecords } from '@/lib/storage'
 
 interface Department {
   id: string
@@ -207,7 +208,11 @@ export default function AttendanceGrid({
           .eq('is_active', true)
           .order('name')
 
-        newMembers = (newMembersData || []) as MemberBasic[]
+        newMembers = await signPhotoRecords(
+          supabase,
+          'member-photos',
+          (newMembersData || []) as MemberBasic[],
+        )
 
         // 셀별(display_order) → 이름순 정렬, 셀 미배정은 맨 뒤
         newMembers.sort((a, b) => {

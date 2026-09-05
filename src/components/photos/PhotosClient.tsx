@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { getStorageObjectPath } from '@/lib/storage'
 import { toLocalDateString } from '@/lib/utils'
 import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
@@ -113,13 +114,9 @@ export default function PhotosClient() {
           continue
         }
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('department-photos')
-          .getPublicUrl(fileName)
-
         const { error: dbError } = await supabase.from('department_photos').insert({
           department_id: uploadForm.department_id,
-          photo_url: publicUrl,
+          photo_url: fileName,
           title: uploadForm.title || null,
           description: uploadForm.description || null,
           photo_date: uploadForm.photo_date || null,
@@ -161,7 +158,7 @@ export default function PhotosClient() {
     const supabase = createClient()
 
     try {
-      const path = photo.photo_url.split('/department-photos/')[1]?.split('?')[0]
+      const path = getStorageObjectPath(photo.photo_url, 'department-photos')
       if (path) {
         const { error: storageError } = await supabase.storage.from('department-photos').remove([path])
         if (storageError) throw storageError

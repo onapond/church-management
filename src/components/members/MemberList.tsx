@@ -16,10 +16,10 @@ import MemberFilters from './MemberFilters'
 interface MemberListProps {
   members: MemberWithDepts[]
   departments: DepartmentInfo[]
-  canEdit: boolean
+  canDelete: boolean
 }
 
-export default function MemberList({ members, departments, canEdit }: MemberListProps) {
+export default function MemberList({ members, departments, canDelete }: MemberListProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const deleteMemberMutation = useDeleteMember()
@@ -147,8 +147,8 @@ export default function MemberList({ members, departments, canEdit }: MemberList
     setDeleteTarget(null)
 
     deleteMemberMutation.mutate(targetId, {
-      onSuccess: () => {
-        // TanStack Query mutation이 자동으로 캐시 무효화
+      onSuccess: (result) => {
+        if (result.storageWarning) toast.warning(result.storageWarning)
       },
       onError: (err) => {
         // 실패 시 롤백
@@ -207,7 +207,7 @@ export default function MemberList({ members, departments, canEdit }: MemberList
               key={member.id}
               member={member}
               deptParam={selectedDept}
-              canEdit={canEdit}
+              canEdit={canDelete}
               onDelete={setDeleteTarget}
             />
           ))}
@@ -223,7 +223,7 @@ export default function MemberList({ members, departments, canEdit }: MemberList
                 key={member.id}
                 member={member}
                 deptParam={selectedDept}
-                canEdit={canEdit}
+                canEdit={canDelete}
                 onDelete={setDeleteTarget}
               />
             ))}
