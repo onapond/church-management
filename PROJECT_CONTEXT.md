@@ -374,3 +374,4 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Weekly report aggregation and report summaries use linked personal attendance as their source. General attendance statistics now use actual calendar-week buckets, preserve empty department/cell filters, and use historical eligibility for old numerators.
 - Manual attendance remains supported. A manual correction changes provenance back to `manual`/`bulk`, and that row survives later deletion of its source report.
 - Migrations `021` through `023` were applied to production. Existing approval, accounting, member approval, and P0 security behavior remain unchanged.
+- Implementation commit `46391bb` is on `origin/main`; Vercel deployment `dpl_CeQvKFfV4ckeoXdTqMrXz6NxkHpX` is READY at `https://church-opal.vercel.app`.

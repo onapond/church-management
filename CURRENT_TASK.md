@@ -6,7 +6,7 @@
 
 ## 1. Active Task — 출석 자동연계·통계 복구 (2026-09-05)
 
-- 상태: **구현·프로덕션 DB·전체 verify 완료 / Git·Vercel 배포 대기**
+- 상태: **완료 (2026-09-06)**
 - 목표: 셀장보고서에서 예배/모임 개인 출석을 분리 입력하고, 보고서와 `attendance_records`를 하나의 트랜잭션으로 저장하며, 주차보고서와 통계가 같은 개인 출석 원천을 집계하도록 복구한다.
 - 출발 문서: `docs/handoffs/2026-09-05-attendance-report-linkage.md`
 - 선행 보안 기준선: `b047f58`, 배포 기록 `5e19690`을 보존하며 되돌리지 않는다.
@@ -81,6 +81,9 @@
 - 사후 프로덕션 검증: 테스트 보고서 0, 미래 테스트 출결 0, 기존 `manual` 758행 보존, RPC `SECURITY INVOKER`, anon execute 차단, 기존 attendance RLS 4개 유지.
 - `npm run verify` 최종 통과: docs:check, lint 0 warnings, 14 files / 193 tests, TypeScript, Next.js production build.
 - 기존 attendance/report approval/accounting/auth 흐름에 대한 invasive refactor 없음. P0 기준선 `b047f58`/`5e19690` 보존.
+- 구현 커밋 `46391bb`를 `origin/main`에 push했다.
+- Vercel production `dpl_CeQvKFfV4ckeoXdTqMrXz6NxkHpX` READY, `https://church-opal.vercel.app` alias 완료.
+- 배포 후 `/login` HTTP 200, 미인증 `POST /api/reports/save` HTTP 401 스모크 통과.
 
 ---
 

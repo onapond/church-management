@@ -694,8 +694,13 @@
 - 사후 감사: E2E 보고서 0, 미래 테스트 출결 0, 기존 manual 758, trigger search path `public, pg_temp`.
 
 ### 남은 순서
-1. commit/push
-2. Vercel production deploy 및 smoke
+- 없음. 작업 완료.
 
 ### 최종 로컬 게이트
 - 네트워크 허용 상태에서 `npm run verify` 전체 통과: docs:check, lint 0 warnings, 14 files / 193 tests, TypeScript, Next.js 16.1.6 production build.
+
+### Git / 배포
+- 구현 커밋 `46391bb Fix report attendance linkage and statistics`를 `origin/main`에 push했다.
+- Vercel production 배포 `dpl_CeQvKFfV4ckeoXdTqMrXz6NxkHpX` READY, `https://church-opal.vercel.app` alias 완료.
+- 배포 후 `/login` HTTP 200, 미인증 `POST /api/reports/save` HTTP 401.
+- 로컬 Vercel CLI는 58.4.0이고 원격 빌드는 59.11.7이었다. 전역 CLI는 `npm i -g vercel@latest` 권장.
