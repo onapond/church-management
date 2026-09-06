@@ -6,13 +6,16 @@ export interface MemberAttendanceItem {
   memberId: string
   name: string
   photoUrl: string | null
-  isPresent: boolean
+  worshipPresent: boolean
+  meetingPresent: boolean
 }
+
+export type CellAttendanceType = 'worship' | 'meeting'
 
 interface Props {
   memberAttendance: MemberAttendanceItem[]
-  onToggle: (memberId: string) => void
-  onBulkAction: (allPresent: boolean) => void
+  onToggle: (memberId: string, type: CellAttendanceType) => void
+  onBulkAction: (type: CellAttendanceType, allPresent: boolean) => void
   sectionRef: (el: HTMLDivElement | null) => void
 }
 
@@ -22,18 +25,18 @@ const MemberRow = memo(function MemberRow({
   onToggle,
 }: {
   member: MemberAttendanceItem
-  onToggle: (memberId: string) => void
+  onToggle: (memberId: string, type: CellAttendanceType) => void
 }) {
-  const handleClick = useCallback(() => {
-    onToggle(member.memberId)
+  const handleWorshipClick = useCallback(() => {
+    onToggle(member.memberId, 'worship')
+  }, [member.memberId, onToggle])
+
+  const handleMeetingClick = useCallback(() => {
+    onToggle(member.memberId, 'meeting')
   }, [member.memberId, onToggle])
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className="w-full flex items-center justify-between py-3 px-3 rounded-lg active:bg-gray-100 transition-colors text-left"
-    >
+    <div className="grid grid-cols-[minmax(0,1fr)_3rem_3rem] items-center gap-2 py-3 px-3 rounded-lg">
       <div className="flex items-center gap-3">
         {/* 프로필 사진 */}
         {member.photoUrl ? (
@@ -50,15 +53,17 @@ const MemberRow = memo(function MemberRow({
         )}
         <span className="text-sm font-medium text-gray-900">{member.name}</span>
       </div>
-      {/* 출석 토글 */}
-      <div
+      <button
+        type="button"
+        onClick={handleWorshipClick}
+        aria-label={`${member.name} 예배 ${member.worshipPresent ? '결석으로 변경' : '출석으로 변경'}`}
         className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
-          member.isPresent
-            ? 'bg-green-100 border-green-500 text-green-600'
-            : 'bg-red-50 border-red-300 text-red-400'
+          member.worshipPresent
+            ? 'bg-blue-100 border-blue-500 text-blue-600'
+            : 'bg-gray-50 border-gray-300 text-gray-400'
         }`}
       >
-        {member.isPresent ? (
+        {member.worshipPresent ? (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
@@ -67,8 +72,28 @@ const MemberRow = memo(function MemberRow({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         )}
-      </div>
-    </button>
+      </button>
+      <button
+        type="button"
+        onClick={handleMeetingClick}
+        aria-label={`${member.name} 모임 ${member.meetingPresent ? '결석으로 변경' : '출석으로 변경'}`}
+        className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
+          member.meetingPresent
+            ? 'bg-green-100 border-green-500 text-green-600'
+            : 'bg-gray-50 border-gray-300 text-gray-400'
+        }`}
+      >
+        {member.meetingPresent ? (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        )}
+      </button>
+    </div>
   )
 })
 
@@ -78,7 +103,8 @@ export default function CellMemberAttendance({
   onBulkAction,
   sectionRef,
 }: Props) {
-  const presentCount = memberAttendance.filter(m => m.isPresent).length
+  const worshipCount = memberAttendance.filter(m => m.worshipPresent).length
+  const meetingCount = memberAttendance.filter(m => m.meetingPresent).length
   const totalCount = memberAttendance.length
 
   return (
@@ -89,29 +115,45 @@ export default function CellMemberAttendance({
     >
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-gray-900 text-base md:text-lg">
-          셀원 출석{' '}
-          <span className="text-sm font-normal text-gray-500">
-            ({presentCount}/{totalCount}명)
-          </span>
-        </h2>
-        <div className="flex gap-2">
+        <div>
+          <h2 className="font-semibold text-gray-900 text-base md:text-lg">셀원 출석</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            예배 {worshipCount}/{totalCount}명 · 모임 {meetingCount}/{totalCount}명
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-1.5">
           <button
             type="button"
-            onClick={() => onBulkAction(true)}
-            className="px-4 py-2 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg active:bg-green-200 transition-colors"
+            onClick={() => onBulkAction('worship', true)}
+            className="px-2.5 py-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg active:bg-blue-200 transition-colors"
           >
-            전체 출석
+            예배 전체
           </button>
           <button
             type="button"
-            onClick={() => onBulkAction(false)}
-            className="px-4 py-2 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg active:bg-gray-200 transition-colors"
+            onClick={() => onBulkAction('meeting', true)}
+            className="px-2.5 py-2 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg active:bg-green-200 transition-colors"
           >
-            초기화
+            모임 전체
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              onBulkAction('worship', false)
+              onBulkAction('meeting', false)
+            }}
+            className="px-2.5 py-2 text-xs font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg active:bg-gray-200 transition-colors"
+          >초기화</button>
         </div>
       </div>
+
+      {totalCount > 0 && (
+        <div className="grid grid-cols-[minmax(0,1fr)_3rem_3rem] gap-2 px-3 pb-1 text-center text-xs font-medium text-gray-500">
+          <span className="text-left">이름</span>
+          <span>예배</span>
+          <span>모임</span>
+        </div>
+      )}
 
       {/* 셀원 목록 */}
       {totalCount > 0 ? (

@@ -51,6 +51,7 @@ export interface UseReportSubmitOptions {
   budgetItems: ProjectBudgetItem[]
   cellAttendance: CellAttendance[]
   memberAttendance: MemberAttendanceItem[]
+  shouldSyncAttendance: boolean
   selectedCellId: string
   photoFiles: File[]
   enabledSections: string[]
@@ -225,6 +226,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
     budgetItems,
     cellAttendance,
     memberAttendance,
+    shouldSyncAttendance,
     selectedCellId,
     photoFiles,
     enabledSections,
@@ -268,7 +270,11 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
     router.push(`/reports/${reportId}/edit`)
   }, [queryClient, router, toast])
 
-  const buildSavePayload = useCallback((isDraft: boolean, targetReportId?: string | null): ReportSaveRequest => ({
+  const buildSavePayload = useCallback((
+    isDraft: boolean,
+    targetReportId?: string | null,
+    syncAttendance = true,
+  ): ReportSaveRequest => ({
     reportType,
     weekNumber,
     isDraft,
@@ -285,6 +291,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
     selectedCellId,
     enabledSections,
     attendanceSummary,
+    syncAttendance,
     departmentName: departments.find((department) => department.id === form.department_id)?.name,
   }), [
     attendanceSummary,
@@ -320,7 +327,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
 
     try {
       const result = await runExclusive(() => saveReportWithStaleTargetRecovery(
-        buildSavePayload(true, targetReportId),
+        buildSavePayload(true, targetReportId, false),
       ))
       if (!result.ok) return { status: 'failed' } as const
 
@@ -371,7 +378,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
         targetReportId?: string | null,
       ): Promise<ReportSaveResponse | null> => {
         const saveResult = await runExclusive(() => saveReportWithStaleTargetRecovery(
-          buildSavePayload(draftMode, targetReportId),
+          buildSavePayload(draftMode, targetReportId, shouldSyncAttendance),
         ))
 
         if (!saveResult.ok) {
@@ -476,6 +483,7 @@ export function useReportSubmit(options: UseReportSubmitOptions): UseReportSubmi
     router,
     runExclusive,
     selectedCellId,
+    shouldSyncAttendance,
     supabase,
     toast,
     weekNumber,

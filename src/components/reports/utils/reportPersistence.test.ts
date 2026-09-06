@@ -167,6 +167,70 @@ describe('persistReportBundle', () => {
     expect(mockCreateApprovalNotification).not.toHaveBeenCalled()
   })
 
+  it('sends explicit worship and meeting values for each cell member', async () => {
+    const supabase = createSupabaseMock({
+      data: { reportId: 'cell-report-1', createdReportId: 'cell-report-1', warnings: [] },
+      error: null,
+    })
+
+    await persistReportBundle(supabase as never, {
+      ...baseRequest,
+      reportType: 'cell_leader',
+      selectedCellId: 'cell-1',
+      memberAttendance: [
+        { memberId: 'member-1', name: '한예배', photoUrl: null, worshipPresent: true, meetingPresent: false },
+        { memberId: 'member-2', name: '한모임', photoUrl: null, worshipPresent: false, meetingPresent: true },
+      ],
+    }, 'user-1')
+
+    expect(supabase.rpc).toHaveBeenCalledWith('save_report_bundle', {
+      payload: expect.objectContaining({
+        sync_attendance: true,
+        attendance_date: '2026-03-22',
+        attendance_members: [
+          { member_id: 'member-1', worship_present: true, meeting_present: false },
+          { member_id: 'member-2', worship_present: false, meeting_present: true },
+        ],
+        report_data: expect.objectContaining({
+          total_registered: 2,
+          worship_attendance: 1,
+          meeting_attendance: 1,
+        }),
+      }),
+    })
+  })
+
+  it('does not include attendance rows during background draft autosave', async () => {
+    const supabase = createSupabaseMock({
+      data: { reportId: 'draft-1', createdReportId: null, warnings: [] },
+      error: null,
+    })
+
+    await persistReportBundle(supabase as never, {
+      ...baseRequest,
+      reportType: 'cell_leader',
+      selectedCellId: 'cell-1',
+      targetReportId: 'draft-1',
+      isDraft: true,
+      syncAttendance: false,
+      memberAttendance: [
+        { memberId: 'member-1', name: '자동저장', photoUrl: null, worshipPresent: true, meetingPresent: true },
+      ],
+    }, 'user-1')
+
+    expect(supabase.rpc).toHaveBeenCalledWith('save_report_bundle', {
+      payload: expect.objectContaining({
+        sync_attendance: false,
+        attendance_members: [],
+        report_data: expect.objectContaining({
+          total_registered: 0,
+          worship_attendance: 0,
+          meeting_attendance: 0,
+        }),
+      }),
+    })
+  })
+
   it('throws when rpc success response is missing reportId', async () => {
     const supabase = createSupabaseMock({
       data: {

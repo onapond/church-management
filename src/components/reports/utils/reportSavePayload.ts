@@ -27,6 +27,13 @@ export interface ReportSaveRequest {
   enabledSections: string[]
   attendanceSummary: { total: number; worship: number; meeting: number }
   departmentName?: string
+  syncAttendance?: boolean
+}
+
+export interface ReportAttendanceMemberPayload {
+  member_id: string
+  worship_present: boolean
+  meeting_present: boolean
 }
 
 export interface ReportSaveRpcPayload {
@@ -35,9 +42,9 @@ export interface ReportSaveRpcPayload {
   target_report_id: string | null
   edit_report_id: string | null
   selected_cell_id: string | null
+  sync_attendance: boolean
   attendance_date: string
-  attendance_present_member_ids: string[]
-  attendance_absent_member_ids: string[]
+  attendance_members: ReportAttendanceMemberPayload[]
   report_data: Record<string, unknown>
   report_programs: Array<Record<string, unknown>>
   newcomers: Array<Record<string, unknown>>

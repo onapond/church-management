@@ -4,8 +4,94 @@
 
 ---
 
+## 1. Active Task — 출석 자동연계·통계 복구 (2026-09-05)
+
+- 상태: **구현·프로덕션 DB·전체 verify 완료 / Git·Vercel 배포 대기**
+- 목표: 셀장보고서에서 예배/모임 개인 출석을 분리 입력하고, 보고서와 `attendance_records`를 하나의 트랜잭션으로 저장하며, 주차보고서와 통계가 같은 개인 출석 원천을 집계하도록 복구한다.
+- 출발 문서: `docs/handoffs/2026-09-05-attendance-report-linkage.md`
+- 선행 보안 기준선: `b047f58`, 배포 기록 `5e19690`을 보존하며 되돌리지 않는다.
+
+### 프로덕션 재감사 근거
+
+- `public.save_report_bundle(jsonb)`는 `security invoker`, `search_path=public`이다.
+- 함수는 셀장보고서 출석을 `meeting` 한 종류로만 쓰고 `checked_via='cell_report'`를 기록하며, 출석 예외를 `warnings[]`로 축약해 보고서 성공을 허용한다.
+- `attendance_records` 유일 제약은 `(member_id, attendance_date, attendance_type)`이다.
+- 최근 120일 셀장보고서 93건 중 `cell_id` 87건, 참석자 입력 78건, 비영(非零) 요약 0건, `report_id` 연결 출석 0건이다.
+- 최근 120일 출석 332건의 `checked_via`는 전부 `manual`이다.
+- CU1 최근 주차보고서 14건은 예배 14건/모임 13건이 개인 출석 집계와 불일치하며, 12건은 숫자가 있지만 대응 개인 레코드가 없다.
+- 출석 RLS는 인증 사용자 조회, 관리자/교인 소속부서 사용자/보고서 작성자 수정을 허용한다. auth·승인 게이트는 변경하지 않는다.
+
+## 2. Scope / Impact Check
+
+- attendance 흐름: 기존 수동 출결 UI와 유일키를 유지한다. 동일 교인·날짜·유형 충돌 시 마지막 명시적 입력을 단일 행에 반영하되, 보고서 저장은 `report_id`와 `checked_via='report'`를 함께 기록한다.
+- report 흐름: 셀장보고서의 worship/meeting 입력 계약과 요약 계산, 저장 RPC, 취합 화면만 확장한다. 기존 결재 상태·알림·사진·stale draft 복구는 보존한다.
+- accounting 흐름: 영향 없음.
+- additive change: 신규 `021`~`023` migration으로 원자 저장 래퍼와 기존 집계/삭제 트리거를 보정했다. 기존 테이블 삭제나 전면 리팩터링은 하지 않았다.
+- RLS/auth: 기존 RLS를 우회하지 않고 `security invoker`를 유지한다. 회원 승인(`is_active`)과 로그인 흐름은 변경하지 않는다.
+- 통계: 빈 부서/셀 결과의 전체 출석 확장, 고정 4/13/52주 분모, 과거 분자와 현재 활성 분모 혼용, 보고서 통계의 `report_type` 미필터를 수정한다.
+
+## 3. Expected Files
+
+- `supabase/migrations/021_link_report_attendance_atomically.sql`
+- `supabase/migrations/022_fix_attendance_summary_trigger_search_path.sql`
+- `supabase/migrations/023_preserve_manual_attendance_on_report_delete.sql`
+- `supabase/tests/attendance_report_linkage_e2e.sql`
+- `src/components/reports/CellMemberAttendance.tsx`
+- `src/components/reports/hooks/useReportForm.ts`
+- `src/components/reports/utils/reportDataBuilder.ts` 및 테스트
+- `src/components/reports/utils/reportPersistence.ts`, `reportSavePayload.ts` 및 테스트
+- `src/components/reports/ReportForm.tsx`
+- `src/components/reports/CellReportAggregatorClient.tsx`
+- `src/queries/attendance.ts`, `src/queries/reports.ts`
+- `src/lib/stats-queries.ts`, `src/components/stats/ReportStatsContent.tsx` 및 테스트
+- `src/types/database.ts`는 RPC 시그니처와 `checked_via: string` 타입이 유지되어 변경 불필요함을 확인
+- 필수 문서와 `.claude/session-notes.md`, `.claude/bugs.md`
+
+## 4. Implementation Plan
+
+1. 개인 출석 계약을 `memberId + worshipPresent + meetingPresent`로 바꾸고 저장 payload 테스트를 추가한다.
+2. 셀장보고서 UI와 편집 복원을 예배/모임 두 열로 분리한다.
+3. `021` migration에서 `save_report_bundle`을 원자적으로 교체한다. 보고서 행 저장 후 두 출석 유형을 upsert/delete하고 `report_id`, `checked_via='report'`를 강제하며, 요약 수치를 같은 입력에서 계산한다. 출석 오류를 더 이상 경고로 삼키지 않는다.
+4. 주차 취합을 선택한 셀장보고서의 연결 개인 출석에서 계산하고, 그 원천으로 셀별/전체 합계를 만든다.
+5. 통계 필터·기간 분모·역사적 재적 기준과 주차보고서 타입 필터를 수정한다.
+6. 생성/수정/삭제·수동 충돌·취합·통계 종단 회귀 테스트를 추가한다.
+7. migration을 프로덕션에 적용하고 함수/제약/RLS/테스트 보고서 흐름을 재검증한다.
+8. `npm run verify`, 필수 문서/session notes 갱신, 커밋·push·Vercel production 배포와 smoke test를 완료한다.
+
+## 5. Guardrails
+
+- migration 작성 전/후 프로덕션 함수·제약·RLS를 비교한다.
+- attendance/report/accounting 기존 코어를 깨지 않고 invasive refactor를 피한다.
+- 수동 출결 행을 무조건 삭제하지 않는다. 동일 유일키의 행을 보고서 입력으로 갱신할 때 출처와 연결을 명시하고, 이후 수동 입력은 기존 수동 화면의 명시적 수정으로 다시 덮어쓸 수 있게 유지한다.
+- 과거 보고서의 참석자 문자열을 임의로 worship/meeting 두 유형에 복제하지 않는다. 새 계약 이후 데이터부터 정확히 연결한다.
+- DB 적용 없이 완료 처리하지 않는다.
+
+## 6. Verification Plan
+
+- focused unit/integration tests for report payload, RPC contract, aggregator, and stats
+- `npm run verify`
+- production catalog checks for `save_report_bundle`, constraints, triggers, and RLS
+- production transactional smoke using a controlled draft/report record, followed by cleanup if the record is synthetic
+- deployed `/login` and authenticated report path smoke where feasible
+
+## 7. Completed Evidence
+
+- 프로덕션 migrations `021`, `022`, `023` 적용 완료.
+- authenticated rollback E2E 통과: 예배/모임 2행 생성, 요약 일치, 잘못된 셀원 입력의 보고서 포함 전체 롤백, 수동 수정 행 보존, 보고서 출처 행 삭제.
+- 사후 프로덕션 검증: 테스트 보고서 0, 미래 테스트 출결 0, 기존 `manual` 758행 보존, RPC `SECURITY INVOKER`, anon execute 차단, 기존 attendance RLS 4개 유지.
+- `npm run verify` 최종 통과: docs:check, lint 0 warnings, 14 files / 193 tests, TypeScript, Next.js production build.
+- 기존 attendance/report approval/accounting/auth 흐름에 대한 invasive refactor 없음. P0 기준선 `b047f58`/`5e19690` 보존.
+
+---
+
+# 이전 완료 작업 기록 (아카이브)
+
+## 2026-09-05 P0 Security Baseline
+
+- 아래 기존 1~9절은 완료된 P0 작업 기록이다.
+
 ## 1. Task Summary
-- 상태: **완료 (2026-09-05)**. 출석 자동연계/통계 복구는 `docs/handoffs/2026-09-05-attendance-report-linkage.md`로 분리했다.
+- 상태: **완료 (2026-09-05)**. 출석 자동연계/통계 복구는 위 활성 작업으로 전환했다.
 - 요청 제목: 아키텍처·코드 품질 감사 P0 항목 차단 (Phase 0)
 - 요청 목적: 2026-08-21 감사에서 확인된 P0 8건 중 **외부인 접근 / 개인정보 노출 / 복구 불가 데이터 파괴**에 해당하는 항목을 먼저 막는다.
 - 요청 원문 요약: "코드 수정은 하지말고 아키텍처 및 코드 품질 검증하고. 수정 필요한 부분 정리해줘" → 감사 완료. "다음 세션에서 진행하자. 문서 남기고" → 이번 세션은 문서화만, 실제 수정은 다음 세션.

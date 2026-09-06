@@ -169,6 +169,7 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   )
   const cellMemberIds = useMemo(() => cellMembers.map(m => m.id), [cellMembers])
   const { data: cellAttendanceRecords = [] } = useCellAttendanceRecords(
+    reportType === 'cell_leader' ? report?.id : undefined,
     reportType === 'cell_leader' && cellMemberIds.length > 0 ? cellMemberIds : [],
     report?.report_date || ''
   )
@@ -439,25 +440,38 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
       {/* 셀원 출석 현황 */}
       {reportType === 'cell_leader' && cellId && cellMembers.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 lg:p-6">
-          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">셀원 출석 <span className="text-sm font-normal text-gray-500">({cellAttendanceRecords.filter(r => r.is_present).length}/{cellMembers.length}명)</span></h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">
+            셀원 출석
+            <span className="text-sm font-normal text-gray-500">
+              {' '}(예배 {cellAttendanceRecords.filter(r => r.attendance_type === 'worship' && r.is_present).length}/{cellMembers.length}명
+              {' · '}모임 {cellAttendanceRecords.filter(r => r.attendance_type === 'meeting' && r.is_present).length}/{cellMembers.length}명)
+            </span>
+          </h2>
+          <div className="grid grid-cols-[minmax(0,1fr)_3rem_3rem] gap-2 px-3 pb-1 text-center text-xs font-medium text-gray-500">
+            <span className="text-left">이름</span>
+            <span>예배</span>
+            <span>모임</span>
+          </div>
+          <div className="divide-y divide-gray-100">
             {cellMembers.map(member => {
-              const isPresent = cellAttendanceRecords.some(r => r.member_id === member.id && r.is_present)
+              const worshipPresent = cellAttendanceRecords.some(r => r.member_id === member.id && r.attendance_type === 'worship' && r.is_present)
+              const meetingPresent = cellAttendanceRecords.some(r => r.member_id === member.id && r.attendance_type === 'meeting' && r.is_present)
               return (
-                <div key={member.id} className={`flex items-center gap-2 p-2.5 rounded-xl ${isPresent ? 'bg-green-50' : 'bg-gray-50'}`}>
-                  {member.photo_url ? (
-                    <Image
-                      src={member.photo_url}
-                      alt={member.name}
-                      width={24}
-                      height={24}
-                      className="w-6 h-6 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">{member.name.charAt(0)}</div>
-                  )}
-                  <span className="text-sm font-medium text-gray-900 flex-1">{member.name}</span>
-                  {isPresent ? <svg className="w-4 h-4 text-green-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg> : <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>}
+                <div key={member.id} className="grid grid-cols-[minmax(0,1fr)_3rem_3rem] items-center gap-2 p-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {member.photo_url ? (
+                      <Image src={member.photo_url} alt={member.name} width={24} height={24} className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">{member.name.charAt(0)}</div>
+                    )}
+                    <span className="text-sm font-medium text-gray-900 truncate">{member.name}</span>
+                  </div>
+                  <span className={worshipPresent ? 'text-blue-600' : 'text-gray-300'} aria-label={`예배 ${worshipPresent ? '출석' : '결석'}`}>
+                    {worshipPresent ? '✓' : '−'}
+                  </span>
+                  <span className={meetingPresent ? 'text-green-600' : 'text-gray-300'} aria-label={`모임 ${meetingPresent ? '출석' : '결석'}`}>
+                    {meetingPresent ? '✓' : '−'}
+                  </span>
                 </div>
               )
             })}

@@ -12,6 +12,7 @@ import type { UserDepartment } from '@/types/shared'
 import type { ReportSaveRequest } from './utils/reportSavePayload'
 import type { CellAttendance } from './types'
 import { genKey } from './types'
+import { summarizeReportAttendance, summarizeSelectedReports } from './utils/reportAttendance'
 
 function getLastSunday(): string {
   const now = new Date()
@@ -97,11 +98,15 @@ export default function CellReportAggregatorClient() {
     [cellReports, selectedIds]
   )
 
-  const totals = useMemo(() => ({
-    worship: selectedReports.reduce((s, r) => s + (r.worship_attendance || 0), 0),
-    registered: selectedReports.reduce((s, r) => s + (r.total_registered || 0), 0),
-    meeting: selectedReports.reduce((s, r) => s + (r.meeting_attendance || 0), 0),
-  }), [selectedReports])
+  const reportAttendance = useMemo(
+    () => new Map(cellReports.map(report => [
+      report.id,
+      summarizeReportAttendance(report.attendance_records),
+    ])),
+    [cellReports],
+  )
+
+  const totals = useMemo(() => summarizeSelectedReports(selectedReports), [selectedReports])
 
   const handleCreate = async () => {
     if (selectedReports.length === 0 || !activeDeptId) return
@@ -112,9 +117,9 @@ export default function CellReportAggregatorClient() {
       const cellAttendance: CellAttendance[] = selectedReports.map(r => ({
         _key: genKey(),
         cell_name: extractCellName(r),
-        registered: r.total_registered || 0,
-        worship: r.worship_attendance || 0,
-        meeting: r.meeting_attendance || 0,
+        registered: reportAttendance.get(r.id)?.registered || 0,
+        worship: reportAttendance.get(r.id)?.worship || 0,
+        meeting: reportAttendance.get(r.id)?.meeting || 0,
         note: '',
       }))
 
@@ -338,9 +343,9 @@ export default function CellReportAggregatorClient() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
-                      <span>예배 {report.worship_attendance ?? 0}명</span>
+                      <span>예배 {reportAttendance.get(report.id)?.worship ?? 0}명</span>
                       <span>/</span>
-                      <span>등록 {report.total_registered ?? 0}명</span>
+                      <span>등록 {reportAttendance.get(report.id)?.registered ?? 0}명</span>
                       {report.users?.name && (
                         <>
                           <span>·</span>
@@ -393,7 +398,7 @@ export default function CellReportAggregatorClient() {
               return (
                 <div key={r.id} className="bg-white rounded-xl p-3 text-xs">
                   <p className="font-semibold text-gray-700 mb-1">
-                    {cellName} · {r.worship_attendance ?? 0}/{r.total_registered ?? 0}명
+                    {cellName} · 예배 {reportAttendance.get(r.id)?.worship ?? 0}/{reportAttendance.get(r.id)?.registered ?? 0}명 · 모임 {reportAttendance.get(r.id)?.meeting ?? 0}명
                   </p>
                   {r.main_content && (
                     <p className="text-gray-500 line-clamp-2">나눔: {r.main_content}</p>

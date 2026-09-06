@@ -353,3 +353,11 @@ pm run build.
 - `member-photos`, `department-photos`, `report-photos`, and `meeting-pdfs` are private. Persist Storage object paths only; generate signed URLs with `src/lib/storage.ts` for display.
 - Always qualify `storage.objects.name` inside Storage policy subqueries. Unqualified `name` may resolve to `users.name` and silently invalidate path checks.
 - The next scoped task is attendance/report automatic linkage and statistics; use `docs/handoffs/2026-09-05-attendance-report-linkage.md` as the starting evidence.
+
+## 2026-09-06 Attendance/Report Persistence Rules
+- Cell-leader attendance uses `{ member_id, worship_present, meeting_present }`. Do not collapse the two types or infer historical rows from `attendees` text.
+- `public.save_report_bundle(jsonb)` is the atomic public boundary. The internal legacy writer is in `report_internal`; the wrapper stays `SECURITY INVOKER`, validates active cell membership, writes `checked_via = 'report'`, and must not swallow attendance errors.
+- Background autosave sets `sync_attendance = false`. Explicit saves sync attendance, except unlinked historical edits where the user has not touched attendance.
+- The unique attendance key remains `(member_id, attendance_date, attendance_type)`. Manual changes set `manual`/`bulk`; report saves set `report`.
+- Weekly aggregation derives totals from linked personal rows. Statistics must keep empty scopes empty, use real calendar weeks, and avoid a current-only denominator for historical numerators.
+- Production changes are migrations `021`, `022`, and `023`; rollback E2E coverage is in `supabase/tests/attendance_report_linkage_e2e.sql`.

@@ -249,3 +249,17 @@
   - `src/components/reports/hooks/useReportSubmit.ts`
   - `src/components/reports/hooks/useReportSubmit.test.ts`
   - `src/components/reports/utils/reportSavePayload.ts`
+
+## 2026-09-06 Resolved - Cell Report Attendance Linkage And Statistics
+
+#### Cell-leader reports saved no linked personal attendance
+- **Symptom**: Production had 93 recent cell-leader reports and zero attendance rows with `report_id`; CU1 weekly summaries disagreed with personal attendance.
+- **Root cause**: Cell attendance used one meeting-only boolean, report summaries were hard-coded to zero, and the RPC swallowed attendance failures. The authenticated trigger also depended on the caller search path.
+- **Fix**:
+  - Split worship/meeting input and atomically save two linked rows per cell member.
+  - Validate active selected-cell membership and propagate errors so the whole bundle rolls back.
+  - Derive weekly aggregation from linked personal rows and preserve unlinked historical summaries unless attendance is touched.
+  - Fix trigger search path, old/new report recalculation, and report deletion behavior for manual corrections.
+  - Repair empty filter expansion, fixed period denominators, current-active/historical mixing, and missing weekly report-type filtering.
+- **Verification**: 193 automated tests passed. A production authenticated rollback E2E passed creation, atomic failure, and deletion/manual-preservation assertions with no residual rows.
+- **Related files**: migrations `021`-`023`, `supabase/tests/attendance_report_linkage_e2e.sql`, report attendance components/utilities, and `src/lib/stats-queries.ts`.

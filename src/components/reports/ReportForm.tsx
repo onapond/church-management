@@ -113,7 +113,7 @@ interface ReportFormProps {
 }
 
 interface ReportDraftBackup {
-  version: 2
+  version: 3
   updatedAt: number
   draftReportId: string | null
   data: {
@@ -189,7 +189,7 @@ export default function ReportForm({
     budgetItems, setBudgetItems, addBudgetItem, removeBudgetItem, updateBudgetItem,
     photoFiles, photoPreviews, handlePhotoAdd, removePhoto,
     enabledSections, setEnabledSections, isSectionEnabled, toggleSection, toggleAllSections, projNum,
-    selectedCellId, setSelectedCellId, memberAttendance, setMemberAttendance, handleToggleMemberAttendance, handleBulkAttendance, handleCellChange, handleDepartmentChange, cells,
+    selectedCellId, setSelectedCellId, memberAttendance, setMemberAttendance, shouldSyncAttendance, handleToggleMemberAttendance, handleBulkAttendance, handleCellChange, handleDepartmentChange, cells,
     attendanceSummary,
   } = useReportForm({ reportType, departments, defaultDate, editMode, existingReport, supabase, toast })
 
@@ -309,6 +309,7 @@ export default function ReportForm({
     budgetItems,
     cellAttendance,
     memberAttendance,
+    shouldSyncAttendance,
     selectedCellId,
     photoFiles,
     enabledSections,
@@ -1034,5 +1035,3 @@ export default function ReportForm({
     </form>
   )
 }
-
-

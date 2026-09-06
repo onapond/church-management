@@ -179,6 +179,7 @@ async function saveReportViaRpc(
   request: ReportSaveRequest,
 ): Promise<SaveResult> {
   const reportYear = parseInt(request.form.report_date.split('-')[0], 10)
+  const attendanceForSave = request.syncAttendance === false ? [] : request.memberAttendance
   const reportData = buildReportData({
     form: request.form,
     reportType: request.reportType,
@@ -187,17 +188,16 @@ async function saveReportViaRpc(
     isDraft: request.isDraft,
     cellAttendance: request.cellAttendance,
     attendanceSummary: request.attendanceSummary,
-    memberAttendance: request.memberAttendance,
+    memberAttendance: attendanceForSave,
     selectedCellId: request.selectedCellId,
     enabledSections: request.enabledSections as never,
   })
   const { contentItems, scheduleItems, budgetItems } = normalizeProjectItems(request)
-  const attendancePresentMemberIds = request.memberAttendance
-    .filter(member => member.isPresent)
-    .map(member => member.memberId)
-  const attendanceAbsentMemberIds = request.memberAttendance
-    .filter(member => !member.isPresent)
-    .map(member => member.memberId)
+  const attendanceMembers = attendanceForSave.map(member => ({
+    member_id: member.memberId,
+    worship_present: member.worshipPresent,
+    meeting_present: member.meetingPresent,
+  }))
 
   const { data, error } = await supabase.rpc('save_report_bundle', {
     payload: {
@@ -206,9 +206,9 @@ async function saveReportViaRpc(
       target_report_id: request.targetReportId ?? null,
       edit_report_id: request.editReportId ?? null,
       selected_cell_id: request.selectedCellId || null,
+      sync_attendance: request.syncAttendance ?? true,
       attendance_date: request.form.report_date,
-      attendance_present_member_ids: attendancePresentMemberIds,
-      attendance_absent_member_ids: attendanceAbsentMemberIds,
+      attendance_members: attendanceMembers,
       report_data: withResubmissionReset(reportData as unknown as Record<string, unknown>, request.isDraft),
       report_programs: normalizePrograms(request),
       newcomers: normalizeNewcomers(request),

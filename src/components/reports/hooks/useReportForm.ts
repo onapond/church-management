@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import type { Program, Newcomer, CellAttendance, ProjectContentItem, ProjectScheduleItem, ProjectBudgetItem } from '../types'
 import { genKey } from '../types'
-import type { MemberAttendanceItem } from '../CellMemberAttendance'
+import type { CellAttendanceType, MemberAttendanceItem } from '../CellMemberAttendance'
 import { useCells } from '@/queries/departments'
 import { useCellMembers, useCellAttendanceRecords } from '@/queries/attendance'
 
@@ -148,8 +148,9 @@ export interface UseReportFormReturn {
   setSelectedCellId: React.Dispatch<React.SetStateAction<string>>
   memberAttendance: MemberAttendanceItem[]
   setMemberAttendance: React.Dispatch<React.SetStateAction<MemberAttendanceItem[]>>
-  handleToggleMemberAttendance: (memberId: string) => void
-  handleBulkAttendance: (allPresent: boolean) => void
+  shouldSyncAttendance: boolean
+  handleToggleMemberAttendance: (memberId: string, type: CellAttendanceType) => void
+  handleBulkAttendance: (type: CellAttendanceType, allPresent: boolean) => void
   handleCellChange: (cellId: string) => void
   handleDepartmentChange: (departmentId: string) => void
   cells: Array<{ id: string; name: string }>
@@ -170,7 +171,8 @@ export function useReportForm({
   const [existingReportId, setExistingReportId] = useState<string | null>(null)
   const [existingReportStatus, setExistingReportStatus] = useState<string | null>(null)
   const [selectedCellId, setSelectedCellId] = useState<string>(existingReport?.cell_id || '')
-  const [memberAttendance, setMemberAttendance] = useState<MemberAttendanceItem[]>([])
+  const [memberAttendance, setMemberAttendanceState] = useState<MemberAttendanceItem[]>([])
+  const [attendanceTouched, setAttendanceTouched] = useState(false)
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
 
@@ -235,7 +237,8 @@ export function useReportForm({
   const { data: cells = [] } = useCells(reportType === 'cell_leader' ? form.department_id : undefined)
   const { data: cellMembers = [] } = useCellMembers(reportType === 'cell_leader' && selectedCellId ? selectedCellId : undefined)
   const cellMemberIds = useMemo(() => cellMembers.map(m => m.id), [cellMembers])
-  const { data: cellRecordsData } = useCellAttendanceRecords(
+  const { data: cellRecordsData, isLoading: cellRecordsLoading } = useCellAttendanceRecords(
+    editMode && reportType === 'cell_leader' ? existingReport?.id : undefined,
     editMode && reportType === 'cell_leader' ? cellMemberIds : [],
     editMode ? form.report_date : ''
   )
@@ -244,40 +247,70 @@ export function useReportForm({
   // 셀원 목록이 변경되면 출결 상태 초기화
   useEffect(() => {
     if (reportType !== 'cell_leader' || cellMembers.length === 0) return
-    const attendanceMap = new Map(existingCellRecords.map(r => [r.member_id, r.is_present]))
-    setMemberAttendance(prev => {
-      if (prev.length === cellMembers.length &&
-          prev.every((m, i) => m.memberId === cellMembers[i]?.id)) {
-        return prev
-      }
-      return cellMembers.map(m => ({
+    if (editMode && cellRecordsLoading) return
+    if (attendanceTouched && memberAttendance.length > 0) return
+    const attendanceMap = new Map(
+      existingCellRecords.map(record => [
+        `${record.member_id}:${record.attendance_type}`,
+        record.is_present,
+      ]),
+    )
+    setMemberAttendanceState(prev => {
+      const next = cellMembers.map(m => ({
         memberId: m.id,
         name: m.name,
         photoUrl: m.photo_url,
-        isPresent: editMode ? (attendanceMap.get(m.id) ?? false) : false,
+        worshipPresent: editMode ? (attendanceMap.get(`${m.id}:worship`) ?? false) : false,
+        meetingPresent: editMode ? (attendanceMap.get(`${m.id}:meeting`) ?? false) : false,
       }))
+      if (
+        prev.length === next.length
+        && prev.every((member, index) => {
+          const nextMember = next[index]
+          return member.memberId === nextMember?.memberId
+            && member.worshipPresent === nextMember.worshipPresent
+            && member.meetingPresent === nextMember.meetingPresent
+        })
+      ) return prev
+      return next
     })
-  }, [cellMembers, existingCellRecords, editMode, reportType])
+  }, [attendanceTouched, cellMembers, cellRecordsLoading, existingCellRecords, editMode, memberAttendance.length, reportType])
 
-  const handleToggleMemberAttendance = useCallback((memberId: string) => {
-    setMemberAttendance(prev =>
-      prev.map(m => m.memberId === memberId ? { ...m, isPresent: !m.isPresent } : m)
+  const setMemberAttendance = useCallback<React.Dispatch<React.SetStateAction<MemberAttendanceItem[]>>>((value) => {
+    setAttendanceTouched(true)
+    setMemberAttendanceState(value)
+  }, [])
+
+  const shouldSyncAttendance = reportType !== 'cell_leader'
+    || !editMode
+    || existingCellRecords.length > 0
+    || attendanceTouched
+
+  const handleToggleMemberAttendance = useCallback((memberId: string, type: CellAttendanceType) => {
+    const key = type === 'worship' ? 'worshipPresent' : 'meetingPresent'
+    setAttendanceTouched(true)
+    setMemberAttendanceState(prev =>
+      prev.map(m => m.memberId === memberId ? { ...m, [key]: !m[key] } : m)
     )
   }, [])
 
-  const handleBulkAttendance = useCallback((allPresent: boolean) => {
-    setMemberAttendance(prev => prev.map(m => ({ ...m, isPresent: allPresent })))
+  const handleBulkAttendance = useCallback((type: CellAttendanceType, allPresent: boolean) => {
+    const key = type === 'worship' ? 'worshipPresent' : 'meetingPresent'
+    setAttendanceTouched(true)
+    setMemberAttendanceState(prev => prev.map(m => ({ ...m, [key]: allPresent })))
   }, [])
 
   const handleDepartmentChange = useCallback((departmentId: string) => {
     setForm(prev => ({ ...prev, department_id: departmentId }))
     setSelectedCellId('')
-    setMemberAttendance([])
+    setAttendanceTouched(true)
+    setMemberAttendanceState([])
   }, [])
 
   const handleCellChange = useCallback((cellId: string) => {
     setSelectedCellId(cellId)
-    setMemberAttendance([])
+    setAttendanceTouched(true)
+    setMemberAttendanceState([])
     const cell = cells.find(c => c.id === cellId)
     if (cell) {
       setForm(prev => ({ ...prev, meeting_title: `${cell.name} 모임 보고서` }))
@@ -521,8 +554,7 @@ export function useReportForm({
     budgetItems, setBudgetItems, addBudgetItem, removeBudgetItem, updateBudgetItem,
     photoFiles, photoPreviews, handlePhotoAdd, removePhoto,
     enabledSections, setEnabledSections, isSectionEnabled, toggleSection, toggleAllSections, projNum,
-    selectedCellId, setSelectedCellId, memberAttendance, setMemberAttendance, handleToggleMemberAttendance, handleBulkAttendance, handleCellChange, handleDepartmentChange, cells,
+    selectedCellId, setSelectedCellId, memberAttendance, setMemberAttendance, shouldSyncAttendance, handleToggleMemberAttendance, handleBulkAttendance, handleCellChange, handleDepartmentChange, cells,
     attendanceSummary,
   }
 }
-

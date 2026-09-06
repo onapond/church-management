@@ -1,4 +1,4 @@
-export const REPORT_DRAFT_BACKUP_VERSION = 2
+export const REPORT_DRAFT_BACKUP_VERSION = 3
 
 type VersionedReportDraftBackup = {
   version: number

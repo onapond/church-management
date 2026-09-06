@@ -108,21 +108,29 @@ export function useCellMembers(cellId: string | undefined) {
   })
 }
 
-/** 셀원 출결 기록 조회 (특정 날짜, meeting 타입) */
-export function useCellAttendanceRecords(memberIds: string[], date: string) {
+/** 셀장보고서에 연결된 셀원 예배/모임 출결 조회 */
+export function useCellAttendanceRecords(reportId: string | undefined, memberIds: string[], date: string) {
   return useQuery({
-    queryKey: ['attendance', 'cellRecords', memberIds, date],
-    queryFn: async (): Promise<{ member_id: string; is_present: boolean }[]> => {
+    queryKey: ['attendance', 'cellRecords', reportId, memberIds, date],
+    queryFn: async (): Promise<{
+      member_id: string
+      attendance_type: 'worship' | 'meeting'
+      is_present: boolean
+    }[]> => {
       const { data, error } = await supabase
         .from('attendance_records')
-        .select('member_id, is_present')
+        .select('member_id, attendance_type, is_present')
+        .eq('report_id', reportId!)
         .in('member_id', memberIds)
         .eq('attendance_date', date)
-        .eq('attendance_type', 'meeting')
       if (error) throw error
-      return (data || []) as { member_id: string; is_present: boolean }[]
+      return (data || []) as {
+        member_id: string
+        attendance_type: 'worship' | 'meeting'
+        is_present: boolean
+      }[]
     },
-    enabled: memberIds.length > 0 && !!date,
+    enabled: !!reportId && memberIds.length > 0 && !!date,
     staleTime: 30_000,
   })
 }
@@ -139,29 +147,19 @@ export function useToggleAttendance() {
       isPresent: boolean
       checkedBy: string
     }) => {
-      if (params.isPresent) {
-        const { error } = await supabase
-          .from('attendance_records')
-          .upsert({
-            member_id: params.memberId,
-            attendance_date: params.date,
-            attendance_type: params.type,
-            is_present: true,
-            checked_by: params.checkedBy,
-            checked_via: 'manual',
-          }, {
-            onConflict: 'member_id,attendance_date,attendance_type',
-          })
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('attendance_records')
-          .delete()
-          .eq('member_id', params.memberId)
-          .eq('attendance_date', params.date)
-          .eq('attendance_type', params.type)
-        if (error) throw error
-      }
+      const { error } = await supabase
+        .from('attendance_records')
+        .upsert({
+          member_id: params.memberId,
+          attendance_date: params.date,
+          attendance_type: params.type,
+          is_present: params.isPresent,
+          checked_by: params.checkedBy,
+          checked_via: 'manual',
+        }, {
+          onConflict: 'member_id,attendance_date,attendance_type',
+        })
+      if (error) throw error
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] })

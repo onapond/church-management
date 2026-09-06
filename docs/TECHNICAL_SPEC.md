@@ -409,3 +409,28 @@ WHERE year = 2026 AND report_type = 'weekly';
 - Photo buckets `member-photos`, `department-photos`, and `report-photos` are private. Persist object paths in `photo_url`; `src/lib/storage.ts` normalizes legacy URLs and creates one-hour signed URLs. `next/image` accepts the Supabase signed-object path.
 - Storage policies must reference `storage.objects.name` explicitly inside nested queries. Migration 020 also repaired the report-photo policy that had resolved unqualified `name` as `users.name`.
 - No attendance record, report save bundle, report approval transition, or accounting behavior changed in this migration.
+
+## 2026-09-06 Cell-Leader Attendance Linkage And Statistics
+
+### Canonical data contract
+- Cell-leader form state and save payload carry `member_id`, `worship_present`, and `meeting_present` for every active selected-cell member.
+- Explicit save creates or updates both attendance types, including false values, with `report_id` and `checked_via = 'report'`.
+- The unique key remains `(member_id, attendance_date, attendance_type)`. Manual and report entry update one row instead of creating conflicting sources.
+- Background draft autosave sends `sync_attendance = false`. A content-only edit of a pre-migration report with no linked rows also preserves its legacy summary until attendance is touched.
+
+### Transaction and RLS boundary
+- Migration `021_link_report_attendance_atomically.sql` keeps the public RPC signature, moves the legacy writer to `report_internal.save_report_bundle_core_v21(jsonb)`, and adds a `SECURITY INVOKER` atomic wrapper.
+- The wrapper validates report date, active cell/department membership, duplicate member ids, and complete booleans. Validation or RLS failure rolls back report and attendance together.
+- `checked_via` accepts `manual`, `bulk`, and `report` (plus null for legacy compatibility). Production contained only `manual` rows before migration.
+- Migration `022_fix_attendance_summary_trigger_search_path.sql` pins `search_path = public, pg_temp`, qualifies relations, and recalculates both old and new report ids including `total_registered`.
+- Migration `023_preserve_manual_attendance_on_report_delete.sql` prevents nested-trigger conflicts. Report-origin rows are removed with a report; manually corrected rows are detached and retained.
+- Existing attendance/report RLS, approval transitions, auth approval gate, and accounting behavior are unchanged and not bypassed.
+
+### Aggregation and statistics
+- Cell-report aggregation computes per-cell and overall totals from nested linked personal rows, not stale summary columns. Weekly report construction uses the same `attendanceSummary` source.
+- Report-cycle statistics filter `weekly_reports.report_type = 'weekly'`.
+- Attendance statistics keep empty department/cell scopes at zero, enumerate actual Sunday-based weeks, deduplicate member/week/type, and derive weekly historical eligibility from `joined_at`, membership `created_at`, inactive `updated_at`, plus observed attendance.
+
+### Verification
+- `supabase/tests/attendance_report_linkage_e2e.sql` runs as `authenticated` inside a transaction and rolls back. It asserts two-type creation, summary consistency, atomic failure, and manual-row survival on report deletion.
+- Production post-test audit: synthetic reports `0`, synthetic future attendance `0`, existing manual attendance `758`, trigger search path `public, pg_temp`. Historical rows remain unlinked because unsafe backfill was intentionally skipped.

@@ -26,7 +26,7 @@ export function useDepartmentStats(departments: Department[], period: Period) {
     queryKey: ['stats', 'departments', period, departments.map(d => d.id)],
     queryFn: async (): Promise<DepartmentStats[]> => {
       const startDate = getStartDate(period)
-      return computeDepartmentStats(supabase, departments, startDate, period)
+      return computeDepartmentStats(supabase, departments, startDate)
     },
     enabled: departments.length > 0,
     staleTime: 2 * 60_000,

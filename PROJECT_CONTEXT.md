@@ -366,3 +366,11 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - `member-photos`, `department-photos`, and `report-photos` are private. DB rows store object paths and clients create one-hour signed URLs at read time. Production verification found zero remaining HTTP photo URLs.
 - Attendance, accounting, report save RPC, and approval transitions were not changed. The separate attendance/report-linkage investigation is handed off in `docs/handoffs/2026-09-05-attendance-report-linkage.md`.
 - Verification after rebasing the concurrent stale-draft recovery: lint passed, 185 tests passed, TypeScript passed, and production build passed. `/pending` now creates its browser Supabase client only when logout is clicked so local prerender does not require client env at render time.
+
+## 2026-09-06 Update - Attendance And Report Linkage
+- Cell-leader reports now capture worship and meeting attendance separately for every active member of the selected cell.
+- Explicit report saves atomically write the report and two `attendance_records` rows per member with `report_id` and `checked_via = 'report'`. Attendance validation errors roll back the report bundle instead of becoming warnings.
+- Existing unlinked historical reports keep their stored summary until a user explicitly edits attendance; attendee text is not guessed into historical worship/meeting rows.
+- Weekly report aggregation and report summaries use linked personal attendance as their source. General attendance statistics now use actual calendar-week buckets, preserve empty department/cell filters, and use historical eligibility for old numerators.
+- Manual attendance remains supported. A manual correction changes provenance back to `manual`/`bulk`, and that row survives later deletion of its source report.
+- Migrations `021` through `023` were applied to production. Existing approval, accounting, member approval, and P0 security behavior remain unchanged.

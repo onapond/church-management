@@ -671,3 +671,31 @@
 - Vercel production 배포 `dpl_9CY3t4LaD9rHBnLcxJ7sVGofWQQ5` READY, `https://church-opal.vercel.app` alias 완료.
 - 배포 후 `/login` 스모크 HTTP 200.
 - 최신 CLI 59.11.7 직접 deploy는 인증 오류가 났지만 프로젝트 조회/로그인은 정상. 설치된 58.4.0이 업로드했고 원격 빌드는 59.11.7로 수행됐다. 전역 CLI는 추후 `npm i -g vercel@latest` 권장.
+
+## 2026-09-06 — 셀장보고서 출석 연계·통계 복구
+
+### 진단과 결정
+- 프로덕션 전체 출결 758건은 모두 `manual`, `report_id` 연결은 0건이었다. 최근 셀장보고서 93건의 연결 출결 0건과 CU1 주차보고서 불일치를 재확인했다.
+- 과거 `attendees` 문자열은 예배/모임으로 추측 백필하지 않는다. 연결 없는 과거 보고서는 출결을 직접 건드리기 전까지 기존 요약을 보존한다.
+- 수동 출결·결재·회계·승인 게이트는 유지한다.
+
+### 구현
+- 개인 입력/상세를 `worshipPresent`와 `meetingPresent` 두 열로 분리했다.
+- 명시 저장은 `attendance_members`와 `sync_attendance=true`, 백그라운드 자동저장은 `false`로 전송한다.
+- `021`은 공개 RPC 시그니처를 유지하는 원자적 `SECURITY INVOKER` 래퍼, 셀원 검증, `checked_via='report'`, 출처 제약과 삭제 정리를 추가했다.
+- 프로덕션 E2E에서 발견한 authenticated search path와 보고서 삭제 중 중첩 트리거 결함을 `022`/`023`으로 보정했다.
+- 셀장보고서 취합은 연결 개인 행만 집계한다. 통계는 빈 필터, 실제 주차 수, 주별 역사적 재적, weekly report type을 명시적으로 처리한다.
+
+### 검증
+- TypeScript 통과.
+- Vitest 단일 워커: 14 files / 193 tests 통과. 직전 병렬 실행의 1건 실패는 워커 시작 타임아웃이었고 동일 테스트 포함 재실행은 통과했다.
+- 프로덕션 migrations 021, 022, 023 적용.
+- authenticated rollback E2E 통과: worship/meeting 2행, 요약 일치, 잘못된 셀원 입력 전체 롤백, 수동 수정 보존/보고서 출처 삭제.
+- 사후 감사: E2E 보고서 0, 미래 테스트 출결 0, 기존 manual 758, trigger search path `public, pg_temp`.
+
+### 남은 순서
+1. commit/push
+2. Vercel production deploy 및 smoke
+
+### 최종 로컬 게이트
+- 네트워크 허용 상태에서 `npm run verify` 전체 통과: docs:check, lint 0 warnings, 14 files / 193 tests, TypeScript, Next.js 16.1.6 production build.

@@ -278,7 +278,7 @@ export default function AttendanceGrid({
 
         const { data, error } = await supabase
           .from('attendance_records')
-          .update({ is_present: newPresent })
+          .update({ is_present: newPresent, checked_via: 'manual' })
           .eq('id', existingRecord.id)
           .select('id, member_id, attendance_type, is_present')
           .single()
@@ -382,7 +382,7 @@ export default function AttendanceGrid({
         if (recordsToUpdate.length > 0) {
           const { error } = await supabase
             .from('attendance_records')
-            .update({ is_present: true })
+            .update({ is_present: true, checked_via: 'bulk' })
             .in('id', recordsToUpdate)
           if (error) throw error
         }
@@ -422,7 +422,7 @@ export default function AttendanceGrid({
         if (recordIds.length > 0) {
           const { error } = await supabase
             .from('attendance_records')
-            .update({ is_present: false })
+            .update({ is_present: false, checked_via: 'bulk' })
             .in('id', recordIds)
           if (error) throw error
 

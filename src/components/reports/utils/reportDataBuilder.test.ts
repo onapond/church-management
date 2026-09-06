@@ -49,7 +49,7 @@ describe('buildReportData', () => {
     expect(result.meeting_attendance).toBe(15)
   })
 
-  it('주차 보고서: cellAttendance 합계 우선 사용', () => {
+  it('주차 보고서: 셀별 표시 행과 무관하게 개인 출결 원천 요약을 사용', () => {
     const input: ReportDataInput = {
       ...baseInput,
       cellAttendance: [
@@ -58,9 +58,9 @@ describe('buildReportData', () => {
       ],
     }
     const result = buildReportData(input)
-    expect(result.total_registered).toBe(15)
-    expect(result.worship_attendance).toBe(12)
-    expect(result.meeting_attendance).toBe(9)
+    expect(result.total_registered).toBe(30)
+    expect(result.worship_attendance).toBe(20)
+    expect(result.meeting_attendance).toBe(15)
   })
 
   it('임시저장: status=draft, submitted_at=null', () => {
@@ -96,6 +96,22 @@ describe('buildReportData', () => {
     expect(result.week_number).toBeNull()
   })
 
+  it('셀장 보고서: 예배와 모임 개인 출석을 각각 집계', () => {
+    const result = buildReportData({
+      ...baseInput,
+      reportType: 'cell_leader',
+      selectedCellId: 'cell-001',
+      memberAttendance: [
+        { memberId: '1', name: '홍길동', worshipPresent: true, meetingPresent: false, photoUrl: null },
+        { memberId: '2', name: '김철수', worshipPresent: true, meetingPresent: true, photoUrl: null },
+      ],
+    })
+
+    expect(result.total_registered).toBe(2)
+    expect(result.worship_attendance).toBe(2)
+    expect(result.meeting_attendance).toBe(1)
+  })
+
   it('프로젝트 보고서: attendees null, notes에 project_sections 포함', () => {
     const input: ReportDataInput = {
       ...baseInput,
@@ -127,9 +143,9 @@ describe('buildReportData', () => {
 describe('buildCellLeaderAttendees', () => {
   it('출석자 이름 목록 반환', () => {
     const attendance = [
-      { memberId: '1', name: '홍길동', isPresent: true, photoUrl: null },
-      { memberId: '2', name: '김철수', isPresent: false, photoUrl: null },
-      { memberId: '3', name: '이영희', isPresent: true, photoUrl: null },
+      { memberId: '1', name: '홍길동', worshipPresent: false, meetingPresent: true, photoUrl: null },
+      { memberId: '2', name: '김철수', worshipPresent: true, meetingPresent: false, photoUrl: null },
+      { memberId: '3', name: '이영희', worshipPresent: true, meetingPresent: true, photoUrl: null },
     ]
     const result = buildCellLeaderAttendees(attendance, '')
     expect(result).toBe('홍길동, 이영희 (총 2명)')
@@ -137,7 +153,7 @@ describe('buildCellLeaderAttendees', () => {
 
   it('출석자 없으면 fallback 반환', () => {
     const attendance = [
-      { memberId: '1', name: '홍길동', isPresent: false, photoUrl: null },
+      { memberId: '1', name: '홍길동', worshipPresent: true, meetingPresent: false, photoUrl: null },
     ]
     const result = buildCellLeaderAttendees(attendance, '기존 참석자')
     expect(result).toBe('기존 참석자')

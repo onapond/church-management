@@ -57,7 +57,7 @@ export function buildCellLeaderAttendees(
   memberAttendance: MemberAttendanceItem[],
   fallback: string
 ): string {
-  const presentNames = memberAttendance.filter(m => m.isPresent).map(m => m.name)
+  const presentNames = memberAttendance.filter(m => m.meetingPresent).map(m => m.name)
   if (presentNames.length === 0) return fallback
   return `${presentNames.join(', ')} (총 ${presentNames.length}명)`
 }
@@ -76,18 +76,16 @@ export function buildReportData(input: ReportDataInput): ReportDataPayload {
     enabledSections,
   } = input
 
-  const totalRegistered =
-    reportType === 'weekly'
-      ? cellAttendance.reduce((sum, c) => sum + (Number(c.registered) || 0), 0) || attendanceSummary.total
-      : 0
-  const totalWorship =
-    reportType === 'weekly'
-      ? cellAttendance.reduce((sum, c) => sum + (Number(c.worship) || 0), 0) || attendanceSummary.worship
-      : 0
-  const totalMeeting =
-    reportType === 'weekly'
-      ? cellAttendance.reduce((sum, c) => sum + (Number(c.meeting) || 0), 0) || attendanceSummary.meeting
-      : 0
+  const isAttendanceReport = reportType === 'weekly' || reportType === 'cell_leader'
+  const totalRegistered = reportType === 'cell_leader'
+    ? memberAttendance.length
+    : reportType === 'weekly' ? attendanceSummary.total : 0
+  const totalWorship = reportType === 'cell_leader'
+    ? memberAttendance.filter(member => member.worshipPresent).length
+    : reportType === 'weekly' ? attendanceSummary.worship : 0
+  const totalMeeting = reportType === 'cell_leader'
+    ? memberAttendance.filter(member => member.meetingPresent).length
+    : reportType === 'weekly' ? attendanceSummary.meeting : 0
 
   const cellLeaderAttendees =
     reportType === 'cell_leader' && selectedCellId && memberAttendance.length > 0
@@ -100,9 +98,9 @@ export function buildReportData(input: ReportDataInput): ReportDataPayload {
     report_date: form.report_date,
     week_number: reportType === 'weekly' ? weekNumber : null,
     year: reportYear,
-    total_registered: totalRegistered,
-    worship_attendance: totalWorship,
-    meeting_attendance: totalMeeting,
+    total_registered: isAttendanceReport ? totalRegistered : 0,
+    worship_attendance: isAttendanceReport ? totalWorship : 0,
+    meeting_attendance: isAttendanceReport ? totalMeeting : 0,
     cell_id: reportType === 'cell_leader' ? (selectedCellId || null) : null,
     meeting_title: reportType !== 'weekly' ? form.meeting_title : null,
     meeting_location:

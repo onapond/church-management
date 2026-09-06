@@ -362,6 +362,7 @@ export function useReportStats(selectedDept: string, startDate: string) {
       let query = supabase
         .from('weekly_reports')
         .select('id, department_id, report_date, status, submitted_at, final_approved_at, created_at, departments(name, code)')
+        .eq('report_type', 'weekly')
         .gte('report_date', startDate)
         .order('report_date', { ascending: true })
 
@@ -394,6 +395,12 @@ export interface CellLeaderReportForAggregator {
   department_id: string
   users: { name: string } | null
   cells: { name: string } | null
+  attendance_records: Array<{
+    member_id: string
+    attendance_type: 'worship' | 'meeting'
+    is_present: boolean
+    checked_via: string | null
+  }>
 }
 
 /** 특정 주의 셀장 보고서 조회 (취합 기능용) */
@@ -404,7 +411,7 @@ export function useCellLeaderReportsByDate(deptIds: string[], reportDate: string
     queryFn: async (): Promise<CellLeaderReportForAggregator[]> => {
       const { data, error } = await supabase
         .from('weekly_reports')
-        .select('id, meeting_title, report_date, worship_attendance, total_registered, meeting_attendance, notes, main_content, application_notes, status, department_id, users!weekly_reports_author_id_fkey(name), cells(name)')
+        .select('id, meeting_title, report_date, worship_attendance, total_registered, meeting_attendance, notes, main_content, application_notes, status, department_id, users!weekly_reports_author_id_fkey(name), cells(name), attendance_records(member_id, attendance_type, is_present, checked_via)')
         .eq('report_type', 'cell_leader')
         .in('department_id', deptIds)
         .gte('report_date', weekStart)
