@@ -366,3 +366,10 @@ pm run build.
 - `scripts/ops-2026-09-07-fix-dahui-taehee-cell-rosters.sql` is the canonical guarded operation for the roster correction.
 - The confirmed Dahui roster is 김동혁, 김은수, 도지수, 이다희, 장미화. Do not merge these rows back into Taehee cell without a new explicit request and production audit.
 - This was a `member_departments.cell_id` correction only; historical report attendee text and attendance rows were intentionally preserved.
+
+## 2026-09-07 CU1 Unassigned Member Placement
+- `scripts/ops-2026-09-07-assign-cu1-unassigned-members.sql` is the canonical one-shot guarded operation.
+- Reuse the existing `선웅셀` and `현진셀`; do not create duplicate `김선웅셀` or `이현진셀` rows. `태신자셀` is intentionally distinct from the existing `새신자셀`.
+- 김효정 must remain cell-unassigned while retaining the existing active `team_leader` and CU1 `is_team_leader=true` account state unless a later explicit operational decision changes it.
+- The confirmed `태신자셀` roster is 구현서, 김민호, 김영효, 김지솔, 박수빈, 송준선, 신원주, 우현승, 장성재, 현수빈.
+- This operation changes only one `cells` row and twelve CU1 `member_departments.cell_id` values; historical attendance, reports, approvals, accounting, auth, and RLS stay untouched.

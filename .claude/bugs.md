@@ -270,3 +270,10 @@
 - **Fix**: A guarded data-only transaction changed only those five CU1 `member_departments.cell_id` values to the active Dahui cell.
 - **Verification**: Dahui has the five intended members, none remain in Taehee, and attendance/report row totals remain 758/297.
 - **Related file**: `scripts/ops-2026-09-07-fix-dahui-taehee-cell-rosters.sql`.
+
+## 2026-09-07 Resolved - CU1 Active Members Missing From Cell Rosters
+- **Symptom**: Thirteen active CU1 members had no `cell_id`, so they did not appear under a specific cell in attendance or cell-leader report member lists.
+- **Decision**: Assign 김선웅 to the existing `선웅셀`, 이현진 to the existing `현진셀`, keep team leader 김효정 unassigned, and create a separate `태신자셀` for the remaining ten members. Preserve the existing `새신자셀`.
+- **Fix**: A guarded one-shot transaction created one cell and updated twelve explicit CU1 `member_departments.cell_id` rows after an exact-roster `ROLLBACK` dry run.
+- **Verification**: `태신자셀` has exactly the intended ten members; only 김효정 remains unassigned; duplicate CU1 memberships and cross-department cell links are both zero. Attendance/report totals remained 782/299 with 24 valid report-linked attendance rows.
+- **Related file**: `scripts/ops-2026-09-07-assign-cu1-unassigned-members.sql`.

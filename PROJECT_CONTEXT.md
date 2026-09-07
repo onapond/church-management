@@ -380,3 +380,10 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Production CU1 had an active but empty `다희셀`; its five repeatedly documented members were incorrectly assigned to `태희셀`.
 - A guarded data-only transaction moved 김동혁, 김은수, 도지수, 이다희, and 장미화 to `다희셀`.
 - `태희셀` now contains 강태웅, 김민지, 박승조, 이태희, 조민정, and 한수연b. No attendance records, reports, schema, RLS, auth, approvals, or accounting data changed.
+
+## 2026-09-07 Update - CU1 Unassigned Member Placement
+- Existing active `선웅셀` and `현진셀` were reused: 김선웅 was assigned to `선웅셀` and 이현진 to `현진셀`; no duplicate person-named cells were created.
+- Added one active CU1 `태신자셀` and assigned 구현서, 김민호, 김영효, 김지솔, 박수빈, 송준선, 신원주, 우현승, 장성재, and 현수빈.
+- 김효정 remains the only active unassigned CU1 member and retains the already-verified active `team_leader` / CU1 department-leader account state.
+- Existing `새신자셀` and every other roster were preserved. Production post-check found zero duplicate CU1 memberships, zero cross-department cell links, and unchanged attendance/report totals of 782/299 with 24 valid report-linked attendance rows.
+- This is a guarded data-only operation; application code, schema, RLS, auth, approval, accounting, and deployment are unchanged.
