@@ -263,3 +263,10 @@
   - Repair empty filter expansion, fixed period denominators, current-active/historical mixing, and missing weekly report-type filtering.
 - **Verification**: 193 automated tests passed. A production authenticated rollback E2E passed creation, atomic failure, and deletion/manual-preservation assertions with no residual rows.
 - **Related files**: migrations `021`-`023`, `supabase/tests/attendance_report_linkage_e2e.sql`, report attendance components/utilities, and `src/lib/stats-queries.ts`.
+
+## 2026-09-07 Resolved - CU1 Dahui Roster Missing From Attendance
+- **Symptom**: Dahui cell appeared empty while its members were listed under Taehee cell.
+- **Evidence**: Historical Dahui cell-leader reports repeatedly identified 김동혁, 김은수, 도지수, 이다희, and 장미화; production had all five in Taehee and zero active members in Dahui.
+- **Fix**: A guarded data-only transaction changed only those five CU1 `member_departments.cell_id` values to the active Dahui cell.
+- **Verification**: Dahui has the five intended members, none remain in Taehee, and attendance/report row totals remain 758/297.
+- **Related file**: `scripts/ops-2026-09-07-fix-dahui-taehee-cell-rosters.sql`.

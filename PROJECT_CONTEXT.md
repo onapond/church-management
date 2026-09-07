@@ -375,3 +375,8 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Manual attendance remains supported. A manual correction changes provenance back to `manual`/`bulk`, and that row survives later deletion of its source report.
 - Migrations `021` through `023` were applied to production. Existing approval, accounting, member approval, and P0 security behavior remain unchanged.
 - Implementation commit `46391bb` is on `origin/main`; Vercel deployment `dpl_CeQvKFfV4ckeoXdTqMrXz6NxkHpX` is READY at `https://church-opal.vercel.app`.
+
+## 2026-09-07 Update - CU1 Dahui/Taehee Roster Correction
+- Production CU1 had an active but empty `다희셀`; its five repeatedly documented members were incorrectly assigned to `태희셀`.
+- A guarded data-only transaction moved 김동혁, 김은수, 도지수, 이다희, and 장미화 to `다희셀`.
+- `태희셀` now contains 강태웅, 김민지, 박승조, 이태희, 조민정, and 한수연b. No attendance records, reports, schema, RLS, auth, approvals, or accounting data changed.

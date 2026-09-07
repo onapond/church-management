@@ -434,3 +434,9 @@ WHERE year = 2026 AND report_type = 'weekly';
 ### Verification
 - `supabase/tests/attendance_report_linkage_e2e.sql` runs as `authenticated` inside a transaction and rolls back. It asserts two-type creation, summary consistency, atomic failure, and manual-row survival on report deletion.
 - Production post-test audit: synthetic reports `0`, synthetic future attendance `0`, existing manual attendance `758`, trigger search path `public, pg_temp`. Historical rows remain unlinked because unsafe backfill was intentionally skipped.
+
+## 2026-09-07 CU1 Cell Roster Data Correction
+- Operational SQL: `scripts/ops-2026-09-07-fix-dahui-taehee-cell-rosters.sql`.
+- The transaction resolves exactly one active CU1 department and exactly one active `다희셀`/`태희셀`, verifies five unique active CU1 members are currently in Taehee cell, updates only their `member_departments.cell_id`, and asserts the final placement before commit.
+- Moved to Dahui: 김동혁, 김은수, 도지수, 이다희, 장미화. Taehee retains 강태웅, 김민지, 박승조, 이태희, 조민정, 한수연b.
+- Production post-check: zero target members remain in Taehee; `attendance_records = 758` and `weekly_reports = 297`. No schema, RLS, auth, report, attendance-row, approval, or accounting mutation was made.

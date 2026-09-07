@@ -361,3 +361,8 @@ pm run build.
 - The unique attendance key remains `(member_id, attendance_date, attendance_type)`. Manual changes set `manual`/`bulk`; report saves set `report`.
 - Weekly aggregation derives totals from linked personal rows. Statistics must keep empty scopes empty, use real calendar weeks, and avoid a current-only denominator for historical numerators.
 - Production changes are migrations `021`, `022`, and `023`; rollback E2E coverage is in `supabase/tests/attendance_report_linkage_e2e.sql`.
+
+## 2026-09-07 CU1 Dahui/Taehee Data Correction
+- `scripts/ops-2026-09-07-fix-dahui-taehee-cell-rosters.sql` is the canonical guarded operation for the roster correction.
+- The confirmed Dahui roster is 김동혁, 김은수, 도지수, 이다희, 장미화. Do not merge these rows back into Taehee cell without a new explicit request and production audit.
+- This was a `member_departments.cell_id` correction only; historical report attendee text and attendance rows were intentionally preserved.

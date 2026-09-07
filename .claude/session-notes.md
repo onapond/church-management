@@ -704,3 +704,11 @@
 - Vercel production 배포 `dpl_CeQvKFfV4ckeoXdTqMrXz6NxkHpX` READY, `https://church-opal.vercel.app` alias 완료.
 - 배포 후 `/login` HTTP 200, 미인증 `POST /api/reports/save` HTTP 401.
 - 로컬 Vercel CLI는 58.4.0이고 원격 빌드는 59.11.7이었다. 전역 CLI는 `npm i -g vercel@latest` 권장.
+
+## 2026-09-07 — CU1 다희셀·태희셀 출석부 명단 복구
+- 프로덕션 사전 확인: 활성 다희셀 0명, 태희셀 11명. 과거 셀장보고서의 반복 참석자와 2026-06-11 운영 기록을 근거로 다희셀 대상 5명을 확정했다.
+- `scripts/ops-2026-09-07-fix-dahui-taehee-cell-rosters.sql`을 작성하고 프로덕션에 트랜잭션 적용했다.
+- 다희셀로 이동: 김동혁, 김은수, 도지수, 이다희, 장미화.
+- 최종 태희셀: 강태웅, 김민지, 박승조, 이태희, 조민정, 한수연b. 조민정은 다희셀 근거가 없어 이동하지 않았다.
+- 사후 검증: 대상 5명의 태희셀 잔존 0, 출결 758건/보고서 297건 보존.
+- 데이터-only 작업으로 앱 코드·스키마·RLS·auth·결재·회계 변경 및 Vercel 재배포 없음.
