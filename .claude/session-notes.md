@@ -721,3 +721,8 @@
 - 사후 감사: 활성 CU1 셀 8개, 태신자셀 1개, 미배정은 김효정 1명, 중복 소속 0, 다른 부서 셀 연결 0.
 - 출결 782건, 보고서 299건, 정상 연결 출결 24건과 연결 무결성 오류 0건을 확인했다. 앱 코드·스키마·RLS·auth·결재·회계 변경 및 Vercel 재배포 없음.
 - 최종 검증: docs:check, lint 0 warnings, 14 files / 193 tests, TypeScript 통과. 최초 build는 샌드박스 Google Fonts 연결 제한으로 실패했고 네트워크 허용 재실행에서 Next.js production build 통과.
+
+## 2026-09-08 — 세션 종료 핸드오프
+- 출석 자동 연계·통계 복구, 다희셀/태희셀 명단 복구, CU1 미배정자 배정과 태신자셀 신설을 완료 상태로 통합 정리했다.
+- 후속 기준 문서: `docs/handoffs/2026-09-08-attendance-and-cu1-roster-completion.md`.
+- 종료 시 기준 커밋은 `40cd23b`; 요청된 구현/데이터 작업의 미해결 항목은 없다.

@@ -47,6 +47,7 @@
 - 기존 `새신자셀`과 다른 모든 셀 명단은 유지됐다. `attendance_records` 782건, `weekly_reports` 299건, 보고서 연결 출결 24건과 무결성 오류 0건을 사후 확인했다.
 - `npm run verify`의 docs/lint/193 tests/typecheck가 통과했고, 최초 빌드의 Google Fonts 네트워크 차단은 네트워크 허용 재실행에서 production build 통과로 확인했다.
 - 앱 코드·스키마·RLS·auth·결재·회계 변경 없음. 데이터-only 작업이므로 Vercel 재배포는 필요하지 않다.
+- 세션 종료 핸드오프: `docs/handoffs/2026-09-08-attendance-and-cu1-roster-completion.md`.
 
 ---
 
