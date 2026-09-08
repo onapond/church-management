@@ -387,3 +387,11 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - 김효정 remains the only active unassigned CU1 member and retains the already-verified active `team_leader` / CU1 department-leader account state.
 - Existing `새신자셀` and every other roster were preserved. Production post-check found zero duplicate CU1 memberships, zero cross-department cell links, and unchanged attendance/report totals of 782/299 with 24 valid report-linked attendance rows.
 - This is a guarded data-only operation; application code, schema, RLS, auth, approval, accounting, and deployment are unchanged.
+
+## 2026-09-08 Update - CU1 Roster Sync From Latest Workbook
+- Synced production CU1 against `1청년부 전체 명단 (26.09.08).xlsx`; both now contain the same 50 active members.
+- Added Shin Hee-jun to Sunwoong cell, added Sungmo cell for Jeong Sungmo, and moved Kim Minho to Dahui, Park Subin to Mina, and Jeong Sihoo/Jeong Eunjae to Tae-sinja cell.
+- The two distinct Han Suyeon members are preserved: Han Suyeon A belongs to Hyunjin cell and CU Worship, while Han Suyeon B belongs to Taehee cell. A duplicate history-free Han Suyeon A row was merged into the older row that owns 12 attendance records and the worship-team link.
+- Corrected Park Seungjo's birth date to `1998-01-27`. Incomplete source values for Shin Hee-jun's phone and birth date were left null instead of being guessed.
+- Production verification shows 50 active CU1 members, 9 active cells, only Kim Hyo-jeong unassigned, no duplicate CU1 memberships, no cross-department cell links, and no orphan report-attendance links.
+- This was a guarded data-only operation. Application code, schema, RLS, auth, report/approval, attendance history, and accounting behavior were not changed.

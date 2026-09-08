@@ -277,3 +277,12 @@
 - **Fix**: A guarded one-shot transaction created one cell and updated twelve explicit CU1 `member_departments.cell_id` rows after an exact-roster `ROLLBACK` dry run.
 - **Verification**: `태신자셀` has exactly the intended ten members; only 김효정 remains unassigned; duplicate CU1 memberships and cross-department cell links are both zero. Attendance/report totals remained 782/299 with 24 valid report-linked attendance rows.
 - **Related file**: `scripts/ops-2026-09-07-assign-cu1-unassigned-members.sql`.
+
+## 2026-09-08 Resolved - CU1 Latest Workbook Roster Drift
+
+#### Production roster and cell assignments differed from the 2026-09-08 workbook
+- **Symptom**: The workbook and production both contained 50 active CU1 rows, but Shin Hee-jun was missing, Han Suyeon A had a duplicate row, five existing members had different cell assignments, Sungmo cell was absent, and Park Seungjo had the wrong birth date.
+- **Decision**: Han Suyeon A and B are two different members. A belongs to Hyunjin cell and CU Worship; B belongs to Taehee cell.
+- **Fix**: Added Shin Hee-jun and Sungmo cell, applied the workbook cell mapping, corrected Park Seungjo's birth date, and merged only Han Suyeon A's history-free duplicate into the older row that owns attendance and worship-team history.
+- **Verification**: Workbook/production name and cell differences are zero. CU1 has 50 active members, 9 active cells, no duplicate membership rows, no cross-department cell links, and no orphan report-attendance links.
+- **Related file**: `scripts/ops-2026-09-08-sync-cu1-roster-from-xlsx.sql`.

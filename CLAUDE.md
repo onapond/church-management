@@ -373,3 +373,10 @@ pm run build.
 - 김효정 must remain cell-unassigned while retaining the existing active `team_leader` and CU1 `is_team_leader=true` account state unless a later explicit operational decision changes it.
 - The confirmed `태신자셀` roster is 구현서, 김민호, 김영효, 김지솔, 박수빈, 송준선, 신원주, 우현승, 장성재, 현수빈.
 - This operation changes only one `cells` row and twelve CU1 `member_departments.cell_id` values; historical attendance, reports, approvals, accounting, auth, and RLS stay untouched.
+
+## 2026-09-08 Notes - CU1 Latest Workbook Sync
+- `scripts/ops-2026-09-08-sync-cu1-roster-from-xlsx.sql` is the guarded one-shot operation for `1청년부 전체 명단 (26.09.08).xlsx`.
+- Preserve Han Suyeon A and B as two people: `한수연a` is in Hyunjin cell and CU Worship; `한수연b` is in Taehee cell. The removed row was only a duplicate of A with no attendance, visitation, newcomer-conversion, photo, or additional-department history.
+- Shin Hee-jun's incomplete source birth date and missing phone remain null. Do not infer them in later imports.
+- Current CU1 has 50 active members and 9 active cells. Kim Hyo-jeong remains the only unassigned active CU1 member by explicit operational decision.
+- This sync changed production data only. Do not add a migration or redeploy Vercel for this operation.

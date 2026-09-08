@@ -448,3 +448,12 @@ WHERE year = 2026 AND report_type = 'weekly';
 - A second invocation fails before mutation, preventing duplicate cell creation or silent reassignment.
 - Production post-check: eight active CU1 cells, one `태신자셀`, only 김효정 unassigned, zero duplicate CU1 memberships, zero cross-department cell links, `attendance_records = 782`, `weekly_reports = 299`, and 24 valid report-linked attendance rows.
 - No application code, schema, RLS, auth, report, attendance-row, approval, or accounting behavior changed.
+
+## 2026-09-08 CU1 Workbook Roster Synchronization
+- Operational SQL: `scripts/ops-2026-09-08-sync-cu1-roster-from-xlsx.sql`.
+- Source: `1청년부 전체 명단 (26.09.08).xlsx`, SHA-256 `c2d6df46df7bb6fce289bd0b3eb3d6437f0a87310a71d1860d1f242e1e356246`.
+- The transaction asserts the complete pre-update 50-member roster, target cell identities, Han Suyeon A/B identities and references, exact update counts, and protected attendance/report/member totals.
+- It adds one `cells` row (`성모셀`) and one `members` plus `member_departments` pair (`신희준`→`선웅셀`). It updates five existing cell assignments and one birth date.
+- Han Suyeon A is normalized onto the older history-bearing member id. That id retains CU1/Hyunjin, CU Worship, and attendance references. The history-free duplicate A row is removed. Han Suyeon B remains a separate Taehee member.
+- Postconditions compare all 50 active CU1 names and every member-to-cell pair with the normalized workbook mapping. They also require zero duplicate CU1 memberships and zero cross-department cell references.
+- No table, column, constraint, migration, RLS policy, auth flow, approval transition, attendance record, weekly report, or accounting record is changed.
