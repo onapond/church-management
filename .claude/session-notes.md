@@ -618,8 +618,8 @@
 3. 위 둘이 풀리면 P0-1 → P0-3/7/8(020 마이그레이션 하나로) → P0-6
 
 ### 주의사항
-- 인쇄 샌드박스는 실제 브라우저에서 인쇄 대화상자가 뜨는지 **수동 확인이 남아 있다.**
-  `.env.local`이 없어 앱을 띄우지 못했다.
+- 당시 인쇄 샌드박스의 실제 브라우저 확인이 남아 있었으나 2026-09-08 프로덕션
+  Chrome smoke로 완료했다. 결과는 `docs/handoffs/2026-09-08-report-print-browser-smoke.md`에 있다.
 - 이번 세션은 커밋하지 않았다. 작업 트리에 변경분이 그대로 있다.
 
 ## 2026-08-22 Youth Report Forbidden Recovery
@@ -663,7 +663,7 @@
 
 ### 다음 작업
 - `docs/handoffs/2026-09-05-attendance-report-linkage.md`부터 시작해 셀장보고서/주차보고서의 출석 자동연계와 통계 정확성을 수정한다.
-- 인쇄 sandbox 실제 인쇄 대화상자 smoke test는 여전히 수동 확인 필요.
+- 당시 남아 있던 인쇄 sandbox 실제 브라우저 smoke는 2026-09-08 완료했다.
 
 ### Git / 배포
 - 원격 동시 커밋 `690ad69 Fix stale report draft recovery` 위로 rebase하고 전체 verify(185 tests)를 다시 통과했다.
@@ -736,3 +736,9 @@
 - 사후 독립 대조: Excel/프로덕션 명단 차이 0, 셀 차이 0, 활성 CU1 50명, 활성 셀 9개, 미배정 김효정 1명, 중복 연결 0, 다른 부서 셀 연결 0.
 - 출결 806건, 보고서 303건, 보고서 연결 출결 40건, 고아 연결 0. 기존 출결·보고서 행은 작업 중 변경하지 않았다.
 - 앱 코드·스키마·RLS·auth·결재·회계 변경과 Vercel 재배포는 없다.
+
+## 2026-09-08 — 보고서 인쇄 sandbox 프로덕션 Chrome smoke
+- 기존 Chrome `요한` 프로필의 인증 세션으로 프로덕션 주차보고서 `340ee89c-29b9-4535-a09f-c3c0ceae0994` 상세를 확인했다.
+- `인쇄` 버튼의 옵션 모달과 `인쇄 실행`을 차례로 눌렀다. 시스템 인쇄 모달이 열리면서 페이지가 비활성화되고, `window.print()`가 반환되기 전 sandbox iframe이 유지되는 실제 브라우저 동작을 확인했다.
+- 실행 전후 브라우저 콘솔 warning/error는 0건이었다. 출력이나 PDF 저장은 하지 않고 테스트용 탭을 닫았다.
+- `src/lib/utils.test.ts` 35건과 `npm run docs:check` 통과. 앱 코드·DB·RLS·auth·attendance·보고서 저장/결재·accounting 변경 및 재배포 없음.

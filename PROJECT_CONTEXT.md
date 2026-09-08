@@ -348,7 +348,7 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Verification run in this session: `docs:check`, `lint`, `npm test` (**173 tests**, up from 168), `tsc --noEmit`, and `npm run build` all passed. The build was run with Supabase env vars supplied inline because `.env.local` is not present; this confirms the audit's finding that the build failure was environment-related, not a code regression.
 - No database schema, RLS policy, Storage bucket, approval state, attendance, accounting, or auth behavior was changed.
 - Historical 2026-08-21 state: **P0-1**, **P0-3 / P0-7 / P0-8**, and **P0-6** were still open pending production access and a member-delete decision. They were completed on 2026-09-05 below.
-- The print sandbox change still needs a manual print smoke test in a real browser.
+- The print sandbox was smoke-tested in authenticated production Chrome on 2026-09-08. `인쇄 실행` opened the system print modal from the sandboxed iframe without console warnings/errors; no print or PDF save was completed.
 
 ## 2026-08-22 Update - Stale Report Draft Recovery
 - New report forms now recover when a restored local backup points to a draft report id that was deleted, submitted, or is otherwise no longer editable.

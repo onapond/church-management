@@ -4,7 +4,43 @@
 
 ---
 
-## 1. Active Task — 2026-09-08 CU1 전체 명단·셀 최신화
+## 1. Active Task — 보고서 인쇄 sandbox 실제 브라우저 smoke test (2026-09-08)
+
+- 상태: **완료 (2026-09-08)**
+- 목표: 프로덕션의 인증된 보고서 상세 화면에서 인쇄 기능을 실행해 `iframe.srcdoc` + `sandbox="allow-same-origin allow-modals"` 구현이 실제 Chrome 인쇄 대화상자를 정상적으로 여는지 확인한다.
+
+### 영향 범위와 구현 계획
+
+- attendance: 출결 데이터와 저장·집계 흐름을 변경하지 않는다.
+- report: 기존 보고서를 읽어 인쇄 UI만 확인하며, 보고서 본문·결재 상태·저장 API는 변경하지 않는다.
+- accounting: 영향 없음.
+- additive change: 우선 브라우저 smoke와 기록만 수행한다. 결함이 재현될 때만 인쇄 유틸/템플릿을 좁게 보정하고 회귀 테스트를 추가한다.
+- auth/RLS: 기존 로그인 세션과 조회 권한만 사용하며 계정·승인·역할·RLS를 변경하지 않는다.
+- 프로덕션 alias `https://church-opal.vercel.app`의 보고서 상세에서 인쇄 옵션 모달과 인쇄 실행을 확인한다.
+- 브라우저 콘솔 오류, 임시 iframe의 sandbox 속성, 인쇄 호출 여부를 함께 점검하고 결과를 문서화한다.
+
+### 예상 파일
+
+- `CURRENT_TASK.md`
+- `PROJECT_CONTEXT.md`
+- `CLAUDE.md`
+- `docs/TECHNICAL_SPEC.md`
+- `docs/USER_GUIDE.md`
+- `.claude/session-notes.md`
+- `docs/handoffs/2026-09-08-report-print-browser-smoke.md`
+- 결함 발견 시에만 `src/lib/utils.ts`, `src/lib/utils.test.ts`, `src/components/reports/ReportDetail.tsx`
+
+### 완료 근거
+
+- 기존 Chrome `요한` 프로필의 인증 세션으로 프로덕션 주차보고서 `340ee89c-29b9-4535-a09f-c3c0ceae0994` 상세를 열었다.
+- `인쇄` → `인쇄 실행` 후 Chrome 시스템 인쇄 모달이 열려 페이지가 비활성화되고, `window.print()` 반환 전 sandbox iframe이 유지되는 실제 브라우저 동작을 확인했다.
+- 인쇄 옵션 모달은 닫혔고 브라우저 콘솔 warning/error는 0건이었다. 출력·PDF 저장은 수행하지 않고 테스트용 탭을 닫았다.
+- 기존 단위 회귀 `src/lib/utils.test.ts` 35건과 `npm run docs:check`가 통과했다.
+- 앱 코드·DB·RLS·auth·attendance·report 저장/결재·accounting 변경은 없으며 재배포가 필요하지 않다.
+
+---
+
+## 2. Previous Task — CU1 전체 명단·셀 최신화 (2026-09-08)
 
 - 상태: **완료 (2026-09-08)**
 - 원본: `1청년부 전체 명단 (26.09.08).xlsx`
@@ -56,7 +92,7 @@
 
 ---
 
-## 2. Previous Task — CU1 미배정자 셀 배정 및 태신자셀 신설 (2026-09-07)
+## 3. Previous Task — CU1 미배정자 셀 배정 및 태신자셀 신설 (2026-09-07)
 
 - 상태: **완료 (2026-09-07)**
 - 목표: CU1 활성 셀 미배정자 13명을 운영 결정에 따라 배정하되, 김효정 팀장은 미배정으로 유지하고 `태신자셀`을 신설한다.
@@ -103,7 +139,7 @@
 
 ---
 
-## 3. Previous Task — CU1 다희셀·태희셀 명단 복구 (2026-09-07)
+## 4. Previous Task — CU1 다희셀·태희셀 명단 복구 (2026-09-07)
 
 - 상태: **완료 (2026-09-07)**
 - 목표: 태희셀에 합쳐져 있는 다희셀 교인을 다희셀로 되돌려 출석부의 두 셀 명단을 복구한다.
@@ -141,7 +177,7 @@
 
 ---
 
-## 4. Previous Task — 출석 자동연계·통계 복구 (2026-09-05)
+## 5. Previous Task — 출석 자동연계·통계 복구 (2026-09-05)
 
 - 상태: **완료 (2026-09-06)**
 - 목표: 셀장보고서에서 예배/모임 개인 출석을 분리 입력하고, 보고서와 `attendance_records`를 하나의 트랜잭션으로 저장하며, 주차보고서와 통계가 같은 개인 출석 원천을 집계하도록 복구한다.
@@ -446,8 +482,8 @@
   - `.gitattributes` (신규)
 - 이번 세션에서 **건드리지 않은 것**: DB 스키마/마이그레이션, RLS 정책, 결재 상태 전이,
   `save_report_bundle` RPC, 출결·회계 흐름, 인증 흐름.
-- 인쇄 샌드박스 전환은 실제 브라우저 인쇄 동작 확인이 필요하다.
-  `.env.local`이 없어 이번 세션에서는 앱을 띄운 수동 인쇄 테스트를 하지 못했다.
+- 당시 남아 있던 인쇄 샌드박스 실제 브라우저 확인은 2026-09-08 프로덕션 Chrome
+  smoke로 완료했다. 결과는 `docs/handoffs/2026-09-08-report-print-browser-smoke.md`에 있다.
 
 ---
 ---

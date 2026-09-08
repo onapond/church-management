@@ -325,6 +325,8 @@ pm run build.
   Use this guard instead of `working-tree-encoding`: a mojibake file is still valid UTF-8.
 - `printHtmlInIframe` uses `iframe.srcdoc` + `sandbox="allow-same-origin allow-modals"`.
   Never add `allow-scripts` there. Print HTML must not rely on inline `<script>` for printing.
+- Authenticated production Chrome smoke on 2026-09-08 confirmed that `인쇄 실행` opens the
+  system print modal from this sandboxed iframe without console warnings/errors.
 - Rich-text report fields (`discussion_notes`, `other_notes`) go through `DOMPurify.sanitize()`
   in the print path, not `escapeHtml()`; everything else in the print HTML is escaped.
 - `public/sw.js` must never cache authenticated responses. Both `supabase` hosts and `/api/`

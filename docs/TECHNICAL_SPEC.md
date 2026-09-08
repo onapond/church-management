@@ -374,6 +374,9 @@ WHERE year = 2026 AND report_type = 'weekly';
 - Exception: `discussion_notes` and `other_notes` are RichTextEditor HTML and are rendered with
   `DOMPurify.sanitize()`, matching how `ReportDetail` renders them on screen. Escaping them would
   print raw tags.
+- Production browser verification on 2026-09-08 confirmed that an authenticated weekly report
+  opens Chrome's system print modal through this sandboxed iframe without console warnings/errors.
+  The smoke test cancelled without printing or saving a PDF.
 
 ### Service worker caching policy (P0-5)
 - `public/sw.js` no longer caches any authenticated response. Both `supabase` hosts and
