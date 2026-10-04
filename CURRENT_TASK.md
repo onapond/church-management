@@ -4,7 +4,20 @@
 
 ---
 
-## 1. Active Task — 보고서 인쇄 sandbox 실제 브라우저 smoke test (2026-09-08)
+## Active Task — 운영 사진 엑박 복구 (2026-10-04)
+
+- 상태: 분리된 배포본의 로컬 검증 완료, 운영 배포 진행 중.
+- 운영 `/_next/image`가 HTTP 402 `OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`를 반환하고 원본 이미지는 HTTP 200이다.
+- `next.config.ts`의 `images.unoptimized: true`로 `next/image`를 원본·서명 URL 직접 전달로 전환한다.
+- 영향: 교인·출석·활동 사진 표시. 출결 기록, 보고서 저장·결재, 회계는 변경하지 않는다.
+- additive change이며 DB·Storage 버킷·RLS·auth·승인 흐름은 변경하지 않는다.
+- 변경 파일: `next.config.ts`, `CURRENT_TASK.md`, `PROJECT_CONTEXT.md`, `CLAUDE.md`, `docs/TECHNICAL_SPEC.md`, `docs/USER_GUIDE.md`, `.claude/session-notes.md`.
+- 배포 후 운영 응답과 인증 사진 화면을 확인한다.
+- `npm run verify`의 문서·린트·193개 테스트·타입 검사가 통과했다. 최초 빌드는 외부 `node_modules` 심볼릭 링크를 Turbopack이 거부해 중단됐고, 잠금 파일 기준 `npm ci` 후 `npm run build`가 통과했다.
+
+---
+
+## 1. Previous Task — 보고서 인쇄 sandbox 실제 브라우저 smoke test (2026-09-08)
 
 - 상태: **완료 (2026-09-08)**
 - 목표: 프로덕션의 인증된 보고서 상세 화면에서 인쇄 기능을 실행해 `iframe.srcdoc` + `sandbox="allow-same-origin allow-modals"` 구현이 실제 Chrome 인쇄 대화상자를 정상적으로 여는지 확인한다.

@@ -742,3 +742,9 @@
 - `인쇄` 버튼의 옵션 모달과 `인쇄 실행`을 차례로 눌렀다. 시스템 인쇄 모달이 열리면서 페이지가 비활성화되고, `window.print()`가 반환되기 전 sandbox iframe이 유지되는 실제 브라우저 동작을 확인했다.
 - 실행 전후 브라우저 콘솔 warning/error는 0건이었다. 출력이나 PDF 저장은 하지 않고 테스트용 탭을 닫았다.
 - `src/lib/utils.test.ts` 35건과 `npm run docs:check` 통과. 앱 코드·DB·RLS·auth·attendance·보고서 저장/결재·accounting 변경 및 재배포 없음.
+
+## 2026-10-04 — 운영 이미지 최적화 402 복구
+- 운영 `/_next/image`는 HTTP 402 `OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`, 원본 `/icon-192.png`는 HTTP 200임을 확인했다.
+- `next.config.ts`에 `images.unoptimized: true`를 추가했다. `next/image`의 원본 URL 직접 전달만 바꾸며 비공개 사진 버킷과 서명 URL·권한을 유지한다.
+- 기존 출결·보고서 저장/결재·회계·계정·RLS·DB 변경 없음. 원본 전송량 증가 가능성은 후속 성능 과제다.
+- 분리된 배포본에서 docs:check, lint, 14개 파일/193개 테스트, typecheck 통과. 처음 빌드는 외부 의존성 링크를 Turbopack이 거부했으며 `npm ci` 후 `npm run build` 통과.

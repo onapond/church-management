@@ -460,3 +460,8 @@ WHERE year = 2026 AND report_type = 'weekly';
 - Han Suyeon A is normalized onto the older history-bearing member id. That id retains CU1/Hyunjin, CU Worship, and attendance references. The history-free duplicate A row is removed. Han Suyeon B remains a separate Taehee member.
 - Postconditions compare all 50 active CU1 names and every member-to-cell pair with the normalized workbook mapping. They also require zero duplicate CU1 memberships and zero cross-department cell references.
 - No table, column, constraint, migration, RLS policy, auth flow, approval transition, attendance record, weekly report, or accounting record is changed.
+
+## 2026-10-04 Image Delivery After Optimizer 402
+- Production `/_next/image?url=%2Ficon-192.png&w=256&q=75` returned HTTP 402 with `x-vercel-error: OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`; direct `/icon-192.png` returned HTTP 200.
+- `images.unoptimized: true` in `next.config.ts` makes `next/image` output original image URLs rather than Vercel optimization requests. This covers member, attendance, and activity photo components. Report attachments already use native `img` with signed URLs.
+- Supabase private photo buckets, signed URL generation, Storage policies, auth, and DB schema are unchanged. Direct delivery can transfer larger original files.

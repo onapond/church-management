@@ -382,3 +382,8 @@ pm run build.
 - Shin Hee-jun's incomplete source birth date and missing phone remain null. Do not infer them in later imports.
 - Current CU1 has 50 active members and 9 active cells. Kim Hyo-jeong remains the only unassigned active CU1 member by explicit operational decision.
 - This sync changed production data only. Do not add a migration or redeploy Vercel for this operation.
+
+## 2026-10-04 Image Optimization 402
+- Live `/_next/image` returned HTTP 402 with `OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`, while the direct static image returned HTTP 200.
+- Keep `images.unoptimized: true` in `next.config.ts` while Vercel Image Optimization is unavailable. Private photos retain the signed URL flow.
+- No Storage/RLS/auth or attendance/report/accounting persistence change.

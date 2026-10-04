@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    // Vercel Image Optimization의 402 제한과 무관하게 원본/서명 URL을 직접 제공한다.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',

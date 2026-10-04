@@ -395,3 +395,8 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Corrected Park Seungjo's birth date to `1998-01-27`. Incomplete source values for Shin Hee-jun's phone and birth date were left null instead of being guessed.
 - Production verification shows 50 active CU1 members, 9 active cells, only Kim Hyo-jeong unassigned, no duplicate CU1 memberships, no cross-department cell links, and no orphan report-attendance links.
 - This was a guarded data-only operation. Application code, schema, RLS, auth, report/approval, attendance history, and accounting behavior were not changed.
+
+## 2026-10-04 Update - Image Delivery
+- Production `/_next/image` returned HTTP 402 `OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`; direct static images returned HTTP 200.
+- `next.config.ts` disables Next image optimization so `next/image` uses the original source, including existing signed URLs for private photos.
+- Storage permissions, report/attendance/accounting data, and auth are unchanged. Original image downloads may be larger.
