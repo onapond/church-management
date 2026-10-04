@@ -6,13 +6,13 @@
 
 ## Active Task — 운영 사진 엑박 복구 (2026-10-04)
 
-- 상태: 분리된 배포본의 로컬 검증 완료, 운영 배포 진행 중.
+- 상태: **완료 (2026-10-04)**. 커밋 `311d695`를 `origin/main`에 push하고 Vercel production `dpl_asWS73eZxHKDtKLuVNeY4qNHvqRo`가 READY, `https://church-opal.vercel.app`에 alias 됐다.
 - 운영 `/_next/image`가 HTTP 402 `OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`를 반환하고 원본 이미지는 HTTP 200이다.
 - `next.config.ts`의 `images.unoptimized: true`로 `next/image`를 원본·서명 URL 직접 전달로 전환한다.
 - 영향: 교인·출석·활동 사진 표시. 출결 기록, 보고서 저장·결재, 회계는 변경하지 않는다.
 - additive change이며 DB·Storage 버킷·RLS·auth·승인 흐름은 변경하지 않는다.
 - 변경 파일: `next.config.ts`, `CURRENT_TASK.md`, `PROJECT_CONTEXT.md`, `CLAUDE.md`, `docs/TECHNICAL_SPEC.md`, `docs/USER_GUIDE.md`, `.claude/session-notes.md`.
-- 배포 후 운영 응답과 인증 사진 화면을 확인한다.
+- 운영 `/login`과 `/icon-192.png`가 HTTP 200이다. 인증된 교인 명단에서 서명 사진 20/20 로드, 깨진 사진 0, `/_next/image` 0을 확인했다. 활동 사진 화면은 서명 사진 24개 중 현재 화면에 로드된 사진 5개가 정상이고 깨진 사진 0, `/_next/image` 0이며 시각 확인도 통과했다. 나머지는 lazy loading 상태다.
 - `npm run verify`의 문서·린트·193개 테스트·타입 검사가 통과했다. 최초 빌드는 외부 `node_modules` 심볼릭 링크를 Turbopack이 거부해 중단됐고, 잠금 파일 기준 `npm ci` 후 `npm run build`가 통과했다.
 
 ---

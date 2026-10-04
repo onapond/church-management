@@ -748,3 +748,5 @@
 - `next.config.ts`에 `images.unoptimized: true`를 추가했다. `next/image`의 원본 URL 직접 전달만 바꾸며 비공개 사진 버킷과 서명 URL·권한을 유지한다.
 - 기존 출결·보고서 저장/결재·회계·계정·RLS·DB 변경 없음. 원본 전송량 증가 가능성은 후속 성능 과제다.
 - 분리된 배포본에서 docs:check, lint, 14개 파일/193개 테스트, typecheck 통과. 처음 빌드는 외부 의존성 링크를 Turbopack이 거부했으며 `npm ci` 후 `npm run build` 통과.
+- 커밋 `311d695`를 `origin/main`에 push. Vercel production `dpl_asWS73eZxHKDtKLuVNeY4qNHvqRo` READY 및 `church-opal.vercel.app` alias 확인. 운영 login/icon HTTP 200.
+- 인증 Chrome 새 탭의 교인 명단에서 서명 사진 20/20 로드, 깨진 사진 0, 최적화 경로 0. 활동 사진은 현재 로드된 5장이 정상, 깨진 사진 0, 최적화 경로 0이며 실제 화면도 확인했다. 나머지 19장은 lazy loading 상태라 전체 객체 검증으로 해석하지 않는다.
