@@ -750,3 +750,11 @@
 - 분리된 배포본에서 docs:check, lint, 14개 파일/193개 테스트, typecheck 통과. 처음 빌드는 외부 의존성 링크를 Turbopack이 거부했으며 `npm ci` 후 `npm run build` 통과.
 - 커밋 `311d695`를 `origin/main`에 push. Vercel production `dpl_asWS73eZxHKDtKLuVNeY4qNHvqRo` READY 및 `church-opal.vercel.app` alias 확인. 운영 login/icon HTTP 200.
 - 인증 Chrome 새 탭의 교인 명단에서 서명 사진 20/20 로드, 깨진 사진 0, 최적화 경로 0. 활동 사진은 현재 로드된 5장이 정상, 깨진 사진 0, 최적화 경로 0이며 실제 화면도 확인했다. 나머지 19장은 lazy loading 상태라 전체 객체 검증으로 해석하지 않는다.
+
+## 2026-10-26 — 늦은 주차 보고서 제출 오류
+- 기존 폴더가 origin/main보다 14개 커밋 뒤처져 있어 최신 `d90ad39` 기반 managed worktree `/Users/shin/.codex/worktrees/report-late-week/church`에 수정 적용. 기존 작업 폴더의 사용자 변경은 보존한다.
+- 날짜를 바꿔도 최초 주차로 저장되던 오류 수정. UI/서버 모두 실제 보고 날짜로 연도·주차 계산.
+- 늦은 제출 체크, 날짜별 주차 표시, 제출 전 대상 확인 추가. 자정 경계 기본값은 Asia/Seoul, 폼 마운트 시 고정.
+- 기존 auth/RLS, 결재 순서, 회계, 최신 출결 연동·사진 표시 변경은 보존.
+- 최종 코드 `npm run verify` 통과: 문서, lint, 208 tests, typecheck, build.
+- 현재 운영 보고서 23e35ee6-a91d-4250-ad57-9bb2352c4a5b는 2청년 10/25·43주차, 생성 10/25 00:01 KST, 회장검토 상태, 결재 이력 1건, 연결 출결 0건. 날짜/주차 정정 및 배포 검증 진행 중.

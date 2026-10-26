@@ -6,7 +6,6 @@ import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { useReportDetail, useReportPrograms, useReportNewcomers, useProjectContentItems, useProjectScheduleItems, useProjectBudgetItems } from '@/queries/reports'
 import { isAdmin as checkAdmin, canEditReport } from '@/lib/permissions'
-import { getWeekNumber } from '@/lib/utils'
 import ReportForm from '@/components/reports/ReportForm'
 
 type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
@@ -90,9 +89,6 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
   const reportType = editableReport.report_type || 'weekly'
   const config = REPORT_TYPE_CONFIG[reportType]
 
-  // 주차 계산 (일요일 기준)
-  const weekNumber = report.week_number || getWeekNumber(report.report_date)
-
   const existingReport = {
     id: report.id,
     department_id: report.department_id,
@@ -123,7 +119,7 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
         </div>
         {reportType === 'weekly' && (
           <p className="text-sm text-gray-500 mt-0.5">
-            {report.report_date.split('-')[0]}년 {weekNumber}주차 보고서
+            보고 대상 날짜를 바꾸면 해당 주차로 함께 수정됩니다.
           </p>
         )}
       </div>
@@ -132,7 +128,6 @@ export default function EditReportClient({ reportId }: EditReportClientProps) {
         reportType={reportType}
         departments={departments}
         defaultDate={report.report_date}
-        weekNumber={weekNumber}
         authorId={user.id}
         editMode={true}
         existingReport={existingReport}

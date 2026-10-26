@@ -33,6 +33,12 @@ const baseInput: ReportDataInput = {
 // ── buildReportData ──────────────────────────────────
 
 describe('buildReportData', () => {
+  it('ignores a stale week/year from the opened page when the target date changes', () => {
+    const result = buildReportData({ ...baseInput, weekNumber: 43, reportYear: 2027,
+      form: { ...baseForm, report_date: '2026-10-18' } })
+    expect(result).toMatchObject({ report_date: '2026-10-18', week_number: 42, year: 2026 })
+  })
+
   it('주차 보고서: week_number 설정, meeting_title null', () => {
     const result = buildReportData(baseInput)
     expect(result.week_number).toBe(11)

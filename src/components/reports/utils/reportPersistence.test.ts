@@ -55,6 +55,23 @@ beforeEach(() => {
 })
 
 describe('persistReportBundle', () => {
+  it.each([
+    { isDraft: true, targetReportId: 'draft-1' },
+    { isDraft: false, targetReportId: 'draft-1' },
+    { isDraft: false, editReportId: 'report-1' },
+  ])('saves the selected past week for autosave, submit and edit: %j', async target => {
+    const supabase = createSupabaseMock({ data: { reportId: 'report-1', warnings: [] }, error: null })
+    await persistReportBundle(supabase as never, {
+      ...baseRequest, ...target, weekNumber: 43,
+      form: { ...baseRequest.form, report_date: '2026-10-18' },
+    }, 'user-1')
+    expect(supabase.rpc).toHaveBeenCalledWith('save_report_bundle', {
+      payload: expect.objectContaining({
+        report_data: expect.objectContaining({ report_date: '2026-10-18', week_number: 42, year: 2026 }),
+      }),
+    })
+  })
+
   it('returns duplicate response from rpc unchanged', async () => {
     const supabase = createSupabaseMock({
       data: {

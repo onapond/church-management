@@ -465,3 +465,12 @@ WHERE year = 2026 AND report_type = 'weekly';
 - Production `/_next/image?url=%2Ficon-192.png&w=256&q=75` returned HTTP 402 with `x-vercel-error: OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`; direct `/icon-192.png` returned HTTP 200.
 - `images.unoptimized: true` in `next.config.ts` makes `next/image` output original image URLs rather than Vercel optimization requests. This covers member, attendance, and activity photo components. Report attachments already use native `img` with signed URLs.
 - Supabase private photo buckets, signed URL generation, Storage policies, auth, and DB schema are unchanged. Direct delivery can transfer larger original files.
+
+## 2026-10-26 — Report period consistency
+- 기존 오류: new/edit 부모가 최초 `weekNumber`를 전달하고 폼의 `report_date` 변경 후에도 그대로 RPC payload에 넣었다.
+- `getReportPeriod(report_date)`로 날짜 유효성을 검증하고 UI와 `buildReportData`의 `week_number`, `year`를 일치시킨다. 서버는 전달받은 `weekNumber`를 저장 기준으로 사용하지 않는다.
+- `/api/reports/save`는 존재하지 않는 날짜에 HTTP 400을 반환한다. 자동 저장·명시적 제출·수정은 동일한 builder/RPC를 사용한다.
+- `getCurrentReportSunday`는 Asia/Seoul 기준. 새 폼의 기본 날짜는 마운트 시 고정하고 사용자가 직접 대상 날짜를 바꾼다.
+- `WeeklyReportDateFields`의 늦은 제출 체크는 지난 일요일을 선택한다. 이전 날짜 직접 선택 및 로컬 초안 복원도 주차가 즉시 반영된다.
+- 최종 제출은 선택 날짜/부서에 대한 확인이 필요하다. 임시저장은 확인 없이 가능하다.
+- schema, RLS, auth, 기존 결재 및 attendance/accounting 동작 변경 없음. 기존 저장 데이터는 자동 일괄 보정하지 않는다.

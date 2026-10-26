@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canManageReport } from '@/lib/permissions'
 import { persistReportBundle } from '@/components/reports/utils/reportPersistence'
+import { getReportPeriod } from '@/components/reports/utils/reportPeriod'
 import type { ReportSaveRequest, ReportSaveResponse } from '@/components/reports/utils/reportSavePayload'
 
 export async function POST(request: Request) {
@@ -40,6 +41,13 @@ export async function POST(request: Request) {
   if (body.editReportId && body.targetReportId) {
     return NextResponse.json<ReportSaveResponse>(
       { ok: false, message: 'Provide either editReportId or targetReportId, not both' },
+      { status: 400 },
+    )
+  }
+
+  if (!getReportPeriod(body.form.report_date)) {
+    return NextResponse.json<ReportSaveResponse>(
+      { ok: false, message: '올바른 보고 대상 날짜를 선택해 주세요.' },
       { status: 400 },
     )
   }

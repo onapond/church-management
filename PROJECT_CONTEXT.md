@@ -400,3 +400,9 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Production `/_next/image` returned HTTP 402 `OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`; direct static images returned HTTP 200.
 - `next.config.ts` disables Next image optimization so `next/image` uses the original source, including existing signed URLs for private photos.
 - Storage permissions, report/attendance/accounting data, and auth are unchanged. Original image downloads may be larger.
+
+## 2026-10-26 — 늦은 주차 보고서 제출 보완
+- 보고 날짜를 수정해도 최초 화면의 주차로 저장되던 오류를 수정했다. 표시·자동 저장·제출·수정 저장이 선택한 날짜에서 주차와 연도를 계산한다.
+- 주차 보고서에 ‘지난 보고서 늦게 제출’, 실제 예배 날짜 입력, 제출 전 날짜/주차 확인을 추가했다.
+- 한국 시간 기준 일요일을 기본 날짜로 사용하며 작성 중 자정이 지나도 폼의 대상 날짜는 유지한다.
+- DB schema/RLS/auth, 출결·회계·결재 순서는 변경하지 않는다.

@@ -1,3 +1,11 @@
+## 2026-10-26 — 늦은 주차 보고서 제출 오류
+- 원인: 날짜를 수정해도 부모 화면에서 전달한 최초 `weekNumber`로 저장하여 날짜/주차가 불일치함.
+- 범위: 보고서 폼의 날짜·주차·연도 일치, 늦은 제출 선택, 제출 전 주차 확인, 서버 날짜 검증, 회귀 테스트.
+- additive fix. attendance/accounting 및 결재 순서, auth/RLS/DB schema 변경 없음.
+- 예상 파일: ReportForm, WeeklyReportDateFields, reports/new/page, EditReportClient, reportPeriod, reportDataBuilder, save/route 및 관련 테스트와 필수 문서.
+- 기존 데이터: 교회 전용 Supabase MCP 인증 완료. 2청년 대상 보고서 10/25·43주차를 확인했으며 10/18·42주차로 정정 진행 중.
+- 상태: 최신 origin/main 기반 코드 구현 완료. `npm run verify` 통과(208 tests, lint, typecheck, build). DB 정정 및 배포 검증 진행 중.
+
 # CURRENT_TASK.md
 
 이 파일은 "이번 작업"의 단일 기준 문서다. 작업을 시작하기 전에 최신 상태로 갱신하고, 구현 중 범위가 바뀌면 즉시 업데이트한다.

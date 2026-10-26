@@ -15,6 +15,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useReportSubmit } from './hooks/useReportSubmit'
 import { useReportForm } from './hooks/useReportForm'
 import type { ReportFormFields } from './utils/reportDataBuilder'
+import WeeklyReportDateFields from './WeeklyReportDateFields'
+import { getCurrentReportSunday, getReportPeriod } from './utils/reportPeriod'
 import {
   clearReportDraftBackup,
   readReportDraftBackup,
@@ -106,7 +108,6 @@ interface ReportFormProps {
   reportType: ReportType
   departments: Department[]
   defaultDate: string
-  weekNumber: number
   authorId: string
   editMode?: boolean
   existingReport?: ExistingReport
@@ -167,7 +168,6 @@ export default function ReportForm({
   reportType,
   departments,
   defaultDate,
-  weekNumber,
   authorId,
   editMode = false,
   existingReport,
@@ -192,6 +192,19 @@ export default function ReportForm({
     selectedCellId, setSelectedCellId, memberAttendance, setMemberAttendance, shouldSyncAttendance, handleToggleMemberAttendance, handleBulkAttendance, handleCellChange, handleDepartmentChange, cells,
     attendanceSummary,
   } = useReportForm({ reportType, departments, defaultDate, editMode, existingReport, supabase, toast })
+
+  const period = getReportPeriod(form.report_date)
+  const weekNumber = period?.weekNumber ?? 1
+  const [currentSunday] = useState(() => getCurrentReportSunday())
+  const [confirmedPeriod, setConfirmedPeriod] = useState<string | null>(null)
+  const periodKey = `${form.department_id}:${form.report_date}`
+  const periodConfirmed = !!period && confirmedPeriod === periodKey
+  const handleReportDateChange = useCallback((date: string) => {
+    setForm(prev => ({ ...prev, report_date: date }))
+    setConfirmedPeriod(null)
+    setExistingReportId(null)
+    setExistingReportStatus(null)
+  }, [setForm, setExistingReportId, setExistingReportStatus])
 
   // 섹션 네비게이션 상태
   const [activeSection, setActiveSection] = useState('basic')
@@ -418,8 +431,12 @@ export default function ReportForm({
 
   const handleSubmit = useCallback((e: React.FormEvent, isDraft = false) => {
     e.preventDefault()
+    if (!isDraft && reportType === 'weekly' && !periodConfirmed) {
+      toast.warning('보고 대상 날짜와 주차를 확인해 주세요.')
+      return
+    }
     submit(isDraft)
-  }, [submit])
+  }, [submit, reportType, periodConfirmed, toast])
 
   const handleFormKeyDown = useCallback((e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return
@@ -550,17 +567,20 @@ export default function ReportForm({
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {reportType === 'weekly' ? '날짜' : '일시'}
-            </label>
-            <input
-              type="date"
-              value={form.report_date}
-              onChange={(e) => setForm({ ...form, report_date: e.target.value })}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-            />
-          </div>
+          {reportType === 'weekly' ? (
+            <WeeklyReportDateFields date={form.report_date} currentSunday={currentSunday} onChange={handleReportDateChange} disabled={loading} />
+          ) : (
+            <div>
+              <label htmlFor="report-date" className="block text-sm font-medium text-gray-700 mb-1">일시</label>
+              <input
+                id="report-date"
+                type="date"
+                value={form.report_date}
+                onChange={(e) => setForm({ ...form, report_date: e.target.value })}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+            </div>
+          )}
 
           {/* 셀장보고서: 셀 선택 드롭다운 */}
           {reportType === 'cell_leader' && (
@@ -1006,6 +1026,19 @@ export default function ReportForm({
         </div>
       )}
 
+      {reportType === 'weekly' && (
+        <label className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+          <input
+            type="checkbox"
+            checked={periodConfirmed}
+            disabled={!period || loading}
+            onChange={e => setConfirmedPeriod(e.target.checked ? periodKey : null)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300"
+          />
+          <span>{period ? `${period.year}년 ${weekNumber}주차 (${form.report_date})` : '보고 대상 날짜'} 보고서가 맞는지 확인했습니다.</span>
+        </label>
+      )}
+
       {/* 버튼 */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
         <button
@@ -1026,7 +1059,7 @@ export default function ReportForm({
         <button
           type="submit"
           data-submit-intent="submit"
-          disabled={loading}
+          disabled={loading || (reportType === 'weekly' && !periodConfirmed)}
           className="sm:flex-1 px-4 py-2.5 md:py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm md:text-base order-1 sm:order-3"
         >
           {loading ? '저장 중...' : '제출'}

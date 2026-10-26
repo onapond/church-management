@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { toLocalDateString, getWeekNumber } from '@/lib/utils'
+import { getCurrentReportSunday } from '@/components/reports/utils/reportPeriod'
 import { useAuth } from '@/providers/AuthProvider'
 import { useDepartments } from '@/queries/departments'
 import { isAdmin as checkAdmin } from '@/lib/permissions'
@@ -60,11 +60,7 @@ export default function NewReportPage() {
   }, [allDepartments, user])
 
   const reportType = (searchParams.get('type') as ReportType) || (isDeptHead ? 'weekly' : 'cell_leader')
-  const now = new Date()
-  const sunday = new Date(now)
-  sunday.setDate(now.getDate() - now.getDay())
-  const sundayStr = toLocalDateString(sunday)
-  const weekNumber = getWeekNumber(sundayStr)
+  const [sundayStr] = useState(() => getCurrentReportSunday())
 
   if (!user || deptsLoading) {
     return (
@@ -93,7 +89,7 @@ export default function NewReportPage() {
         </div>
         {reportType === 'weekly' ? (
           <p className="mt-0.5 text-sm text-gray-500">
-            {now.getFullYear()}년 {weekNumber}주차 보고서
+            보고 대상 날짜를 선택해 주세요. 늦게 올리는 보고서는 지난 날짜로 작성할 수 있습니다.
           </p>
         ) : null}
       </div>
@@ -102,7 +98,6 @@ export default function NewReportPage() {
         reportType={reportType}
         departments={departments}
         defaultDate={sundayStr}
-        weekNumber={weekNumber}
         authorId={user.id}
       />
     </div>

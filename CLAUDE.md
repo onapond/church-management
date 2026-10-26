@@ -387,3 +387,8 @@ pm run build.
 - Live `/_next/image` returned HTTP 402 with `OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`, while the direct static image returned HTTP 200.
 - Keep `images.unoptimized: true` in `next.config.ts` while Vercel Image Optimization is unavailable. Private photos retain the signed URL flow.
 - No Storage/RLS/auth or attendance/report/accounting persistence change.
+
+## 2026-10-26 — 보고서 주차 기준
+- `reportPeriod.ts`의 날짜 검증/주차 계산을 UI와 저장 경로에서 공유한다.
+- `week_number`와 `year`는 반드시 `form.report_date`에서 계산한다. 기존 클라이언트가 보내는 `weekNumber`는 저장 기준으로 신뢰하지 않는다.
+- 늦은 제출 선택은 실제 보고 날짜를 바꾸는 UI이며 별도 결재 상태나 DB 플래그가 아니다. 확인 체크는 날짜/부서에 묶고 로컬 백업에 저장하지 않는다.

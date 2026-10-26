@@ -295,3 +295,10 @@ describe('POST /api/reports/save', () => {
     })
   })
 })
+
+ it('rejects an impossible calendar date before persistence', async () => {
+   mockCreateClient.mockResolvedValue(createSupabase({}))
+   const response = await POST(makeRequest({ ...validBody, form: { ...validBody.form, report_date: '2026-02-30' } }))
+   expect(response.status).toBe(400)
+   expect(mockPersistReportBundle).not.toHaveBeenCalled()
+ })

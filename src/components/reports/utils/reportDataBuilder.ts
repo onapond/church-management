@@ -1,5 +1,6 @@
 import type { CellAttendance } from '../types'
 import type { MemberAttendanceItem } from '../CellMemberAttendance'
+import { getReportPeriod } from './reportPeriod'
 
 export type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 
@@ -66,8 +67,6 @@ export function buildReportData(input: ReportDataInput): ReportDataPayload {
   const {
     form,
     reportType,
-    reportYear,
-    weekNumber,
     isDraft,
     cellAttendance,
     attendanceSummary,
@@ -75,6 +74,9 @@ export function buildReportData(input: ReportDataInput): ReportDataPayload {
     selectedCellId,
     enabledSections,
   } = input
+
+  const period = getReportPeriod(form.report_date)
+  if (!period) throw new Error('올바른 보고 대상 날짜를 선택해 주세요.')
 
   const isAttendanceReport = reportType === 'weekly' || reportType === 'cell_leader'
   const totalRegistered = reportType === 'cell_leader'
@@ -96,8 +98,8 @@ export function buildReportData(input: ReportDataInput): ReportDataPayload {
     report_type: reportType,
     department_id: form.department_id,
     report_date: form.report_date,
-    week_number: reportType === 'weekly' ? weekNumber : null,
-    year: reportYear,
+    week_number: reportType === 'weekly' ? period.weekNumber : null,
+    year: period.year,
     total_registered: isAttendanceReport ? totalRegistered : 0,
     worship_attendance: isAttendanceReport ? totalWorship : 0,
     meeting_attendance: isAttendanceReport ? totalMeeting : 0,

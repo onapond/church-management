@@ -286,3 +286,9 @@
 - **Fix**: Added Shin Hee-jun and Sungmo cell, applied the workbook cell mapping, corrected Park Seungjo's birth date, and merged only Han Suyeon A's history-free duplicate into the older row that owns attendance and worship-team history.
 - **Verification**: Workbook/production name and cell differences are zero. CU1 has 50 active members, 9 active cells, no duplicate membership rows, no cross-department cell links, and no orphan report-attendance links.
 - **Related file**: `scripts/ops-2026-09-08-sync-cu1-roster-from-xlsx.sql`.
+
+## 2026-10-26 — 보고 날짜 변경 시 주차가 고정되던 오류
+- 증상: 토요일 밤에서 일요일로 넘어간 뒤 지난주 보고서를 작성하면 이번 주에 등록되고 이번 주 작성이 중복으로 막힘. 날짜를 수동 변경해도 저장 주차는 최초 값으로 남을 수 있었음.
+- 코드 확인: ReportForm이 부모에서 받은 weekNumber를 날짜 변경 후에도 저장 payload에 전달했고 서버 builder가 그대로 사용함.
+- 수정: 선택 날짜에서 UI/서버 주차와 연도를 계산, 한국 시간 기본 날짜, 늦은 제출 선택과 제출 전 확인 추가.
+- 기존 데이터는 개별 확인 후 수정해야 하며 이번 코드 변경만으로 이동하지 않음.
