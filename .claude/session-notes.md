@@ -757,4 +757,8 @@
 - 늦은 제출 체크, 날짜별 주차 표시, 제출 전 대상 확인 추가. 자정 경계 기본값은 Asia/Seoul, 폼 마운트 시 고정.
 - 기존 auth/RLS, 결재 순서, 회계, 최신 출결 연동·사진 표시 변경은 보존.
 - 최종 코드 `npm run verify` 통과: 문서, lint, 208 tests, typecheck, build.
-- 현재 운영 보고서 23e35ee6-a91d-4250-ad57-9bb2352c4a5b는 2청년 10/25·43주차, 생성 10/25 00:01 KST, 회장검토 상태, 결재 이력 1건, 연결 출결 0건. 날짜/주차 정정 및 배포 검증 진행 중.
+- 운영 보고서 23e35ee6-a91d-4250-ad57-9bb2352c4a5b를 10/18·42주차로 정정 완료. 회장검토 상태, 본문, 제출 시각, 결재 이력 1건 보존. 연결 출결 0건. 보호형 SQL 드라이런 후 적용했고 운영 상세 화면도 확인했다.
+- 코드 `84709c8` push 및 Vercel production `dpl_HnMwvHNhtBRqJnehiwJP3dTvzi7Z` READY, church-opal.vercel.app alias 완료.
+- 실제 수정 화면에서 늦은 제출 체크 변경에 따른 10/18·42주차 ↔ 10/25·43주차 전환, 확인 체크 해제 및 제출 비활성화를 검증했다. 실데이터를 추가하는 제출은 하지 않았다.
+- Supabase 교회 프로젝트 전용 MCP OAuth 연결 완료. 현재 대화 도구 목록의 연결 갱신 제한으로 데이터 정정은 동일 승인 연결의 공식 Management API를 사용했다. 스키마·RLS 변경 없음.
+- 완료 기록: docs/handoffs/2026-10-26-late-weekly-report-fix.md.

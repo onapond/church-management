@@ -392,3 +392,4 @@ pm run build.
 - `reportPeriod.ts`의 날짜 검증/주차 계산을 UI와 저장 경로에서 공유한다.
 - `week_number`와 `year`는 반드시 `form.report_date`에서 계산한다. 기존 클라이언트가 보내는 `weekNumber`는 저장 기준으로 신뢰하지 않는다.
 - 늦은 제출 선택은 실제 보고 날짜를 바꾸는 UI이며 별도 결재 상태나 DB 플래그가 아니다. 확인 체크는 날짜/부서에 묶고 로컬 백업에 저장하지 않는다.
+- 운영 반영 완료: 코드 `84709c8`, Vercel production `dpl_HnMwvHNhtBRqJnehiwJP3dTvzi7Z`. 2청년 오등록 보고서의 10/18·42주차 정정 및 실제 화면 확인 완료. 상세: `docs/handoffs/2026-10-26-late-weekly-report-fix.md`.

@@ -474,3 +474,4 @@ WHERE year = 2026 AND report_type = 'weekly';
 - `WeeklyReportDateFields`의 늦은 제출 체크는 지난 일요일을 선택한다. 이전 날짜 직접 선택 및 로컬 초안 복원도 주차가 즉시 반영된다.
 - 최종 제출은 선택 날짜/부서에 대한 확인이 필요하다. 임시저장은 확인 없이 가능하다.
 - schema, RLS, auth, 기존 결재 및 attendance/accounting 동작 변경 없음. 기존 저장 데이터는 자동 일괄 보정하지 않는다.
+- 운영 반영 완료: 코드 `84709c8`, Vercel production `dpl_HnMwvHNhtBRqJnehiwJP3dTvzi7Z`. 2청년 오등록 보고서의 10/18·42주차 정정 및 실제 화면 확인 완료. 상세: `docs/handoffs/2026-10-26-late-weekly-report-fix.md`.

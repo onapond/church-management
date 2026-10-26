@@ -3,8 +3,9 @@
 - 범위: 보고서 폼의 날짜·주차·연도 일치, 늦은 제출 선택, 제출 전 주차 확인, 서버 날짜 검증, 회귀 테스트.
 - additive fix. attendance/accounting 및 결재 순서, auth/RLS/DB schema 변경 없음.
 - 예상 파일: ReportForm, WeeklyReportDateFields, reports/new/page, EditReportClient, reportPeriod, reportDataBuilder, save/route 및 관련 테스트와 필수 문서.
-- 기존 데이터: 교회 전용 Supabase MCP 인증 완료. 2청년 대상 보고서 10/25·43주차를 확인했으며 10/18·42주차로 정정 진행 중.
-- 상태: 최신 origin/main 기반 코드 구현 완료. `npm run verify` 통과(208 tests, lint, typecheck, build). DB 정정 및 배포 검증 진행 중.
+- 기존 데이터: 2청년 대상 보고서를 10/25·43주차에서 10/18·42주차로 정정 완료. 본문·제출 시각·결재 이력 보존을 트랜잭션에서 검증했다.
+- 상태: **완료**. 코드 `84709c8`을 origin/main에 push하고 Vercel production에 배포했다. `npm run verify` 통과(208 tests, lint, typecheck, build). 실제 운영 화면에서 날짜 정정과 늦은 제출 체크·주차 확인 동작 검증 완료.
+- 상세 기록: `docs/handoffs/2026-10-26-late-weekly-report-fix.md`.
 
 # CURRENT_TASK.md
 
