@@ -13,6 +13,7 @@ import {
   getAccessibleDepartmentIds,
   canViewReport,
   canViewAllReports,
+  canViewWeeklyReportsAcrossDepartments,
   canDeleteReport,
 } from '@/lib/permissions'
 import { formatDate } from '@/lib/utils'
@@ -54,19 +55,20 @@ export default function ReportListClient() {
     return user.user_departments?.some((ud: UserDepartment) => ud.is_team_leader) ?? false
   }, [user, isAdmin])
 
-  const departments = useMemo(() => {
-    if (canViewAll) return allDepartments
-    return allDepartments.filter((d) => userDepartmentIds.includes(d.id))
-  }, [canViewAll, allDepartments, userDepartmentIds])
-
   const selectedType = (searchParams.get('type') as ReportType) || 'weekly'
+  const canViewAllOfType = canViewAll || (selectedType === 'weekly' && canViewWeeklyReportsAcrossDepartments(user))
+
+  const departments = useMemo(() => {
+    if (canViewAllOfType) return allDepartments
+    return allDepartments.filter((d) => userDepartmentIds.includes(d.id))
+  }, [canViewAllOfType, allDepartments, userDepartmentIds])
   const selectedDept = searchParams.get('dept') || 'all'
 
   const { data: reports = [], isLoading, isFetching } = useReports({
     reportType: selectedType,
     departmentId: selectedDept !== 'all' ? selectedDept : undefined,
-    authorId: !canViewAll && user ? user.id : undefined,
-    visibleDepartmentIds: !canViewAll ? leaderDepartmentIds : undefined,
+    authorId: !canViewAllOfType && user ? user.id : undefined,
+    visibleDepartmentIds: !canViewAllOfType ? leaderDepartmentIds : undefined,
   })
 
   const filteredReports = useMemo(() => {
@@ -84,10 +86,12 @@ export default function ReportListClient() {
     (type: ReportType) => {
       const params = new URLSearchParams()
       params.set('type', type)
-      if (selectedDept !== 'all') params.set('dept', selectedDept)
+      if (selectedDept !== 'all' && (canViewAll || (type === 'weekly' && canViewWeeklyReportsAcrossDepartments(user)) || userDepartmentIds.includes(selectedDept))) {
+        params.set('dept', selectedDept)
+      }
       router.push(`/reports?${params.toString()}`)
     },
-    [router, selectedDept]
+    [router, selectedDept, canViewAll, user, userDepartmentIds]
   )
 
   const handleDeptChange = useCallback(
@@ -182,7 +186,7 @@ export default function ReportListClient() {
         })}
       </div>
 
-      {(canViewAll || departments.length > 1) && (
+      {(canViewAllOfType || departments.length > 1) && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => handleDeptChange('all')}

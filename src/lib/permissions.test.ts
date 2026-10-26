@@ -18,6 +18,8 @@ import {
   getTeamLeaderDepartments,
   canViewAllReports,
   canViewReport,
+  canEditReport,
+  canDeleteReport,
   canManageReport,
 } from './permissions'
 import type { UserData } from '@/types/shared'
@@ -446,5 +448,39 @@ describe('canViewReport', () => {
     })
     const reportByB = { author_id: 'tl-b', department_id: 'dept-youth', status: 'submitted' }
     expect(canViewReport(teamLeaderA, reportByB, false)).toBe(false)
+  })
+})
+
+
+describe('department leader weekly report sharing', () => {
+  const departmentLeader = createUser({ id: 'leader', role: 'team_leader', user_departments: [{
+    department_id: 'cu2', is_team_leader: true, departments: { id: 'cu2', name: '2청년', code: 'cu2' },
+  }] })
+  const foreignReport = { author_id: 'other', department_id: 'cu1', status: 'submitted' }
+
+  it('shares another department weekly report without granting edit or delete', () => {
+    const report = { ...foreignReport, report_type: 'weekly' }
+    expect(canViewReport(departmentLeader, report)).toBe(true)
+    expect(canEditReport(departmentLeader, report)).toBe(false)
+    expect(canDeleteReport(departmentLeader, report)).toBe(false)
+    expect(canViewAllReports(departmentLeader)).toBe(false)
+  })
+
+  it.each(['cell_leader', 'meeting', 'education', 'project', 'visitation'])('does not share another department %s report', report_type => {
+    expect(canViewReport(departmentLeader, { ...foreignReport, report_type })).toBe(false)
+  })
+
+  it('retains own-department cell report access', () => {
+    expect(canViewReport(departmentLeader, { ...foreignReport, department_id: 'cu2', report_type: 'cell_leader' })).toBe(true)
+  })
+
+  it('does not share drafts or grant inactive leaders access', () => {
+    expect(canViewReport(departmentLeader, { ...foreignReport, report_type: 'weekly', status: 'draft' })).toBe(false)
+    expect(canViewReport({ ...departmentLeader, is_active: false }, { ...foreignReport, report_type: 'weekly' })).toBe(false)
+  })
+
+  it.each(['cu1', 'cu2'])('does not grant ordinary cell leaders access to weekly reports in %s', department_id => {
+    const cellLeader = { ...departmentLeader, user_departments: departmentLeader.user_departments.map(d => ({ ...d, is_team_leader: false })) }
+    expect(canViewReport(cellLeader, { ...foreignReport, department_id, report_type: 'weekly' })).toBe(false)
   })
 })

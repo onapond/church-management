@@ -1,7 +1,13 @@
+## 2026-10-26 — 부서 리더 간 주차보고서 조회
+- 범위: 활성 부서 리더(is_team_leader=true)의 다른 부서 non-draft weekly 조회만 허용. 일반 셀장 제외; 셀장/모임/교육/프로젝트/심방 보고서는 기존 부서 경계 유지.
+- additive SELECT policy와 목록·상세 권한 일치. attendance/accounting/보고서 저장·결재/auth 변경 없음.
+- 파일: permissions.ts/test, ReportListClient.tsx/test, database.ts 권한 주석, migration, 검증 SQL, 필수 문서.
+- 상태: 구현·DB 적용·검증 완료. 222 tests, lint, typecheck, build 통과. 24계정 RLS/하위테이블 검증과 타 부서 UPDATE·DELETE 6건 차단 확인. 화면 배포 진행 중.
+
 ## 2026-10-26 — 제출 문구 후속 수정
 - 요청: 늦게 제출 대신 대상 날짜·주차 보고서 제출로 표시.
 - 범위: WeeklyReportDateFields.tsx, 기존 컴포넌트 테스트, 필수 문서. additive UI 변경이며 attendance/report 저장/accounting, auth/RLS/DB 영향 없음.
-- 상태: 구현 완료, 검증·운영 배포 진행 중.
+- 상태: 완료. 208 tests·빌드 통과, 코드 `4ec07b9`, 운영 배포 `dpl_A6VDeA6Ywj6A6VedmatJ9U7oqi1G` READY.
 
 ## 2026-10-26 — 늦은 주차 보고서 제출 오류
 - 원인: 날짜를 수정해도 부모 화면에서 전달한 최초 `weekNumber`로 저장하여 날짜/주차가 불일치함.

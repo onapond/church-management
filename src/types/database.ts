@@ -3,6 +3,7 @@
 
 export type UserRole = 'super_admin' | 'president' | 'accountant' | 'team_leader' | 'member'
 export type DepartmentCode = 'ck' | 'cu' | 'cu_worship' | 'youth' | 'cu1' | 'cu2' | 'leader'
+// Cross-department leader sharing applies only to non-draft 'weekly' reports; cell_leader stays department-scoped.
 export type ReportType = 'weekly' | 'meeting' | 'education' | 'cell_leader' | 'project' | 'visitation'
 export type ApprovalStatus =
   | 'draft'

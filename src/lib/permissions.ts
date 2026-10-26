@@ -136,16 +136,22 @@ export function canViewAllReports(user: UserData | null): boolean {
   return canAccessAllDepartments(user.role)
 }
 
+/** Submitted weekly reports are shared between active department leaders, not ordinary cell leaders. */
+export function canViewWeeklyReportsAcrossDepartments(user: UserData | null): boolean {
+  return !!user?.is_active && isTeamLeader(user)
+}
+
 export function canViewReport(
   user: UserData | null,
   report: { author_id: string; department_id: string; status?: string; report_type?: string },
   authorIsTeamLeader?: boolean
 ): boolean {
   void authorIsTeamLeader
-  if (!user) return false
+  if (!user || !user.is_active) return false
   if (user.id === report.author_id) return true
   if (report.status === 'draft') return false
   if (canAccessAllDepartments(user.role)) return true
+  if (report.report_type === 'weekly' && canViewWeeklyReportsAcrossDepartments(user)) return true
 
   const isDepartmentLeaderForReport = user.user_departments?.some(
     (userDepartment) => userDepartment.department_id === report.department_id && userDepartment.is_team_leader
