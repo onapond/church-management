@@ -494,3 +494,5 @@ WHERE year = 2026 AND report_type = 'weekly';
 - No write policies or user flags changed. No columns/RPC signatures changed, so `src/types/database.ts` needs no schema update. The report-list projection now includes department code.
 - `canReadSharedReports` and `canViewReport` match this scope. List/dashboard avoid the former author/own-department filter for shared readers; RLS remains authoritative. List query cache is partitioned by viewer ID.
 - Existing admin access to drafts in DB and client-side hiding of other authors' drafts are unchanged.
+
+- Production deployed: code `193f85e`, Vercel `dpl_CRiKUR3nKjnfZMVgDim5HBju7ZiV` READY, alias https://church-opal.vercel.app.

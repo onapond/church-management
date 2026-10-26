@@ -791,4 +791,8 @@
 - Focused tests: 64 passed; full tests: 234 passed. Docs/lint/typecheck/build passed. Network-enabled build was needed for Google Fonts.
 - Live RLS: youth/children/worship/CU2/CU1 heads read 106 weekly + 17 worship reports. Only CU1 heads read peer CU1 cell reports (190 in the sampled account); ordinary cell/member accounts read no shared reports. Every non-admin sample read zero peer drafts.
 - Report INSERT/UPDATE/DELETE policies are byte-for-byte unchanged. Security advisor findings are pre-existing (no new security lint categories/counts).
-- Initial local base was stale; integrated onto origin/main 115cb30 in a managed worktree, preserving newer security, attendance, photo and report-period changes. Full verify passed with 234 tests. Existing unrelated primary-worktree changes remain untouched. Deployment follows.
+- Initial local base was stale; integrated onto origin/main 115cb30 in a managed worktree, preserving newer security, attendance, photo and report-period changes. Full verify passed with 234 tests. Existing unrelated primary-worktree changes remain untouched. Production deployed: code `193f85e`, Vercel `dpl_CRiKUR3nKjnfZMVgDim5HBju7ZiV` READY, alias https://church-opal.vercel.app.
+
+- Full live SQL regression: 24 accounts, 3 child tables per account, 9 sharing readers, 18 forbidden UPDATE/DELETE probes, anonymous access zero: PASS.
+- Production Chrome smoke used the existing admin session: worship meeting list/filter/detail loaded; console errors zero. Non-admin identity verification was DB-level, not browser impersonation.
+- Continue from managed worktree `/Users/shin/.codex/worktrees/report-sharing/church`; primary checkout retains pre-existing local changes and superseded local commit 7693e01.

@@ -7,7 +7,7 @@
 - 권한/RLS/auth 영향: report SELECT only; no role/department-head flag mutation or auth changes. CU1 cell reports still require authorship, CU1 head flag, or existing global admin role.
 - Files: permissions.ts/tests, ReportListClient.tsx, queries/reports.ts, queries/dashboard.ts, a migration, required docs/session notes.
 - Plan: share non-draft weekly reports and worship meeting reports with active department heads or team_leader users linked to youth/ck/cu2/CU/cu_worship; align list/detail/dashboard; verify positive and negative RLS cases through MCP plus test/build.
-- Status: implemented and Supabase MCP applied; 234 tests, lint, typecheck, docs check, and production build passed. Seven-role live RLS matrix passed. Frontend deployment follows.
+- Status: implemented and Supabase MCP applied; 234 tests, lint, typecheck, docs check, and production build passed. Seven-role live RLS matrix passed. Production deployed: code `193f85e`, Vercel `dpl_CRiKUR3nKjnfZMVgDim5HBju7ZiV` READY, alias https://church-opal.vercel.app.
 
 ## 2026-10-26 — 부서 리더 간 주차보고서 조회
 - 범위: 활성 부서 리더(is_team_leader=true)의 다른 부서 non-draft weekly 조회만 허용. 일반 셀장 제외; 셀장/모임/교육/프로젝트/심방 보고서는 기존 부서 경계 유지.

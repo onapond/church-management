@@ -423,4 +423,4 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - Shared records are non-draft weekly reports and worship meeting reports; ordinary CU1 cell leaders remain author-only, and CU1 cell reports retain existing CU1-head/admin visibility.
 - List, detail permission checks, and dashboard recent reports now agree with the new SELECT policy.
 - No role/head flags, auth, attendance, accounting, report-save, or approval rules changed.
-- Migration: `20261026085859_share_department_and_worship_reports.sql`; applied through Supabase MCP. Validation passed: 234 tests, lint, typecheck, production build, and seven-role live RLS matrix. Frontend deployment follows.
+- Migration: `20261026085859_share_department_and_worship_reports.sql`; applied through Supabase MCP. Validation passed: 234 tests, lint, typecheck, production build, and seven-role live RLS matrix. Production deployed: code `193f85e`, Vercel `dpl_CRiKUR3nKjnfZMVgDim5HBju7ZiV` READY, alias https://church-opal.vercel.app.

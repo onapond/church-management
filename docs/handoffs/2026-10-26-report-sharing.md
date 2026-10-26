@@ -29,6 +29,11 @@ The sampled ordinary cell leader still reads 37 own reports. Write policies were
 - No new security advisor findings; existing function search-path/SECURITY DEFINER execute/leaked-password-protection warnings remain outside this change. References: [function search path](https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable), [anonymous function execute](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable), [authenticated function execute](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
 
 ## Limits
-- Live authenticated browser sessions were not used; DB identity tests and rendered component regression tests verify access.
+- Existing authenticated admin Chrome session: worship meeting list/filter/detail loaded after production deploy, console errors zero. Each non-admin role was verified through DB identity tests and rendered component regression tests, not by changing a browser login.
 - Worship sharing currently covers meeting reports (all 17 submitted worship reports) and weekly reports. Worship cell-leader drafts are deliberately not shared.
-- Frontend production deployment follows the verified implementation commit.
+- Production deployed: code `193f85e`, Vercel `dpl_CRiKUR3nKjnfZMVgDim5HBju7ZiV` READY, alias https://church-opal.vercel.app.
+
+## Full account regression and delivery
+- `scripts/verify-weekly-report-sharing.sql`: all 24 users, 3 child tables/user, 9 sharing readers, 18 denied UPDATE/DELETE probes, anonymous zero rows: PASS. Transaction rolled back.
+- Integrated on top of latest origin/main 115cb30. All newer security, report-period, attendance and photo changes are preserved. `npm run verify` passed with 234 tests.
+- Working copy: `/Users/shin/.codex/worktrees/report-sharing/church`. The original checkout was not reset; it retains unrelated user changes and the superseded initial local implementation commit.

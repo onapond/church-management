@@ -410,3 +410,5 @@ pm run build.
 - Preserve case-sensitive department codes: `CU` is worship; `cu` is the umbrella CU organization.
 - Shared reports: non-draft `weekly`, plus worship `meeting`. CU1 `cell_leader` reports retain author/CU1-head/global-admin access.
 - Shared list/dashboard fetches rely on RLS instead of excluding other departments in the client query. Keep report department code in list/detail projections.
+
+- Production deployed: code `193f85e`, Vercel `dpl_CRiKUR3nKjnfZMVgDim5HBju7ZiV` READY, alias https://church-opal.vercel.app.
