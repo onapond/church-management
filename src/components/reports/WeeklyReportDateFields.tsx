@@ -12,19 +12,21 @@ interface Props {
 
 export default function WeeklyReportDateFields({ date, currentSunday, onChange, disabled }: Props) {
   const period = getReportPeriod(date)
-  const isLate = !!period && date < currentSunday
+  const isPreviousReport = !!period && date < currentSunday
+  const previousReportDate = isPreviousReport ? date : shiftReportDate(currentSunday, -7)
+  const previousPeriod = getReportPeriod(previousReportDate)
 
   return (
     <div className="space-y-3 sm:col-span-2">
       <label className="flex items-center gap-2 text-sm font-medium text-gray-800">
         <input
           type="checkbox"
-          checked={isLate}
+          checked={isPreviousReport}
           disabled={disabled}
           onChange={e => onChange(e.target.checked ? shiftReportDate(currentSunday, -7) : currentSunday)}
           className="h-4 w-4 rounded border-gray-300 text-blue-600"
         />
-        지난 보고서 늦게 제출
+        {`${formatDate(previousReportDate, 'full')} (${previousPeriod?.weekNumber}주차) 보고서 제출`}
       </label>
       <div>
         <label htmlFor="weekly-report-date" className="mb-1 block text-sm font-medium text-gray-700">
@@ -45,7 +47,7 @@ export default function WeeklyReportDateFields({ date, currentSunday, onChange, 
         </p>
       </div>
       <p aria-live="polite" className="rounded-xl bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800">
-        {period ? `${period.year}년 ${period.weekNumber}주차 · ${formatDate(date)}${isLate ? ' · 늦은 제출' : ''}` : '보고 대상 날짜를 선택하세요.'}
+        {period ? `${formatDate(date, 'full')} (${period.weekNumber}주차) 보고서 제출` : '보고 대상 날짜를 선택하세요.'}
       </p>
     </div>
   )

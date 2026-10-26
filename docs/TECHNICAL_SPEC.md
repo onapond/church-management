@@ -475,3 +475,7 @@ WHERE year = 2026 AND report_type = 'weekly';
 - 최종 제출은 선택 날짜/부서에 대한 확인이 필요하다. 임시저장은 확인 없이 가능하다.
 - schema, RLS, auth, 기존 결재 및 attendance/accounting 동작 변경 없음. 기존 저장 데이터는 자동 일괄 보정하지 않는다.
 - 운영 반영 완료: 코드 `84709c8`, Vercel production `dpl_HnMwvHNhtBRqJnehiwJP3dTvzi7Z`. 2청년 오등록 보고서의 10/18·42주차 정정 및 실제 화면 확인 완료. 상세: `docs/handoffs/2026-10-26-late-weekly-report-fix.md`.
+
+## 2026-10-26 — 보고서 제출 문구 조정
+- 사용자 요청에 따라 화면의 늦은 제출 표현을 제거하고 `2026년 10월 18일 (42주차) 보고서 제출`처럼 대상 날짜·주차를 표시한다.
+- 지난 주차 선택 및 날짜별 제출 확인 동작은 유지하며 저장·출결·회계·결재·auth/RLS/DB 변경 없음.
