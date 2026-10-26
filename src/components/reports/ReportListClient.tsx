@@ -13,7 +13,8 @@ import {
   getAccessibleDepartmentIds,
   canViewReport,
   canViewAllReports,
-  canViewWeeklyReportsAcrossDepartments,
+  canReadSharedReports,
+  isWorshipDepartment,
   canDeleteReport,
 } from '@/lib/permissions'
 import { formatDate } from '@/lib/utils'
@@ -42,6 +43,7 @@ export default function ReportListClient() {
 
   const isAdmin = canAccessAllDepartments(user?.role || '')
   const canViewAll = canViewAllReports(user)
+  const canReadShared = canReadSharedReports(user)
   const canWriteReport = checkCanWriteReport(user)
   const userDepartmentIds = useMemo(() => getAccessibleDepartmentIds(user), [user])
   const leaderDepartmentIds = useMemo(
@@ -56,15 +58,18 @@ export default function ReportListClient() {
   }, [user, isAdmin])
 
   const selectedType = (searchParams.get('type') as ReportType) || 'weekly'
-  const canViewAllOfType = canViewAll || (selectedType === 'weekly' && canViewWeeklyReportsAcrossDepartments(user))
+  const canViewAllOfType = canViewAll || (canReadShared && ['weekly', 'meeting'].includes(selectedType))
 
   const departments = useMemo(() => {
-    if (canViewAllOfType) return allDepartments
-    return allDepartments.filter((d) => userDepartmentIds.includes(d.id))
-  }, [canViewAllOfType, allDepartments, userDepartmentIds])
+    if (canViewAll || (canReadShared && selectedType === 'weekly')) return allDepartments
+    return allDepartments.filter((d) => userDepartmentIds.includes(d.id) || (
+      canReadShared && selectedType === 'meeting' && isWorshipDepartment(d.code)
+    ))
+  }, [canViewAll, canReadShared, selectedType, allDepartments, userDepartmentIds])
   const selectedDept = searchParams.get('dept') || 'all'
 
   const { data: reports = [], isLoading, isFetching } = useReports({
+    viewerId: user?.id,
     reportType: selectedType,
     departmentId: selectedDept !== 'all' ? selectedDept : undefined,
     authorId: !canViewAllOfType && user ? user.id : undefined,
@@ -78,6 +83,7 @@ export default function ReportListClient() {
         department_id: report.department_id,
         status: report.status,
         report_type: report.report_type,
+        departments: report.departments,
       })
     )
   }, [reports, user])
@@ -86,12 +92,14 @@ export default function ReportListClient() {
     (type: ReportType) => {
       const params = new URLSearchParams()
       params.set('type', type)
-      if (selectedDept !== 'all' && (canViewAll || (type === 'weekly' && canViewWeeklyReportsAcrossDepartments(user)) || userDepartmentIds.includes(selectedDept))) {
+      if (selectedDept !== 'all' && (canViewAll || userDepartmentIds.includes(selectedDept) || (canReadShared && (
+        type === 'weekly' || (type === 'meeting' && allDepartments.some(d => d.id === selectedDept && isWorshipDepartment(d.code)))
+      )))) {
         params.set('dept', selectedDept)
       }
       router.push(`/reports?${params.toString()}`)
     },
-    [router, selectedDept, canViewAll, user, userDepartmentIds]
+    [router, selectedDept, canViewAll, canReadShared, allDepartments, userDepartmentIds]
   )
 
   const handleDeptChange = useCallback(

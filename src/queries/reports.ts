@@ -21,7 +21,7 @@ export interface ReportListItem {
   worship_attendance: number
   total_registered: number
   meeting_title: string | null
-  departments: { name: string } | null
+  departments: { name: string; code?: string } | null
   users: { name: string } | null
 }
 
@@ -190,6 +190,7 @@ export function useTeamLeaderIds(departmentId: string | undefined) {
 
 /** 보고서 목록 조회 */
 export function useReports(options?: {
+  viewerId?: string
   departmentId?: string
   departmentIds?: string[]
   authorId?: string
@@ -203,7 +204,7 @@ export function useReports(options?: {
     queryFn: async (): Promise<ReportListItem[]> => {
       let query = supabase
         .from('weekly_reports')
-        .select('id, author_id, department_id, report_date, week_number, status, report_type, worship_attendance, total_registered, meeting_title, departments(name), users!weekly_reports_author_id_fkey(name)')
+        .select('id, author_id, department_id, report_date, week_number, status, report_type, worship_attendance, total_registered, meeting_title, departments(name, code), users!weekly_reports_author_id_fkey(name)')
         .order('report_date', { ascending: false })
 
       if (options?.reportType) {
@@ -229,8 +230,8 @@ export function useReports(options?: {
       if (error) throw error
       return (data || []) as ReportListItem[]
     },
-    staleTime: 2 * 60_000, // 2분 캐싱
-    placeholderData: keepPreviousData,
+    enabled: !!options?.viewerId,
+    staleTime: 2 * 60_000, // 2분 캐싱; viewerId keeps users' results separate.
   })
 }
 

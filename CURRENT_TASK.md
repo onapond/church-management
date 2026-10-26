@@ -1,3 +1,14 @@
+## 2026-10-26 Report Sharing Follow-up
+- Request: department leaders, including youth/children/worship leaders, share weekly reports and worship meeting reports; ordinary CU1 cell leaders remain limited to their own reports.
+- attendance 흐름 영향: none.
+- report 흐름 영향: read visibility only; save/approval/edit/delete rules stay unchanged.
+- accounting 흐름 영향: none.
+- Additive change: a scoped SELECT policy and report-specific reader predicate.
+- 권한/RLS/auth 영향: report SELECT only; no role/department-head flag mutation or auth changes. CU1 cell reports still require authorship, CU1 head flag, or existing global admin role.
+- Files: permissions.ts/tests, ReportListClient.tsx, queries/reports.ts, queries/dashboard.ts, a migration, required docs/session notes.
+- Plan: share non-draft weekly reports and worship meeting reports with active department heads or team_leader users linked to youth/ck/cu2/CU/cu_worship; align list/detail/dashboard; verify positive and negative RLS cases through MCP plus test/build.
+- Status: implemented and Supabase MCP applied; 234 tests, lint, typecheck, docs check, and production build passed. Seven-role live RLS matrix passed. Frontend deployment follows.
+
 ## 2026-10-26 — 부서 리더 간 주차보고서 조회
 - 범위: 활성 부서 리더(is_team_leader=true)의 다른 부서 non-draft weekly 조회만 허용. 일반 셀장 제외; 셀장/모임/교육/프로젝트/심방 보고서는 기존 부서 경계 유지.
 - additive SELECT policy와 목록·상세 권한 일치. attendance/accounting/보고서 저장·결재/auth 변경 없음.

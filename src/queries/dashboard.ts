@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toLocalDateString } from '@/lib/utils'
-import { canAccessAllDepartments } from '@/lib/permissions'
+import { canAccessAllDepartments, canReadSharedReports } from '@/lib/permissions'
 import type { ReportSummary, UserData, UserDepartment } from '@/types/shared'
 
 function getThisSunday(): string {
@@ -26,7 +26,7 @@ export function useRecentReports(user: UserData | null | undefined) {
         .order('created_at', { ascending: false })
         .limit(5)
 
-      if (!canAccessAllDepartments(user.role)) {
+      if (!canAccessAllDepartments(user.role) && !canReadSharedReports(user)) {
         const leaderDepartmentIds = user.user_departments
           ?.filter((department) => department.is_team_leader)
           .map((department) => department.department_id) || []

@@ -1,3 +1,4 @@
+-- Weekly + worship sharing regression; no report content is returned.
 -- Read real rows as each existing account's authenticated role; never return report content.
 -- Update/delete probes target only foreign weekly rows and must affect zero rows.
 -- Always roll back; assertions abort on any unexpected access.
@@ -21,7 +22,8 @@ declare
   result jsonb;
 begin
   for person in select u.id,u.role,u.is_active,
-    exists(select 1 from public.user_departments ud where ud.user_id=u.id and ud.is_team_leader) as is_department_leader
+    exists(select 1 from public.user_departments ud where ud.user_id=u.id and ud.is_team_leader) as is_department_leader,
+    exists(select 1 from public.user_departments ud join public.departments d on d.id=ud.department_id where ud.user_id=u.id and (ud.is_team_leader or (u.role::text='team_leader' and d.code::text in ('youth','ck','cu2','CU','cu_worship')))) as is_sharing_reader
     from public.users u order by u.id
   loop
     select coalesce(array_agg(r.id order by r.id),'{}'::uuid[]) into expected
@@ -30,7 +32,7 @@ begin
        or (person.is_active and person.role::text in ('super_admin','president','accountant'))
        or (person.is_active and r.status<>'draft' and exists(
            select 1 from public.user_departments ud where ud.user_id=person.id and ud.department_id=r.department_id and ud.is_team_leader))
-       or (person.is_active and person.is_department_leader and r.report_type='weekly' and r.status<>'draft');
+       or (person.is_active and person.is_sharing_reader and r.status<>'draft' and (r.report_type='weekly' or (r.report_type='meeting' and r.department_id in (select id from public.departments where code::text in ('CU','cu_worship')))));
 
     perform set_config('request.jwt.claim.sub',person.id::text,true);
     perform set_config('request.jwt.claims',jsonb_build_object('sub',person.id,'role','authenticated')::text,true);
@@ -51,7 +53,7 @@ begin
       end if;
     end loop;
 
-    if person.is_active and person.is_department_leader and person.role::text not in ('super_admin','president','accountant') then
+    if person.is_active and person.is_sharing_reader and person.role::text not in ('super_admin','president','accountant') then
       department_leaders := department_leaders+1;
       select r.id into foreign_weekly from public.weekly_reports r
       where r.report_type='weekly' and r.status<>'draft' and r.author_id<>person.id
@@ -70,7 +72,7 @@ begin
         execute 'reset role';
         write_probes := write_probes+2;
       end if;
-    elsif person.role::text='team_leader' and not person.is_department_leader then
+    elsif person.role::text='team_leader' and not person.is_sharing_reader then
       cell_leaders := cell_leaders+1;
     end if;
     if not person.is_active then inactive_users := inactive_users+1; end if;
@@ -82,7 +84,7 @@ begin
   execute 'select coalesce(array_agg(id order by id),''{}''::uuid[]) from public.weekly_reports' into actual;
   execute 'reset role';
   if cardinality(actual)<>0 then raise exception 'Unexpected anonymous access'; end if;
-  result=jsonb_build_object('users_checked',total_users,'department_leaders',department_leaders,'ordinary_cell_leaders',cell_leaders,'inactive_users',inactive_users,'cross_department_weekly_checks',shared_weekly,'denied_write_probes',write_probes,'child_tables_per_user',3,'anonymous_reports',cardinality(actual),'result','PASS');
+  result=jsonb_build_object('users_checked',total_users,'sharing_readers',department_leaders,'ordinary_cell_leaders',cell_leaders,'inactive_users',inactive_users,'cross_department_weekly_checks',shared_weekly,'denied_write_probes',write_probes,'child_tables_per_user',3,'anonymous_reports',cardinality(actual),'result','PASS');
   perform set_config('church.rls_verification',result::text,true);
 end $$;
 select current_setting('church.rls_verification')::jsonb as verification;

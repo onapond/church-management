@@ -781,3 +781,14 @@
 ## 운영 배포 완료
 - 코드 `fab29ff`를 origin/main에 push하고 Vercel production `dpl_HnLUTxy4JSwdJQfQvgvvXwuzdYqT` READY 및 `https://church-opal.vercel.app` alias 완료. 인증된 관리자 세션의 운영 보고서 목록 정상 로드, 브라우저 오류 0건 확인.
 - 요청 범위 미해결 사항 없음. 리더/셀장 권한은 24계정 DB 역할 검증 및 컴포넌트 회귀 테스트로 확인했다.
+
+## 2026-10-26 Report Sharing Fix
+- User clarified that youth/children leaders and worship leaders share weekly reports, and department leaders can read worship reports.
+- Verified the old production policy allowed only head-flagged accounts to share weekly reports; worship reports were type `meeting`, so neither cross-direction worked in sampled RLS queries.
+- Added report-specific eligibility without mutating users/head flags; shared non-draft weekly and worship meeting reports only.
+- Updated list/detail helper/dashboard reads and list department filters; added permission matrix and rendered-list regression tests.
+- Supabase MCP applied migration `20261026085859_share_department_and_worship_reports.sql`.
+- Focused tests: 64 passed; full tests: 234 passed. Docs/lint/typecheck/build passed. Network-enabled build was needed for Google Fonts.
+- Live RLS: youth/children/worship/CU2/CU1 heads read 106 weekly + 17 worship reports. Only CU1 heads read peer CU1 cell reports (190 in the sampled account); ordinary cell/member accounts read no shared reports. Every non-admin sample read zero peer drafts.
+- Report INSERT/UPDATE/DELETE policies are byte-for-byte unchanged. Security advisor findings are pre-existing (no new security lint categories/counts).
+- Initial local base was stale; integrated onto origin/main 115cb30 in a managed worktree, preserving newer security, attendance, photo and report-period changes. Full verify passed with 234 tests. Existing unrelated primary-worktree changes remain untouched. Deployment follows.

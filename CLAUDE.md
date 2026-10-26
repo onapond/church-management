@@ -403,3 +403,10 @@ pm run build.
 - 셀장보고서와 모임·교육·프로젝트·심방 보고서는 기존 작성자/담당 부서/관리자 범위를 유지합니다. 다른 부서의 셀장보고서는 공유하지 않습니다.
 - 주차보고서 탭에서 전체 부서 조회·필터가 가능하며 다른 보고서 유형으로 바꾸면 기존 범위로 돌아갑니다. 타 부서 필터도 해제합니다.
 - DB에는 weekly/non-draft/active/부서 리더 조건의 SELECT 정책만 추가합니다. 수정·삭제·결재 및 auth·출결·회계 변경 없음. 테이블 구조 변경이 없어 타입 필드 추가는 없고 database.ts에 범위를 명시했습니다.
+
+## 2026-10-26 Report Sharing Permission Boundary
+- Use `canReadSharedReports` for report sharing only. Do not replace generic `isTeamLeader` or grant management/approval permissions with it.
+- Active department-head flags qualify; otherwise `team_leader` must be linked to `youth`, `ck`, `cu2`, `CU`, or `cu_worship`. CU1 ordinary cell leaders do not qualify solely by role.
+- Preserve case-sensitive department codes: `CU` is worship; `cu` is the umbrella CU organization.
+- Shared reports: non-draft `weekly`, plus worship `meeting`. CU1 `cell_leader` reports retain author/CU1-head/global-admin access.
+- Shared list/dashboard fetches rely on RLS instead of excluding other departments in the client query. Keep report department code in list/detail projections.

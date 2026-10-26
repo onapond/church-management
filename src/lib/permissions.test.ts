@@ -21,6 +21,7 @@ import {
   canEditReport,
   canDeleteReport,
   canManageReport,
+  canReadSharedReports,
 } from './permissions'
 import type { UserData } from '@/types/shared'
 
@@ -480,7 +481,68 @@ describe('department leader weekly report sharing', () => {
   })
 
   it.each(['cu1', 'cu2'])('does not grant ordinary cell leaders access to weekly reports in %s', department_id => {
-    const cellLeader = { ...departmentLeader, user_departments: departmentLeader.user_departments.map(d => ({ ...d, is_team_leader: false })) }
+    const cellLeader = createUser({ role: 'team_leader', user_departments: [{ department_id: 'cu1', is_team_leader: false, departments: { id: 'cu1', name: '1청년', code: 'cu1' } }] })
     expect(canViewReport(cellLeader, { ...foreignReport, department_id, report_type: 'weekly' })).toBe(false)
+  })
+})
+
+
+describe('department report sharing', () => {
+  const weekly = { author_id: 'other', department_id: 'other-dept', status: 'final_approved', report_type: 'weekly' }
+  const worship = { ...weekly, report_type: 'meeting', departments: { code: 'CU' } }
+  const cellReport = { ...weekly, department_id: 'cu1-dept', report_type: 'cell_leader' }
+  const reader = (code: string, head = false) => createUser({
+    role: 'team_leader',
+    user_departments: [{
+      department_id: `${code}-dept`, is_team_leader: head,
+      departments: { id: `${code}-dept`, name: code, code },
+    }],
+  })
+
+  it.each(['youth', 'ck', 'cu2', 'CU', 'cu_worship'])('%s leaders share weekly/worship reports without management privileges', (code) => {
+    const user = reader(code)
+    expect(canReadSharedReports(user)).toBe(true)
+    expect(canViewReport(user, weekly)).toBe(true)
+    expect(canViewReport(user, worship)).toBe(true)
+    expect(canViewReport(user, cellReport)).toBe(false)
+    expect(canViewReport(user, { ...worship, status: 'draft' })).toBe(false)
+    expect(canViewReport(user, { ...weekly, status: 'draft' })).toBe(false)
+    expect(canViewReport(user, { ...worship, departments: { code: 'cu' } })).toBe(false)
+    expect(canViewReport(user, { ...worship, report_type: 'cell_leader' })).toBe(false)
+    expect(canManageReport(user.role, user.id, weekly)).toBe(false)
+    expect(canEditMembers(user)).toBe(false)
+  })
+
+  it('CU1 heads share reports and retain CU1 cell access', () => {
+    const user = reader('cu1', true)
+    expect(canReadSharedReports(user)).toBe(true)
+    expect(canViewReport(user, weekly)).toBe(true)
+    expect(canViewReport(user, worship)).toBe(true)
+    expect(canViewReport(user, cellReport)).toBe(true)
+  })
+
+  it('ordinary CU1 cell leaders see only their own reports', () => {
+    const user = reader('cu1')
+    expect(canReadSharedReports(user)).toBe(false)
+    expect(canViewReport(user, weekly)).toBe(false)
+    expect(canViewReport(user, worship)).toBe(false)
+    expect(canViewReport(user, cellReport)).toBe(false)
+    expect(canViewReport(user, { ...cellReport, author_id: user.id })).toBe(true)
+  })
+
+  it('CU2 heads who are ordinary CU1 members cannot see CU1 cell reports', () => {
+    const user = reader('cu2', true)
+    user.user_departments.push(...reader('cu1').user_departments)
+    expect(canViewReport(user, weekly)).toBe(true)
+    expect(canViewReport(user, worship)).toBe(true)
+    expect(canViewReport(user, cellReport)).toBe(false)
+  })
+
+  it('no sharing through missing/unknown membership, ordinary membership, or inactive accounts', () => {
+    for (const user of [null, createUser({ role: 'team_leader' }), reader('unknown'), reader('cu'), { ...reader('CU'), role: 'member' }, { ...reader('CU'), is_active: false }]) {
+      expect(canReadSharedReports(user)).toBe(false)
+      expect(canViewReport(user, weekly)).toBe(false)
+      expect(canViewReport(user, worship)).toBe(false)
+    }
   })
 })

@@ -485,3 +485,12 @@ WHERE year = 2026 AND report_type = 'weekly';
 - 셀장보고서와 모임·교육·프로젝트·심방 보고서는 기존 작성자/담당 부서/관리자 범위를 유지합니다. 다른 부서의 셀장보고서는 공유하지 않습니다.
 - 주차보고서 탭에서 전체 부서 조회·필터가 가능하며 다른 보고서 유형으로 바꾸면 기존 범위로 돌아갑니다. 타 부서 필터도 해제합니다.
 - DB에는 weekly/non-draft/active/부서 리더 조건의 SELECT 정책만 추가합니다. 수정·삭제·결재 및 auth·출결·회계 변경 없음. 테이블 구조 변경이 없어 타입 필드 추가는 없고 database.ts에 범위를 명시했습니다.
+
+## 2026-10-26 Weekly And Worship Report Sharing
+- Migration `20261026085859_share_department_and_worship_reports.sql` replaces `reports_select_weekly_department_leaders` with `reports_select_shared_leader_reports` (SELECT only, authenticated). Applied through Supabase MCP.
+- Eligibility: active user with any `user_departments.is_team_leader=true`, or active `role=team_leader` linked to department code `youth`, `ck`, `cu2`, `CU`, or `cu_worship`.
+- Shared rows: `status <> draft` AND (`report_type=weekly` OR (`report_type=meeting` AND department code in `CU`, `cu_worship`)). Lowercase `cu` is not worship.
+- Existing admin, author, and matching-department-head SELECT policies are preserved. No shared access to cell reports, unrelated meeting reports, projects, education, or visitation is added.
+- No write policies or user flags changed. No columns/RPC signatures changed, so `src/types/database.ts` needs no schema update. The report-list projection now includes department code.
+- `canReadSharedReports` and `canViewReport` match this scope. List/dashboard avoid the former author/own-department filter for shared readers; RLS remains authoritative. List query cache is partitioned by viewer ID.
+- Existing admin access to drafts in DB and client-side hiding of other authors' drafts are unchanged.

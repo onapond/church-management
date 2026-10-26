@@ -35,7 +35,7 @@ describe('weekly report list sharing scope', () => {
     expect(screen.queryByRole('button', { name: '1청년' })).not.toBeInTheDocument()
   })
   it('keeps ordinary cell leaders limited to their own reports', () => {
-    state.user!.user_departments[0].is_team_leader = false
+    state.user!.user_departments = [{ department_id: 'cu1', is_team_leader: false, departments: { id: 'cu1', name: '1청년', code: 'cu1' } }]
     render(<ReportListClient />)
     expect(state.useReports).toHaveBeenLastCalledWith(expect.objectContaining({ authorId: 'leader', visibleDepartmentIds: [] }))
     expect(screen.queryByRole('button', { name: '1청년' })).not.toBeInTheDocument()

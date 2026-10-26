@@ -417,3 +417,10 @@ AI 기능?� ?�립?�으�?추�?/?�거 가?�한 컴포?�트??
 - 셀장보고서와 모임·교육·프로젝트·심방 보고서는 기존 작성자/담당 부서/관리자 범위를 유지합니다. 다른 부서의 셀장보고서는 공유하지 않습니다.
 - 주차보고서 탭에서 전체 부서 조회·필터가 가능하며 다른 보고서 유형으로 바꾸면 기존 범위로 돌아갑니다. 타 부서 필터도 해제합니다.
 - DB에는 weekly/non-draft/active/부서 리더 조건의 SELECT 정책만 추가합니다. 수정·삭제·결재 및 auth·출결·회계 변경 없음. 테이블 구조 변경이 없어 타입 필드 추가는 없고 database.ts에 범위를 명시했습니다.
+
+## 2026-10-26 Report Sharing Alignment
+- Added report-only sharing for active youth/children/CU2/worship team leaders and existing department heads.
+- Shared records are non-draft weekly reports and worship meeting reports; ordinary CU1 cell leaders remain author-only, and CU1 cell reports retain existing CU1-head/admin visibility.
+- List, detail permission checks, and dashboard recent reports now agree with the new SELECT policy.
+- No role/head flags, auth, attendance, accounting, report-save, or approval rules changed.
+- Migration: `20261026085859_share_department_and_worship_reports.sql`; applied through Supabase MCP. Validation passed: 234 tests, lint, typecheck, production build, and seven-role live RLS matrix. Frontend deployment follows.

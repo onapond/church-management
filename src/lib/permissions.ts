@@ -136,14 +136,31 @@ export function canViewAllReports(user: UserData | null): boolean {
   return canAccessAllDepartments(user.role)
 }
 
+// Report sharing only: this must not grant approval, editing or member management.
+// CU1 uses team_leader for ordinary cell leaders too, so it requires the head flag.
+export function canReadSharedReports(user: UserData | null): boolean {
+  if (!user?.is_active) return false
+  return user.user_departments?.some((ud) =>
+    ud.is_team_leader || (
+      user.role === 'team_leader' &&
+      ['youth', 'ck', 'cu2', 'CU', 'cu_worship'].includes(ud.departments.code)
+    )
+  ) ?? false
+}
+
+export function isWorshipDepartment(code: string | undefined): boolean {
+  // Production uses uppercase CU for worship; lowercase cu is the umbrella CU.
+  return code === 'CU' || code === 'cu_worship'
+}
+
 /** Submitted weekly reports are shared between active department leaders, not ordinary cell leaders. */
 export function canViewWeeklyReportsAcrossDepartments(user: UserData | null): boolean {
-  return !!user?.is_active && isTeamLeader(user)
+  return canReadSharedReports(user)
 }
 
 export function canViewReport(
   user: UserData | null,
-  report: { author_id: string; department_id: string; status?: string; report_type?: string },
+  report: { author_id: string; department_id: string; status?: string; report_type?: string; departments?: { code?: string } | null },
   authorIsTeamLeader?: boolean
 ): boolean {
   void authorIsTeamLeader
@@ -151,7 +168,10 @@ export function canViewReport(
   if (user.id === report.author_id) return true
   if (report.status === 'draft') return false
   if (canAccessAllDepartments(user.role)) return true
-  if (report.report_type === 'weekly' && canViewWeeklyReportsAcrossDepartments(user)) return true
+  if (canReadSharedReports(user) && (
+    report.report_type === 'weekly' ||
+    (report.report_type === 'meeting' && isWorshipDepartment(report.departments?.code))
+  )) return true
 
   const isDepartmentLeaderForReport = user.user_departments?.some(
     (userDepartment) => userDepartment.department_id === report.department_id && userDepartment.is_team_leader
