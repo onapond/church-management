@@ -777,3 +777,7 @@
 - RLS 검증: 24계정(일반 부서 리더 3, 일반 셀장 13, 비활성 1 포함)의 전체 보고서/하위 3개 테이블 결과가 권한 기대값과 일치. 익명 조회 0건. 타 부서 주차보고서 UPDATE/DELETE 6건 모두 0행. 검증 전체 ROLLBACK.
 - 기존 weekly_reports 정책 8개 그대로 보존, SELECT 정책 1개만 추가, RLS 활성 상태 유지.
 - npm run verify 최종 통과: 18 files / 222 tests, lint, typecheck, production build. 테스트 작성 중 누락 import 및 Testing Library 옵션 타입 오류를 고친 뒤 전체 재검증했다.
+
+## 운영 배포 완료
+- 코드 `fab29ff`를 origin/main에 push하고 Vercel production `dpl_HnLUTxy4JSwdJQfQvgvvXwuzdYqT` READY 및 `https://church-opal.vercel.app` alias 완료. 인증된 관리자 세션의 운영 보고서 목록 정상 로드, 브라우저 오류 0건 확인.
+- 요청 범위 미해결 사항 없음. 리더/셀장 권한은 24계정 DB 역할 검증 및 컴포넌트 회귀 테스트로 확인했다.

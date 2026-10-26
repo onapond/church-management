@@ -33,3 +33,7 @@
 - is_in_department의 [고정되지 않은 search_path](https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable).
 - 기존 SECURITY DEFINER 함수 6개의 [anon 실행 권한](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) 및 [authenticated 실행 권한](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable). 기존 함수의 호출 필요성과 실제 GRANT를 별도로 검토해야 한다.
 - [유출 비밀번호 차단 미설정](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+## 운영 배포 완료
+- 코드 `fab29ff`를 origin/main에 push하고 Vercel production `dpl_HnLUTxy4JSwdJQfQvgvvXwuzdYqT` READY 및 `https://church-opal.vercel.app` alias 완료. 인증된 관리자 세션의 운영 보고서 목록 정상 로드, 브라우저 오류 0건 확인.
+- 요청 범위 미해결 사항 없음. 리더/셀장 권한은 24계정 DB 역할 검증 및 컴포넌트 회귀 테스트로 확인했다.
