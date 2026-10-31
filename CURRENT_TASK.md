@@ -1016,5 +1016,5 @@
 - additive change: `members.is_prospect` 기본 false 필드와 2청년 목록 URL 필터를 추가한다. 현재 `members` RLS/auth를 그대로 사용한다.
 - 대상 파일: 새 migration, `src/types/{database,shared}.ts`, `src/queries/members.ts`, `src/components/members/{MemberForm,MemberList,MemberFilters}.tsx`, 교인 수정 page, 필수 문서와 session-notes. 일회성 운영 SQL은 저장소 밖에서 관리한다.
 - 검증 완료: `npm run verify`에서 문서 검사, lint, 235개 테스트, typecheck, production build 통과. 신규 migration을 Supabase MCP로 적용하고 `is_prospect`의 NOT NULL/default false 및 기존 `members` RLS를 확인했다. 기존 관리자 권한으로 정확한 16명·4명 신원·단일 소속·신규 이름 부재를 검사하는 롤백형 리허설 뒤 동일 트랜잭션을 적용했다. 독립 조회에서 현행 13명과 태신자 3명이 요청 목록과 일치하고, 제외 4명은 비활성·소속 0건이며 개인 출결 3행은 유지됨을 확인했다.
-- 배포·운영 화면: 원격 코드 반영과 Vercel 운영 화면 확인 결과를 이 작업 종료 시 기록한다.
+- 배포·운영 화면: 커밋 `2f8dff2`를 원격 `main`에 반영하고 Vercel production `dpl_B9jXbuqFZyNKaH1GyZxzYtdm1DaL` READY 및 `church-opal.vercel.app` alias를 확인했다. 관리자 로그인 화면에서 2청년 전체 13명과 태신자 필터 3명(김민혁, 김영석, 이원석)을 직접 확인했다.
 - 가정: 김영석은 기존 교인/새신자 표에 없는 신규 교인으로 현재 날짜에 등록한다. 연락처·생년월일·셀 정보는 제공되지 않아 비워둔다. 미출석 1년 기준은 이번 명시된 4명 선정 근거이며 다른 사람에게 자동 적용하지 않는다.
