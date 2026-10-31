@@ -1008,3 +1008,13 @@
 - 검증: docs check, lint, 235개 테스트, typecheck, production build 통과. Supabase MCP migration 2건 적용 후 승인 보고서 출결 변경·재저장 종단 테스트 통과. 최근 개인 출결이 있는 주차보고서 23건의 합계 불일치 8건→0건, 테스트용 미래 보고서 잔존 0건, 내부 함수 anon/authenticated 직접 실행 불가 확인.
 - 배포: 원격 `main`에 반영하고 Vercel production `church-opal.vercel.app` 배포 READY 및 `/login` HTTP 200 확인. 로그인 후 실제 화면의 수동 조작 검증은 이번 세션에서 수행하지 않았다.
 - 미해결: 2026-09-01 이전 수기 보고서는 개인별 출결 기록이 완전하지 않을 수 있어 소급 변경하지 않음. 주차보고서 셀별 메모 숫자는 작성 당시 기록으로 남으며 자동 갱신 대상은 상단 예배/모임 합계 두 필드임.
+
+## 2026-10-31 2청년 현재 명단과 태신자 필터
+- 요청: 현재 16명에서 4명을 제외하고 새 교인 1명을 등록해 13명으로 정리한다. 그중 3명을 태신자로 별도 조회한다.
+- 확인: 현행 2청년 소속 16명과 요청 목록이 정확히 일치하며 신규 이름은 교인·새신자 표에 없다. 제외 4명은 다른 소속이 없고 2명에게 출결 이력이 있다.
+- 기존 attendance/report/accounting 영향: 과거 출결·보고서·결재·회계 기록은 보존하고 현재 2청년 소속과 교인 활성 상태만 변경한다. 향후 2청년 명단·출결 대상에서 제외된다.
+- additive change: `members.is_prospect` 기본 false 필드와 2청년 목록 URL 필터를 추가한다. 현재 `members` RLS/auth를 그대로 사용한다.
+- 대상 파일: 새 migration, `src/types/{database,shared}.ts`, `src/queries/members.ts`, `src/components/members/{MemberForm,MemberList,MemberFilters}.tsx`, 교인 수정 page, 필수 문서와 session-notes. 일회성 운영 SQL은 저장소 밖에서 관리한다.
+- 검증 완료: `npm run verify`에서 문서 검사, lint, 235개 테스트, typecheck, production build 통과. 신규 migration을 Supabase MCP로 적용하고 `is_prospect`의 NOT NULL/default false 및 기존 `members` RLS를 확인했다. 기존 관리자 권한으로 정확한 16명·4명 신원·단일 소속·신규 이름 부재를 검사하는 롤백형 리허설 뒤 동일 트랜잭션을 적용했다. 독립 조회에서 현행 13명과 태신자 3명이 요청 목록과 일치하고, 제외 4명은 비활성·소속 0건이며 개인 출결 3행은 유지됨을 확인했다.
+- 배포·운영 화면: 원격 코드 반영과 Vercel 운영 화면 확인 결과를 이 작업 종료 시 기록한다.
+- 가정: 김영석은 기존 교인/새신자 표에 없는 신규 교인으로 현재 날짜에 등록한다. 연락처·생년월일·셀 정보는 제공되지 않아 비워둔다. 미출석 1년 기준은 이번 명시된 4명 선정 근거이며 다른 사람에게 자동 적용하지 않는다.

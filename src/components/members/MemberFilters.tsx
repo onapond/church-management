@@ -19,6 +19,10 @@ interface MemberFiltersProps {
   selectedMonth: number | null
   onMonthClick: (month: number) => void
   birthCountByMonth: Record<number, number>
+  showProspectFilter: boolean
+  prospectOnly: boolean
+  prospectCount: number
+  onProspectToggle: () => void
 }
 
 const MemberFilters = memo(function MemberFilters({
@@ -35,6 +39,10 @@ const MemberFilters = memo(function MemberFilters({
   selectedMonth,
   onMonthClick,
   birthCountByMonth,
+  showProspectFilter,
+  prospectOnly,
+  prospectCount,
+  onProspectToggle,
 }: MemberFiltersProps) {
   return (
     <div className="bg-white rounded-2xl p-3 lg:p-4 shadow-sm border border-gray-100 space-y-3">
@@ -109,6 +117,19 @@ const MemberFilters = memo(function MemberFilters({
           </button>
         </div>
       </div>
+
+      {showProspectFilter && (
+        <button
+          type="button"
+          aria-pressed={prospectOnly}
+          onClick={onProspectToggle}
+          className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${prospectOnly
+            ? 'bg-teal-700 text-white'
+            : 'bg-teal-50 text-teal-800 hover:bg-teal-100'}`}
+        >
+          태신자 {prospectCount}명 {prospectOnly ? '· 전체 보기' : '· 따로 보기'}
+        </button>
+      )}
 
       {/* 생일 월별 필터 */}
       <div>

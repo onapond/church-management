@@ -108,11 +108,12 @@ export interface Database {
           photo_updated_at: string | null
           department_id: string | null  // 호환성을 위해 유지 (옵셔널)
           is_active: boolean
+          is_prospect: boolean
           joined_at: string
           created_at: string
           updated_at: string
         }
-        Insert: Omit<Database['public']['Tables']['members']['Row'], 'id' | 'created_at' | 'updated_at' | 'joined_at' | 'department_id'> & { joined_at?: string; department_id?: string | null }
+        Insert: Omit<Database['public']['Tables']['members']['Row'], 'id' | 'created_at' | 'updated_at' | 'joined_at' | 'department_id' | 'is_prospect'> & { joined_at?: string; department_id?: string | null; is_prospect?: boolean }
         Update: Partial<Database['public']['Tables']['members']['Insert']>
       }
       weekly_reports: {

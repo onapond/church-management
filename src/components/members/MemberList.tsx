@@ -32,6 +32,8 @@ export default function MemberList({ members, departments, canDelete }: MemberLi
   // URL에서 파생된 상태 (useEffect 대신 직접 계산)
   const selectedDept = searchParams.get('dept') || 'all'
   const selectedCell = searchParams.get('cell') || 'all'
+  const showProspectFilter = departments.some(dept => dept.id === selectedDept && dept.code === 'cu2')
+  const prospectOnly = showProspectFilter && searchParams.get('group') === 'prospect'
   const selectedMonth = useMemo(() => {
     const monthParam = searchParams.get('month')
     return monthParam ? parseInt(monthParam, 10) : null
@@ -74,7 +76,8 @@ export default function MemberList({ members, departments, canDelete }: MemberLi
           md.department_id === selectedDept && md.cell_id === selectedCell
         )
       const matchesMonth = selectedMonth === null || getBirthMonth(member.birth_date) === selectedMonth
-      return matchesSearch && matchesDept && matchesCell && matchesMonth
+      const matchesProspect = !prospectOnly || member.is_prospect
+      return matchesSearch && matchesDept && matchesCell && matchesMonth && matchesProspect
     })
 
     // 부서 선택 시 셀별 정렬 (셀 display_order → 이름순, 셀 없는 교인은 마지막)
@@ -90,7 +93,11 @@ export default function MemberList({ members, departments, canDelete }: MemberLi
     }
 
     return filtered
-  }, [members, debouncedSearch, selectedDept, selectedCell, selectedMonth, getBirthMonth, deletedIds, cellOrderMap])
+  }, [members, debouncedSearch, selectedDept, selectedCell, selectedMonth, prospectOnly, getBirthMonth, deletedIds, cellOrderMap])
+
+  const prospectCount = useMemo(() => members.filter(member =>
+    member.is_prospect && member.member_departments?.some(md => md.department_id === selectedDept)
+  ).length, [members, selectedDept])
 
   // 월별 생일자 수 계산
   const birthCountByMonth = useMemo(() => {
@@ -130,9 +137,18 @@ export default function MemberList({ members, departments, canDelete }: MemberLi
     // URL만 업데이트 (상태는 URL에서 파생)
     const params = new URLSearchParams()
     if (selectedDept !== 'all') params.set('dept', selectedDept)
+    if (prospectOnly) params.set('group', 'prospect')
     if (newMonth !== null) params.set('month', newMonth.toString())
     router.push(`/members${params.toString() ? '?' + params.toString() : ''}`)
-  }, [router, selectedDept, selectedMonth])
+  }, [router, selectedDept, selectedMonth, prospectOnly])
+
+  const handleProspectToggle = useCallback(() => {
+    const params = new URLSearchParams()
+    params.set('dept', selectedDept)
+    if (!prospectOnly) params.set('group', 'prospect')
+    if (selectedMonth !== null) params.set('month', selectedMonth.toString())
+    router.push(`/members?${params.toString()}`)
+  }, [router, selectedDept, selectedMonth, prospectOnly])
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteTarget(null)
@@ -192,6 +208,10 @@ export default function MemberList({ members, departments, canDelete }: MemberLi
         selectedMonth={selectedMonth}
         onMonthClick={handleMonthClick}
         birthCountByMonth={birthCountByMonth}
+        showProspectFilter={showProspectFilter}
+        prospectOnly={prospectOnly}
+        prospectCount={prospectCount}
+        onProspectToggle={handleProspectToggle}
       />
 
       {/* 결과 */}

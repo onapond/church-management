@@ -34,6 +34,7 @@ interface Member {
   photo_updated_at: string | null
   department_id: string | null
   is_active: boolean
+  is_prospect: boolean
   joined_at: string
   created_at: string
   updated_at: string

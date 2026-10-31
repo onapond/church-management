@@ -49,6 +49,7 @@ export interface MemberWithDepts {
   photo_url: string | null
   department_id: string | null
   is_active: boolean
+  is_prospect: boolean
   joined_at: string
   member_departments: MemberDepartmentInfo[] | null
 }

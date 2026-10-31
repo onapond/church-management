@@ -60,6 +60,7 @@ export default function MemberForm({ departments, member, newcomerData, canManag
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isProspect, setIsProspect] = useState(member?.is_prospect ?? false)
 
   // 기존 member_departments에서 부서 ID 목록 추출
   const initialDeptIds = member?.member_departments?.map(md => md.department_id) || []
@@ -100,6 +101,7 @@ export default function MemberForm({ departments, member, newcomerData, canManag
     ? member?.member_departments?.find(md => md.department_id === cu1Dept.id)?.cell_id || ''
     : ''
   const [selectedCellId, setSelectedCellId] = useState<string>(initialCellId || '')
+  const cu2Dept = departments.find(d => d.code === 'cu2')
 
   // 부서 체크박스 토글
   const handleDeptToggle = (deptId: string) => {
@@ -115,6 +117,9 @@ export default function MemberForm({ departments, member, newcomerData, canManag
         // cu1 해제 시 셀 초기화
         if (cu1Dept && deptId === cu1Dept.id) {
           setSelectedCellId('')
+        }
+        if (cu2Dept && deptId === cu2Dept.id) {
+          setIsProspect(false)
         }
         return newIds
       } else {
@@ -204,6 +209,7 @@ export default function MemberForm({ departments, member, newcomerData, canManag
             occupation: form.occupation || null,
             guardian: form.guardian || null,
             department_id: primaryDeptId,
+            is_prospect: isProspect,
             photo_url,
             photo_updated_at: file ? new Date().toISOString() : member?.photo_updated_at,
           })
@@ -246,6 +252,7 @@ export default function MemberForm({ departments, member, newcomerData, canManag
           .insert({
             ...form,
             department_id: primaryDeptId, // 호환성을 위해 주 소속 부서 저장
+            is_prospect: isProspect,
             photo_url,
             photo_updated_at: file ? new Date().toISOString() : null,
             is_active: true,
@@ -370,6 +377,18 @@ export default function MemberForm({ departments, member, newcomerData, canManag
           <p className="sm:col-span-2 -mt-4 text-xs text-amber-700">
             팀장은 교인 기본정보만 수정할 수 있습니다. 소속 부서 변경은 관리자에게 요청해주세요.
           </p>
+        )}
+
+        {cu2Dept && selectedDeptIds.includes(cu2Dept.id) && (
+          <label className="sm:col-span-2 flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+            <input
+              type="checkbox"
+              checked={isProspect}
+              onChange={e => setIsProspect(e.target.checked)}
+              className="h-4 w-4 rounded border-teal-300 text-teal-700"
+            />
+            태신자 — 2청년 명단에서 별도로 조회
+          </label>
         )}
 
         {/* 직업/소속 */}

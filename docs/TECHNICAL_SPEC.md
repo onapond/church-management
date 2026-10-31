@@ -1,5 +1,10 @@
 # �?��중앙교회 교육?�원??관�??�스??- 기술 명세??
 
+## 2026-10-31 2청년 명단·태신자 필터
+- `members.is_prospect boolean not null default false`를 추가한다. 사람 단위 분류이므로 기존 `members` 행에 두고 현재 교인 조회/수정 RLS를 그대로 적용한다. 새 테이블·권한 정책·로그인 흐름은 필요하지 않다.
+- 교인 목록은 2청년 부서가 선택된 경우에만 `group=prospect` URL 필터를 제공한다. 필터 결과는 현재 2청년 `member_departments` 소속과 `is_prospect=true`의 교집합이다. 태신자 3명은 전체 13명 안에 포함된다.
+- 제외 교인은 2청년 연결을 해제하고 `members.is_active=false`로 보관한다. 개인 출결·기존 보고서·결재·회계 행을 삭제하거나 소급 변경하지 않는다.
+
 ## 2026-10-31 출결·주차보고서 연계
 - 개인 출결의 키는 `(member_id, attendance_date, attendance_type)`이며 예배와 모임을 별개 행으로 취급한다. 셀장보고서 신규/수정 폼은 `report_id` 유무와 무관하게 해당 날짜의 행을 읽는다.
 - 명시적 셀장보고서 저장은 기존 `save_report_bundle` 원자적 RPC를 사용한다. 출결 로딩 전 저장을 막고, 백그라운드 임시저장은 출결을 덮어쓰지 않는다.

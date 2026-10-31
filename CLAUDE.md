@@ -1,5 +1,10 @@
 # CLAUDE.md
 
+## 2026-10-31 CU2 Roster and Prospect Filter
+- `members.is_prospect` is a member-level boolean with a false default. It inherits existing `members` RLS; no new auth flow or policy is introduced.
+- The CU2 member list exposes a URL-derived `group=prospect` filter only while the CU2 department is selected. The member form edits the flag when CU2 is selected.
+- Roster exits are archived (`members.is_active=false`) and unlinked from CU2; attendance and report history remain attached to the preserved member row. Do not use the destructive member-delete UI for this operation.
+
 ## 2026-10-31 Attendance/Report Sync
 - `useCellAttendanceRecords` reads the shared `(member_id, attendance_date, attendance_type)` rows, including manual rows. New and edit cell-leader forms wait for the read before an explicit attendance save.
 - `report_internal.sync_weekly_report_attendance_counts()` recalculates only `weekly_reports.worship_attendance` and `meeting_attendance` for the same department and report date after an attendance write. It covers approved reports, preserves approval status/history, and has no direct Data API execute grant.
