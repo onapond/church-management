@@ -1003,7 +1003,8 @@
 - 방식: 원격 main의 기존 원자적 셀장보고서 저장 위에 신규 출결 초기화 및 내부 집계 트리거를 추가한다. 기존 테이블·RLS 정책은 유지한다.
 - 권한: 출결 입력은 기존 RLS를 거친다. 내부 트리거는 직접 호출할 수 없고 같은 부서·보고 대상 날짜의 합계 두 필드만 갱신한다.
 - 예상 파일: `src/queries/attendance.ts`, `src/components/attendance/AttendanceGrid.tsx`, `src/components/reports/{ReportForm,ReportDetail}.tsx`, `src/components/reports/hooks/useReportForm.ts`, `src/components/reports/utils/reportAttendance.ts`와 테스트, 신규 migration/SQL 검증, 필수 문서.
-- 운영 데이터 영향: 2026-09-01 이후 개인 출결 행이 있는 주차보고서 23건 중 현재 합계 불일치 8건을 migration에서 조정할 예정. 옛 수기 전용 보고서는 보존한다.
+- 운영 데이터 영향: 2026-09-01 이후 개인 출결 행이 있는 주차보고서 23건 중 합계 불일치 8건을 migration으로 조정했다. 옛 수기 전용 보고서는 보존했다.
 - 구현: 셀장보고서 신규/수정의 수동 출결 선반영, 출결 로딩 전 저장 차단, 날짜 변경 시 이전 체크 초기화, 출결 변경 뒤 보고서 캐시 무효화, 주차보고서 합계 DB 트리거, 오래된 보고서 저장 방지용 기간 추적·재계산 트리거 및 롤백형 종단 SQL 테스트.
 - 검증: docs check, lint, 235개 테스트, typecheck, production build 통과. Supabase MCP migration 2건 적용 후 승인 보고서 출결 변경·재저장 종단 테스트 통과. 최근 개인 출결이 있는 주차보고서 23건의 합계 불일치 8건→0건, 테스트용 미래 보고서 잔존 0건, 내부 함수 anon/authenticated 직접 실행 불가 확인.
+- 배포: 원격 `main`에 반영하고 Vercel production `church-opal.vercel.app` 배포 READY 및 `/login` HTTP 200 확인. 로그인 후 실제 화면의 수동 조작 검증은 이번 세션에서 수행하지 않았다.
 - 미해결: 2026-09-01 이전 수기 보고서는 개인별 출결 기록이 완전하지 않을 수 있어 소급 변경하지 않음. 주차보고서 셀별 메모 숫자는 작성 당시 기록으로 남으며 자동 갱신 대상은 상단 예배/모임 합계 두 필드임.
