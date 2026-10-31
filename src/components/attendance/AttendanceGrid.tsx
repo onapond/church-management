@@ -320,6 +320,8 @@ export default function AttendanceGrid({
           return prev.map((r, index) => index === existingIndex ? nextRecord : r)
         })
       }
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     } catch (error) {
       console.error('Attendance save failed:', error)
       setRecords(previousRecords)
@@ -433,6 +435,8 @@ export default function AttendanceGrid({
           )
         }
       }
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     } catch (error) {
       console.error('Bulk attendance save failed:', error)
       setRecords(previousRecords)

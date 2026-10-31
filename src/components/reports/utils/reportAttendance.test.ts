@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { summarizeReportAttendance, summarizeSelectedReports } from './reportAttendance'
+import { createCellMemberAttendance, summarizeReportAttendance, summarizeSelectedReports } from './reportAttendance'
 import type { CellLeaderReportForAggregator } from '@/queries/reports'
 
 function report(id: string, records: CellLeaderReportForAggregator['attendance_records']): CellLeaderReportForAggregator {
@@ -22,6 +22,23 @@ function report(id: string, records: CellLeaderReportForAggregator['attendance_r
 }
 
 describe('report attendance summaries', () => {
+  it('prefills a new cell report from manual attendance checked on the attendance screen', () => {
+    const members = [
+      { id: 'member-1', name: '첫째', photo_url: null },
+      { id: 'member-2', name: '둘째', photo_url: null },
+    ]
+    const records = [
+      { member_id: 'member-1', attendance_type: 'worship' as const, is_present: true },
+      { member_id: 'member-1', attendance_type: 'meeting' as const, is_present: false },
+      { member_id: 'member-2', attendance_type: 'meeting' as const, is_present: true },
+    ]
+
+    expect(createCellMemberAttendance(members, records)).toEqual([
+      { memberId: 'member-1', name: '첫째', photoUrl: null, worshipPresent: true, meetingPresent: false },
+      { memberId: 'member-2', name: '둘째', photoUrl: null, worshipPresent: false, meetingPresent: true },
+    ])
+  })
+
   it('uses linked personal rows instead of stale report summary columns', () => {
     const summary = summarizeReportAttendance(report('report-1', [
       { member_id: 'member-1', attendance_type: 'worship', is_present: true, checked_via: 'report' },

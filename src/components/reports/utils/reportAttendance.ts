@@ -1,9 +1,31 @@
 import type { CellLeaderReportForAggregator } from '@/queries/reports'
+import type { MemberAttendanceItem } from '../CellMemberAttendance'
 
 export interface ReportAttendanceSummary {
   registered: number
   worship: number
   meeting: number
+}
+
+export function createCellMemberAttendance(
+  members: Array<{ id: string; name: string; photo_url: string | null }>,
+  records: Array<{
+    member_id: string
+    attendance_type: 'worship' | 'meeting'
+    is_present: boolean
+  }>,
+): MemberAttendanceItem[] {
+  const attendanceMap = new Map<string, boolean>(
+    records.map(record => [`${record.member_id}:${record.attendance_type}`, record.is_present]),
+  )
+
+  return members.map(member => ({
+    memberId: member.id,
+    name: member.name,
+    photoUrl: member.photo_url,
+    worshipPresent: attendanceMap.get(`${member.id}:worship`) ?? false,
+    meetingPresent: attendanceMap.get(`${member.id}:meeting`) ?? false,
+  }))
 }
 
 export function summarizeReportAttendance(

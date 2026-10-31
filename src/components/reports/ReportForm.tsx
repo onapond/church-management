@@ -189,7 +189,7 @@ export default function ReportForm({
     budgetItems, setBudgetItems, addBudgetItem, removeBudgetItem, updateBudgetItem,
     photoFiles, photoPreviews, handlePhotoAdd, removePhoto,
     enabledSections, setEnabledSections, isSectionEnabled, toggleSection, toggleAllSections, projNum,
-    selectedCellId, setSelectedCellId, memberAttendance, setMemberAttendance, shouldSyncAttendance, handleToggleMemberAttendance, handleBulkAttendance, handleCellChange, handleDepartmentChange, cells,
+    selectedCellId, setSelectedCellId, memberAttendance, setMemberAttendance, shouldSyncAttendance, attendanceReady, handleToggleMemberAttendance, handleBulkAttendance, handleCellChange, handleDepartmentChange, handleReportDateChange: setFormDate, cells,
     attendanceSummary,
   } = useReportForm({ reportType, departments, defaultDate, editMode, existingReport, supabase, toast })
 
@@ -200,11 +200,12 @@ export default function ReportForm({
   const periodKey = `${form.department_id}:${form.report_date}`
   const periodConfirmed = !!period && confirmedPeriod === periodKey
   const handleReportDateChange = useCallback((date: string) => {
-    setForm(prev => ({ ...prev, report_date: date }))
+    if (reportType === 'cell_leader') setFormDate(date)
+    else setForm(prev => ({ ...prev, report_date: date }))
     setConfirmedPeriod(null)
     setExistingReportId(null)
     setExistingReportStatus(null)
-  }, [setForm, setExistingReportId, setExistingReportStatus])
+  }, [reportType, setFormDate, setForm, setExistingReportId, setExistingReportStatus])
 
   // 섹션 네비게이션 상태
   const [activeSection, setActiveSection] = useState('basic')
@@ -431,12 +432,16 @@ export default function ReportForm({
 
   const handleSubmit = useCallback((e: React.FormEvent, isDraft = false) => {
     e.preventDefault()
+    if (reportType === 'cell_leader' && selectedCellId && !attendanceReady) {
+      toast.warning('출석 기록을 불러오는 중입니다. 잠시 후 다시 저장해 주세요.')
+      return
+    }
     if (!isDraft && reportType === 'weekly' && !periodConfirmed) {
       toast.warning('보고 대상 날짜와 주차를 확인해 주세요.')
       return
     }
     submit(isDraft)
-  }, [submit, reportType, periodConfirmed, toast])
+  }, [submit, reportType, selectedCellId, attendanceReady, periodConfirmed, toast])
 
   const handleFormKeyDown = useCallback((e: React.KeyboardEvent<HTMLFormElement>) => {
     if (e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return
@@ -576,7 +581,7 @@ export default function ReportForm({
                 id="report-date"
                 type="date"
                 value={form.report_date}
-                onChange={(e) => setForm({ ...form, report_date: e.target.value })}
+                onChange={(e) => handleReportDateChange(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               />
             </div>
@@ -1051,7 +1056,7 @@ export default function ReportForm({
         <button
           type="button"
           onClick={(e) => handleSubmit(e, true)}
-          disabled={loading}
+          disabled={loading || (reportType === 'cell_leader' && !attendanceReady)}
           className="sm:flex-1 px-4 py-2.5 md:py-3 border border-blue-200 text-blue-600 rounded-xl font-medium hover:bg-blue-50 transition-colors disabled:opacity-50 text-sm md:text-base order-2"
         >
           임시저장
@@ -1059,7 +1064,7 @@ export default function ReportForm({
         <button
           type="submit"
           data-submit-intent="submit"
-          disabled={loading || (reportType === 'weekly' && !periodConfirmed)}
+          disabled={loading || (reportType === 'cell_leader' && !attendanceReady) || (reportType === 'weekly' && !periodConfirmed)}
           className="sm:flex-1 px-4 py-2.5 md:py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm md:text-base order-1 sm:order-3"
         >
           {loading ? '저장 중...' : '제출'}

@@ -169,7 +169,6 @@ export default function ReportDetail({ reportId }: ReportDetailProps) {
   )
   const cellMemberIds = useMemo(() => cellMembers.map(m => m.id), [cellMembers])
   const { data: cellAttendanceRecords = [] } = useCellAttendanceRecords(
-    reportType === 'cell_leader' ? report?.id : undefined,
     reportType === 'cell_leader' && cellMemberIds.length > 0 ? cellMemberIds : [],
     report?.report_date || ''
   )

@@ -108,10 +108,10 @@ export function useCellMembers(cellId: string | undefined) {
   })
 }
 
-/** 셀장보고서에 연결된 셀원 예배/모임 출결 조회 */
-export function useCellAttendanceRecords(reportId: string | undefined, memberIds: string[], date: string) {
+/** 셀장보고서와 출결 화면이 공유하는 셀원 예배/모임 출결 조회 */
+export function useCellAttendanceRecords(memberIds: string[], date: string) {
   return useQuery({
-    queryKey: ['attendance', 'cellRecords', reportId, memberIds, date],
+    queryKey: ['attendance', 'cellRecords', memberIds, date],
     queryFn: async (): Promise<{
       member_id: string
       attendance_type: 'worship' | 'meeting'
@@ -120,7 +120,6 @@ export function useCellAttendanceRecords(reportId: string | undefined, memberIds
       const { data, error } = await supabase
         .from('attendance_records')
         .select('member_id, attendance_type, is_present')
-        .eq('report_id', reportId!)
         .in('member_id', memberIds)
         .eq('attendance_date', date)
       if (error) throw error
@@ -130,7 +129,7 @@ export function useCellAttendanceRecords(reportId: string | undefined, memberIds
         is_present: boolean
       }[]
     },
-    enabled: !!reportId && memberIds.length > 0 && !!date,
+    enabled: memberIds.length > 0 && !!date,
     staleTime: 30_000,
   })
 }
@@ -163,6 +162,8 @@ export function useToggleAttendance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['attendance'] })
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 }

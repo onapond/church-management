@@ -1,5 +1,12 @@
 # CLAUDE.md
 
+## 2026-10-31 Attendance/Report Sync
+- `useCellAttendanceRecords` reads the shared `(member_id, attendance_date, attendance_type)` rows, including manual rows. New and edit cell-leader forms wait for the read before an explicit attendance save.
+- `report_internal.sync_weekly_report_attendance_counts()` recalculates only `weekly_reports.worship_attendance` and `meeting_attendance` for the same department and report date after an attendance write. It covers approved reports, preserves approval status/history, and has no direct Data API execute grant.
+- Migration `20261031081634_guard_weekly_report_attendance_counts.sql` tracks department/date periods with individual attendance in a private RLS-enabled table. A report insert/update in a tracked period recomputes the same two counts, preventing a stale form save from restoring old values even after all attendance rows are deleted.
+- Attendance writes still use existing `attendance_records` RLS. The private trigger performs a bounded derived-field update; no accounting, auth, or report approval policy changes.
+- Migration `20261031080023_sync_weekly_report_attendance.sql` reconciles post-2026-09-01 weekly reports only where individual attendance exists. Historical manual-only reports remain intact.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 > **기능 구현 ?�크?�로??*??글로벌 규칙(`~/.claude/CLAUDE.md`)???�른??
